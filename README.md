@@ -8,8 +8,7 @@ This repository is based on the [**imagingbook**](http://imagingbook.com) suppor
 See [www.imagingbook.com](http://imagingbook.com) for additional resources.
 
 ## Setup
-Clone this repository. It contains separate folders ``project-eclipse/``, ``project-intellij/`` and ``project-netbeans``, each containing a self-contained project for Eclipse, IntelliJ and NetBeans, respectively. 
-Choose whichever you want to use and delete (or keep) the others.
+Clone this repository. It contains a folder for ``project-intellij/``, a self-contained project for IntelliJ.
 
 ### IntelliJ:
 Start the **IntelliJ IDEA** and use ``Open`` in the *Welcome screen* to navigate to the ``project-intellij/`` folder.
