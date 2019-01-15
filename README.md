@@ -1,27 +1,19 @@
-# Setup for writing ImageJ Plugins with Eclipse, IntelliJ or NetBeans
-This repo contains a minimal setup for writing ImageJ (1) plugins with the [Eclipse](https://www.eclipse.org/), [IntelliJ](https://www.jetbrains.com/idea/) or [NetBeans](https://netbeans.org/), respectively.
-The projects are set up with ``<project-root>/plugins/`` as the default output folder (for generated ``.class`` files).
+This repository contains my ImageJ plugins to help with some medical physics tasks. The skeleton I have used was taken from https://github.com/imagingbook/imagej1-plugins-ide-setup. I have stripped out the netbeans and Eclipse parts.
 
-This repository is part of the [**imagingbook**](http://imagingbook.com) support suite.
+# Setup for writing ImageJ Plugins with IntelliJ
+This repo contains a minimal setup for writing ImageJ (1) plugins with [IntelliJ](https://www.jetbrains.com/idea/).
+The project is set up with ``<project-root>/plugins/`` as the default output folder (for generated ``.class`` files).
+
+This repository is based on the [**imagingbook**](http://imagingbook.com) support suite.
 See [www.imagingbook.com](http://imagingbook.com) for additional resources.
-
 
 ## Setup
 Clone this repository. It contains separate folders ``project-eclipse/``, ``project-intellij/`` and ``project-netbeans``, each containing a self-contained project for Eclipse, IntelliJ and NetBeans, respectively. 
 Choose whichever you want to use and delete (or keep) the others.
 
-### Eclipse:
-Start the **Eclipse Java IDE** and use ``Open Projects from File System...`` to navigate to the ``project-eclipse/`` folder.
-Editing and saving plugin source files should update the associated class files (in ``plugins/``) automatically.
-
 ### IntelliJ:
 Start the **IntelliJ IDEA** and use ``Open`` in the *Welcome screen* to navigate to the ``project-intellij/`` folder.
 Editing and saving plugin source files should update the associated class files (in ``plugins/``) automatically.
-
-### NetBeans:
-Start the **NetBeans IDE** and use ``File`` -> ``Open Project`` to navigate to the ``project-netbeans/`` folder.
-After editing plugin source files, use ``Build Project`` to update the associated class files (in ``plugins/``).
-
 
 ## Starting ImageJ
 The ImageJ runtime can be launched in various ways:
