@@ -30,6 +30,7 @@ import ij.plugin.filter.Analyzer;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
 import ij.measure.Calibration;
+import ij.gui.Plot;
 
 import java.awt.*;
 import java.util.Arrays;
@@ -85,20 +86,32 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		ResultsTable rt = new ResultsTable();
 		Analyzer an = new Analyzer(imp, Analyzer.CENTER_OF_MASS, rt);
 		an.measure();
-		double x_com = rt.getValue("XM", rt.size()-1);
-		double y_com = rt.getValue("YM", rt.size()-1);
+		double x_com = rt.getValue("XM", rt.size()-1) - pixel_size_in_mm/2.0;
+		double y_com = rt.getValue("YM", rt.size()-1) - pixel_size_in_mm/2.0;
 		IJ.log("CoM: " + x_com + ", " + y_com);
 
-
 		int num_points = main_roi.getContainedPoints().length;
-
-
-		double[][] raw_esf = new double[num_points][2];
+		double[] raw_esf_pos = new double[num_points];
+		double[] raw_esf_val = new double[num_points];
 		int i = 0;
 		for (Point p : main_roi.getContainedPoints()) {
-			raw_esf[i][1] = ip.getPixelValue(p.x, p.y); // getPixelValue includes calibration
-			IJ.log("x, y: " + cal.getX(p.x) + ", " + cal.getY(p.y));
+		    raw_esf_pos[i] = calculateDistanceBetweenPoints(x_com, y_com, cal.getX(p.x), cal.getY(p.y));
+			raw_esf_val[i] = ip.getPixelValue(p.x, p.y); // getPixelValue includes calibration
+            i++;
+			//IJ.log("x, y: " + cal.getX(p.x) + ", " + cal.getY(p.y));
 		}
 		//IJ.log("mean,count: "+IJ.d2s(sum/count,4)+" "+count);
+
+		Plot plot = new Plot("Raw ESF", "Distance", "Pixel value");
+		plot.add("dot", raw_esf_pos, raw_esf_val);
+		plot.show();
+	}
+
+    public double calculateDistanceBetweenPoints(
+            double x1,
+            double y1,
+            double x2,
+            double y2) {
+        return Math.sqrt( (y2 - y1) * (y2 - y1) + (x2 - x1) * (x2 - x1));
     }
 }
