@@ -31,37 +31,36 @@ import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
 import ij.measure.Calibration;
 import ij.gui.Plot;
+import org.apache.commons.math3.analysis.UnivariateFunction;
+import org.apache.commons.math3.analysis.interpolation.UnivariateInterpolator;
+import org.apache.commons.math3.analysis.interpolation.LinearInterpolator;
+import flanagan.math.Gradient;
+import org.apache.commons.math3.stat.StatUtils;
+import org.apache.commons.math3.util.MathArrays;
+import ij.process.FHT;
 
 import java.awt.*;
 import java.util.Arrays;
 
 public class TaskTransferFunction_ implements PlugInFilter {
     protected ImagePlus imp;
-    // It is important that the constants below are in alphabetical order
-    // so that the binarySearch that is used later works correctly.
-    public static final int  SNR=0, STANDARD_DEV=1, VARIANCE=2;
-    private int processingType = VARIANCE;
-    private String processingText;
+    private double pixel_reduction_factor = 5.0;
 
     public int setup(String arg, ImagePlus imp) {
     	this.imp = imp;
-    	if 		(arg.equals("variance")) 		processingType = VARIANCE;
-    	else if (arg.equals("snr")) 			processingType = SNR;
-    	else if (arg.equals("standard_dev")) 	processingType = STANDARD_DEV;
-    	else {
-    		 GenericDialog gd = new GenericDialog("Which type of processing?");
-    		 // It is important that the items in the "items" array below
-    		 // appear in alphabetical order (the same order as the constants
-    		 // of the same name that are defined earlier).
-    		 String[] items = {"snr", "std_dev", "variance"};
-    		 gd.addChoice("Processing:", items, "variance");
+
+		if ((arg != null) && (arg.length() > 0)) {
+			pixel_reduction_factor = Float.parseFloat(arg);
+		}
+		else {
+    		 GenericDialog gd = new GenericDialog("Processing options");
+    		 gd.addNumericField("Pixel reduction factor", 5.0, 0);
     		 gd.showDialog();
     		 if(gd.wasCanceled()) {
     			 IJ.error("Plugin cancelled");
     			 return(0);
     		 }
-    		 int index = Arrays.binarySearch(items, gd.getNextChoice());
-    		 processingType = index;
+    		 pixel_reduction_factor = gd.getNextNumber();
     	}
     	return DOES_ALL;
     }
@@ -79,7 +78,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
     	Roi main_roi = imp.getRoi();
     	if(main_roi == null) {
     		imp.setRoi(0, 0, ip.getWidth(), ip.getHeight());
-    		main_roi = imp.getRoi();
+			main_roi = imp.getRoi();
     	}
 
     	// Obtain the centre of mass of the roi
@@ -90,6 +89,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		double y_com = rt.getValue("YM", rt.size()-1) - pixel_size_in_mm/2.0;
 		IJ.log("CoM: " + x_com + ", " + y_com);
 
+		// Obtain the raw edge spread function
 		int num_points = main_roi.getContainedPoints().length;
 		double[] raw_esf_pos = new double[num_points];
 		double[] raw_esf_val = new double[num_points];
@@ -100,11 +100,61 @@ public class TaskTransferFunction_ implements PlugInFilter {
             i++;
 			//IJ.log("x, y: " + cal.getX(p.x) + ", " + cal.getY(p.y));
 		}
-		//IJ.log("mean,count: "+IJ.d2s(sum/count,4)+" "+count);
+		// Sort the raw esf arrays into ascending position order
+		MathArrays.sortInPlace(raw_esf_pos, raw_esf_val);
 
+		// Plot the raw esf
 		Plot plot = new Plot("Raw ESF", "Distance", "Pixel value");
 		plot.add("dot", raw_esf_pos, raw_esf_val);
 		plot.show();
+
+		// Interpolate the raw esf to regular spacing
+		double rebinned_sample_inc = pixel_size_in_mm / pixel_reduction_factor;
+		double start_pos = StatUtils.min(raw_esf_pos) + rebinned_sample_inc;
+		double num_samples = Math.floor( (StatUtils.max(raw_esf_pos) - start_pos) / rebinned_sample_inc );
+		double current_pos = start_pos;
+		double[] esf_rebinned_val = new double[(int) num_samples];
+		double[] esf_rebinned_pos = new double[(int) num_samples];
+		for (i=0; i<num_samples; i++) {
+			esf_rebinned_pos[i] = current_pos;
+			current_pos += rebinned_sample_inc;
+		}
+
+		UnivariateInterpolator interpolator = new LinearInterpolator();
+		UnivariateFunction function = interpolator.interpolate(raw_esf_pos, raw_esf_val);
+		for (i=0; i<num_samples; i++) {
+			esf_rebinned_val[i] = function.value(esf_rebinned_pos[i]);
+		}
+		// Plot the interpolated esf
+		plot.setColor("Red");
+		plot.add("line", esf_rebinned_pos, esf_rebinned_val);
+
+		// Differentiate the esf to obtain the line spread function
+		Gradient gg = new Gradient(esf_rebinned_pos, esf_rebinned_val);
+		double[] lsf_val = gg.splineDeriv_1D_array();
+		// Plot the lsf
+		Plot plot_lsf = new Plot("LSF", "Distance", "Value");
+		plot_lsf.add("line", esf_rebinned_pos, lsf_val);
+		plot_lsf.show();
+
+		// Fourier transform the lsf to provide a ttf (mtf)
+		float[] lsf_val_float = new float[lsf_val.length];
+		for (i=0; i<lsf_val.length; i++) {
+			lsf_val_float[i] = (float) lsf_val[i];
+		}
+
+		FHT fht = new FHT();
+		float[] ttf_val = fht.fourier1D(lsf_val_float, FHT.HAMMING);
+
+		double[] nttf_val_double = new double[ttf_val.length];
+		for (i=0; i<ttf_val.length; i++) {
+			nttf_val_double[i] = (double) ttf_val[i] / ttf_val[0];
+		}
+
+		// Plot the ttf
+		Plot plot_ttf = new Plot("nTTF", "Frequency", "Value");
+		plot_ttf.add("line", esf_rebinned_pos, nttf_val_double);
+		plot_ttf.show();
 	}
 
     public double calculateDistanceBetweenPoints(
