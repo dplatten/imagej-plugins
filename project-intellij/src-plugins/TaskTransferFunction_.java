@@ -32,8 +32,9 @@ import ij.process.ImageProcessor;
 import ij.measure.Calibration;
 import ij.gui.Plot;
 import org.apache.commons.math3.analysis.UnivariateFunction;
+import org.apache.commons.math3.analysis.differentiation.*;
+import org.apache.commons.math3.analysis.interpolation.MultivariateInterpolator;
 import org.apache.commons.math3.analysis.interpolation.UnivariateInterpolator;
-import org.apache.commons.math3.analysis.interpolation.LinearInterpolator;
 import org.apache.commons.math3.analysis.interpolation.LoessInterpolator;
 import flanagan.math.Gradient;
 import org.apache.commons.math3.stat.StatUtils;
@@ -48,6 +49,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
     private double pixel_reduction_factor = 5.0;
     private double loess_bandwidth = 0.02;
     private int loess_robustness = 10;
+    //private int diff_points = 5;
+    //private double diff_step = 0.01;
 
     public int setup(String arg, ImagePlus imp) {
     	this.imp = imp;
@@ -60,6 +63,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
     		 gd.addNumericField("Pixel reduction factor", pixel_reduction_factor, 0);
     		 gd.addNumericField("LOESS bandwidth", loess_bandwidth, 2);
     		 gd.addNumericField("LOESS robustness", loess_robustness, 0);
+    		 //gd.addNumericField("Differentiator points", diff_points, 0);
+    		 //gd.addNumericField("Differentiator step size", diff_step, 2);
     		 gd.showDialog();
     		 if(gd.wasCanceled()) {
     			 IJ.error("Plugin cancelled");
@@ -68,6 +73,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
     		 pixel_reduction_factor = gd.getNextNumber();
     		 loess_bandwidth = gd.getNextNumber();
     		 loess_robustness = (int) gd.getNextNumber();
+    		 //diff_points = (int) gd.getNextNumber();
+    		 //diff_step = gd.getNextNumber();
     	}
     	return DOES_ALL;
     }
@@ -164,14 +171,30 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		plot_lsf.add("line", esf_rebinned_pos, lsf_val);
 		plot_lsf.show();*/
 
-		// Differentiate the loess esf to obtain the line spread function
+
+		//*Testing - using Apache differentiation, but is noisier than the simple gradient calculated afterwards
+		//FiniteDifferencesDifferentiator differentiator = new FiniteDifferencesDifferentiator(diff_points, diff_step);
+		FiniteDifferencesDifferentiator differentiator = new FiniteDifferencesDifferentiator(2, rebinned_sample_inc);
+		UnivariateDifferentiableFunction completeF = differentiator.differentiate(loess_function);
+		double[] lsf_loess_val_test = new double[(int) num_samples];
+		for (i=0; i<num_samples; i++) {
+			DerivativeStructure xDS = new DerivativeStructure(1, 1, 0, esf_rebinned_pos[i]);
+			DerivativeStructure yDS = completeF.value(xDS);
+			lsf_loess_val_test[i] = yDS.getPartialDerivative(1);
+		}
+		//*End of testing
+
+
+		/*// Differentiate the loess esf to obtain the line spread function
 		Gradient gg_loess = new Gradient(esf_rebinned_pos, esf_rebinned_loess_val);
-		double[] lsf_loess_val = gg_loess.splineDeriv_1D_array();
+		double[] lsf_loess_val = gg_loess.splineDeriv_1D_array();*/
 
 		// Plot the loess lsf
 		Plot plot_lsf = new Plot("LSF", "Distance", "Value");
 		plot_lsf.setColor("Red");
-		plot_lsf.add("line", esf_rebinned_pos, lsf_loess_val);
+		//plot_lsf.add("line", esf_rebinned_pos, lsf_loess_val);
+		//plot_lsf.setColor("Green");
+		plot_lsf.add("line", esf_rebinned_pos, lsf_loess_val_test);
 		plot_lsf.show();
 
 
@@ -203,9 +226,9 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
 
 		// Fourier transform the loess lsf to provide a ttf (mtf)
-		float[] lsf_loess_val_float = new float[lsf_loess_val.length];
-		for (i=0; i<lsf_loess_val.length; i++) {
-			lsf_loess_val_float[i] = (float) lsf_loess_val[i];
+		float[] lsf_loess_val_float = new float[lsf_loess_val_test.length];
+		for (i=0; i<lsf_loess_val_test.length; i++) {
+			lsf_loess_val_float[i] = (float) lsf_loess_val_test[i];
 		}
 
 		FHT fht = new FHT();
