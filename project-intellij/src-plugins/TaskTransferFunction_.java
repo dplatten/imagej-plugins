@@ -23,7 +23,7 @@
 import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.GenericDialog;
-import ij.gui.NewImage;
+//import ij.gui.NewImage;
 import ij.gui.Roi;
 import ij.measure.ResultsTable;
 import ij.plugin.filter.Analyzer;
@@ -34,17 +34,20 @@ import ij.gui.Plot;
 import org.apache.commons.math3.analysis.UnivariateFunction;
 import org.apache.commons.math3.analysis.interpolation.UnivariateInterpolator;
 import org.apache.commons.math3.analysis.interpolation.LinearInterpolator;
+import org.apache.commons.math3.analysis.interpolation.LoessInterpolator;
 import flanagan.math.Gradient;
 import org.apache.commons.math3.stat.StatUtils;
 import org.apache.commons.math3.util.MathArrays;
 import ij.process.FHT;
 
 import java.awt.*;
-import java.util.Arrays;
+//import java.util.Arrays;
 
 public class TaskTransferFunction_ implements PlugInFilter {
     protected ImagePlus imp;
     private double pixel_reduction_factor = 5.0;
+    private double loess_bandwidth = 0.25;
+    private int loess_robustness = 4;
 
     public int setup(String arg, ImagePlus imp) {
     	this.imp = imp;
@@ -54,13 +57,17 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		}
 		else {
     		 GenericDialog gd = new GenericDialog("Processing options");
-    		 gd.addNumericField("Pixel reduction factor", 5.0, 0);
+    		 gd.addNumericField("Pixel reduction factor", 10.0, 0);
+    		 gd.addNumericField("LOESS bandwidth", 0.02, 2);
+    		 gd.addNumericField("LOESS robustness", 10, 0);
     		 gd.showDialog();
     		 if(gd.wasCanceled()) {
     			 IJ.error("Plugin cancelled");
     			 return(0);
     		 }
     		 pixel_reduction_factor = gd.getNextNumber();
+    		 loess_bandwidth = gd.getNextNumber();
+    		 loess_robustness = (int) gd.getNextNumber();
     	}
     	return DOES_ALL;
     }
@@ -129,6 +136,17 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		plot.setColor("Red");
 		plot.add("line", esf_rebinned_pos, esf_rebinned_val);
 
+		UnivariateInterpolator loess_interpolator = new LoessInterpolator(loess_bandwidth, loess_robustness);
+		UnivariateFunction loess_function = loess_interpolator.interpolate(raw_esf_pos, raw_esf_val);
+		double[] esf_rebinned_loess_val = new double[(int) num_samples];
+		for (i=0; i<num_samples; i++) {
+			esf_rebinned_loess_val[i] = loess_function.value(esf_rebinned_pos[i]);
+		}
+		// Plot the interpolated loess esf
+		plot.setColor("Green");
+		plot.add("line", esf_rebinned_pos, esf_rebinned_loess_val);
+
+
 		// Differentiate the esf to obtain the line spread function
 		Gradient gg = new Gradient(esf_rebinned_pos, esf_rebinned_val);
 		double[] lsf_val = gg.splineDeriv_1D_array();
@@ -137,24 +155,58 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		plot_lsf.add("line", esf_rebinned_pos, lsf_val);
 		plot_lsf.show();
 
+		// Differentiate the loess esf to obtain the line spread function
+		Gradient gg_loess = new Gradient(esf_rebinned_pos, esf_rebinned_loess_val);
+		double[] lsf_loess_val = gg_loess.splineDeriv_1D_array();
+		// Plot the loess lsf
+		plot_lsf.setColor("Red");
+		plot_lsf.add("line", esf_rebinned_pos, lsf_loess_val);
+
+
 		// Fourier transform the lsf to provide a ttf (mtf)
 		float[] lsf_val_float = new float[lsf_val.length];
 		for (i=0; i<lsf_val.length; i++) {
 			lsf_val_float[i] = (float) lsf_val[i];
 		}
 
-		FHT fht = new FHT();
-		float[] ttf_val = fht.fourier1D(lsf_val_float, FHT.HAMMING);
 
-		double[] nttf_val_double = new double[ttf_val.length];
-		for (i=0; i<ttf_val.length; i++) {
-			nttf_val_double[i] = (double) ttf_val[i] / ttf_val[0];
+		FHT fht = new FHT();
+		float[] ttf_val = fht.fourier1D(lsf_val_float, FHT.NO_WINDOW);
+		// The first element of ttf_val is the DC component - ignore
+		double[] nttf_val_double = new double[ttf_val.length-1];
+
+		// Work out frequency increment of MTF
+		double freq_inc = 1.0 / (StatUtils.max(esf_rebinned_pos) - StatUtils.min(esf_rebinned_pos));
+		double[] freq_scale = new double[nttf_val_double.length];
+
+		for (i=1; i<nttf_val_double.length; i++) {
+			nttf_val_double[i] = (double) (ttf_val[i] / ttf_val[1]);
+			freq_scale[i] = ((double)i-1.0) * freq_inc;
 		}
+
 
 		// Plot the ttf
 		Plot plot_ttf = new Plot("nTTF", "Frequency", "Value");
-		plot_ttf.add("line", esf_rebinned_pos, nttf_val_double);
+		plot_ttf.add("line", freq_scale, nttf_val_double);
 		plot_ttf.show();
+
+		// Fourier transform the loess lsf to provide a ttf (mtf)
+		float[] lsf_loess_val_float = new float[lsf_loess_val.length];
+		for (i=0; i<lsf_loess_val.length; i++) {
+			lsf_loess_val_float[i] = (float) lsf_loess_val[i];
+		}
+
+		float[] ttf_loess_val = fht.fourier1D(lsf_loess_val_float, FHT.NO_WINDOW);
+		// The first element of ttf_val is the DC component - ignore
+		double[] nttf_loess_val_double = new double[ttf_loess_val.length-1];
+		for (i=1; i<nttf_loess_val_double.length; i++) {
+			nttf_loess_val_double[i] = (double) (ttf_loess_val[i] / ttf_loess_val[1]);
+			IJ.log("TTF: " + ttf_loess_val[i] + ", " + nttf_loess_val_double[i]);
+		}
+
+		// Plot the loess ttf
+		plot_ttf.setColor("Red");
+		plot_ttf.add("line", freq_scale, nttf_loess_val_double);
 	}
 
     public double calculateDistanceBetweenPoints(
