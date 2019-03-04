@@ -46,8 +46,8 @@ import java.awt.*;
 public class TaskTransferFunction_ implements PlugInFilter {
     protected ImagePlus imp;
     private double pixel_reduction_factor = 5.0;
-    private double loess_bandwidth = 0.25;
-    private int loess_robustness = 4;
+    private double loess_bandwidth = 0.02;
+    private int loess_robustness = 10;
 
     public int setup(String arg, ImagePlus imp) {
     	this.imp = imp;
@@ -57,9 +57,9 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		}
 		else {
     		 GenericDialog gd = new GenericDialog("Processing options");
-    		 gd.addNumericField("Pixel reduction factor", 10.0, 0);
-    		 gd.addNumericField("LOESS bandwidth", 0.02, 2);
-    		 gd.addNumericField("LOESS robustness", 10, 0);
+    		 gd.addNumericField("Pixel reduction factor", pixel_reduction_factor, 0);
+    		 gd.addNumericField("LOESS bandwidth", loess_bandwidth, 2);
+    		 gd.addNumericField("LOESS robustness", loess_robustness, 0);
     		 gd.showDialog();
     		 if(gd.wasCanceled()) {
     			 IJ.error("Plugin cancelled");
@@ -96,6 +96,13 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		double y_com = rt.getValue("YM", rt.size()-1) - pixel_size_in_mm/2.0;
 		IJ.log("CoM: " + x_com + ", " + y_com);
 
+
+		// Centre roi on CoM
+		double roi_width =	main_roi.getFloatWidth();
+		double roi_height =	main_roi.getFloatHeight();
+		main_roi.setLocation(cal.getRawX(x_com) - roi_width/2.0, cal.getRawY(y_com) - roi_height/2.0);
+
+
 		// Obtain the raw edge spread function
 		int num_points = main_roi.getContainedPoints().length;
 		double[] raw_esf_pos = new double[num_points];
@@ -105,7 +112,6 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		    raw_esf_pos[i] = calculateDistanceBetweenPoints(x_com, y_com, cal.getX(p.x), cal.getY(p.y));
 			raw_esf_val[i] = ip.getPixelValue(p.x, p.y); // getPixelValue includes calibration
             i++;
-			//IJ.log("x, y: " + cal.getX(p.x) + ", " + cal.getY(p.y));
 		}
 		// Sort the raw esf arrays into ascending position order
 		MathArrays.sortInPlace(raw_esf_pos, raw_esf_val);
@@ -114,6 +120,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		Plot plot = new Plot("Raw ESF", "Distance", "Pixel value");
 		plot.add("dot", raw_esf_pos, raw_esf_val);
 		plot.show();
+
 
 		// Interpolate the raw esf to regular spacing
 		double rebinned_sample_inc = pixel_size_in_mm / pixel_reduction_factor;
@@ -127,14 +134,16 @@ public class TaskTransferFunction_ implements PlugInFilter {
 			current_pos += rebinned_sample_inc;
 		}
 
-		UnivariateInterpolator interpolator = new LinearInterpolator();
+/*		UnivariateInterpolator interpolator = new LinearInterpolator();
 		UnivariateFunction function = interpolator.interpolate(raw_esf_pos, raw_esf_val);
 		for (i=0; i<num_samples; i++) {
 			esf_rebinned_val[i] = function.value(esf_rebinned_pos[i]);
 		}
+
 		// Plot the interpolated esf
 		plot.setColor("Red");
-		plot.add("line", esf_rebinned_pos, esf_rebinned_val);
+		plot.add("line", esf_rebinned_pos, esf_rebinned_val);*/
+
 
 		UnivariateInterpolator loess_interpolator = new LoessInterpolator(loess_bandwidth, loess_robustness);
 		UnivariateFunction loess_function = loess_interpolator.interpolate(raw_esf_pos, raw_esf_val);
@@ -147,28 +156,30 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		plot.add("line", esf_rebinned_pos, esf_rebinned_loess_val);
 
 
-		// Differentiate the esf to obtain the line spread function
+/*		// Differentiate the esf to obtain the line spread function
 		Gradient gg = new Gradient(esf_rebinned_pos, esf_rebinned_val);
 		double[] lsf_val = gg.splineDeriv_1D_array();
 		// Plot the lsf
 		Plot plot_lsf = new Plot("LSF", "Distance", "Value");
 		plot_lsf.add("line", esf_rebinned_pos, lsf_val);
-		plot_lsf.show();
+		plot_lsf.show();*/
 
 		// Differentiate the loess esf to obtain the line spread function
 		Gradient gg_loess = new Gradient(esf_rebinned_pos, esf_rebinned_loess_val);
 		double[] lsf_loess_val = gg_loess.splineDeriv_1D_array();
+
 		// Plot the loess lsf
+		Plot plot_lsf = new Plot("LSF", "Distance", "Value");
 		plot_lsf.setColor("Red");
 		plot_lsf.add("line", esf_rebinned_pos, lsf_loess_val);
+		plot_lsf.show();
 
 
-		// Fourier transform the lsf to provide a ttf (mtf)
+/*		// Fourier transform the lsf to provide a ttf (mtf)
 		float[] lsf_val_float = new float[lsf_val.length];
 		for (i=0; i<lsf_val.length; i++) {
 			lsf_val_float[i] = (float) lsf_val[i];
 		}
-
 
 		FHT fht = new FHT();
 		float[] ttf_val = fht.fourier1D(lsf_val_float, FHT.NO_WINDOW);
@@ -188,7 +199,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		// Plot the ttf
 		Plot plot_ttf = new Plot("nTTF", "Frequency", "Value");
 		plot_ttf.add("line", freq_scale, nttf_val_double);
-		plot_ttf.show();
+		plot_ttf.show();*/
+
 
 		// Fourier transform the loess lsf to provide a ttf (mtf)
 		float[] lsf_loess_val_float = new float[lsf_loess_val.length];
@@ -196,17 +208,26 @@ public class TaskTransferFunction_ implements PlugInFilter {
 			lsf_loess_val_float[i] = (float) lsf_loess_val[i];
 		}
 
+		FHT fht = new FHT();
 		float[] ttf_loess_val = fht.fourier1D(lsf_loess_val_float, FHT.NO_WINDOW);
-		// The first element of ttf_val is the DC component - ignore
+
+		// The first element of ttf_val is the DC component so don't use it
 		double[] nttf_loess_val_double = new double[ttf_loess_val.length-1];
+
+		// Work out frequency increment of MTF
+		double freq_inc = 1.0 / (StatUtils.max(esf_rebinned_pos) - StatUtils.min(esf_rebinned_pos));
+		double[] freq_scale = new double[nttf_loess_val_double.length];
 		for (i=1; i<nttf_loess_val_double.length; i++) {
 			nttf_loess_val_double[i] = (double) (ttf_loess_val[i] / ttf_loess_val[1]);
-			IJ.log("TTF: " + ttf_loess_val[i] + ", " + nttf_loess_val_double[i]);
+			freq_scale[i] = ((double)i-1.0) * freq_inc;
+			//IJ.log("TTF: " + ttf_loess_val[i] + ", " + nttf_loess_val_double[i]);
 		}
 
 		// Plot the loess ttf
+		Plot plot_ttf = new Plot("nTTF", "Frequency", "Value");
 		plot_ttf.setColor("Red");
 		plot_ttf.add("line", freq_scale, nttf_loess_val_double);
+		plot_ttf.show();
 	}
 
     public double calculateDistanceBetweenPoints(
