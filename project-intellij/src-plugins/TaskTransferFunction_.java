@@ -38,6 +38,9 @@ public class TaskTransferFunction_ implements PlugInFilter {
 			return(0);
 		}
 
+    	// Remove any overlays that are present
+		imp.setOverlay(null);
+
 		// If there is no ROI set then exit
 		main_roi = imp.getRoi();
 		if(main_roi == null) {
@@ -118,7 +121,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		// Recentre the outer_roi using the new centre of mass.
 		outer_roi.setLocation(cal.getRawX(com[0])-obj_dia_pix, cal.getRawY(com[1])-obj_dia_pix);
 
-		// Display the annular ROI on the image
+		// Display the annular ROI on the image.
 		Overlay overlay = new Overlay(annular_roi);
 		overlay.setStrokeColor(Color.green);
 		overlay.add(outer_roi);
@@ -128,7 +131,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
 
 		//---------------------------------------------------------------------
-		// Obtain the raw edge spread function (ESF)
+		// Obtain the raw edge spread function (ESF).
 		int i=0;
 		int num_points = outer_roi.getContainedPoints().length;
 		double[] raw_esf_pos = new double[num_points];
@@ -138,12 +141,13 @@ public class TaskTransferFunction_ implements PlugInFilter {
 			raw_esf_val[i] = ip.getPixelValue(p.x, p.y); // getPixelValue includes calibration
             i++;
 		}
-		// Sort the raw ESF arrays into ascending position order using Apache Commons Math 3.6 API
+		// Sort the raw ESF arrays into ascending position order using Apache
+		// Commons Math 3.6 API. See:
 		// http://commons.apache.org/proper/commons-math/javadocs/api-3.6/org/apache/commons/math3/util/MathArrays.html#sortInPlace(double[],%20double[]...)
 		MathArrays.sortInPlace(raw_esf_pos, raw_esf_val);
 
 		// Plot the raw esf
-		Plot plot_esf = new Plot("Raw ESF", "Distance", "Pixel value");
+		Plot plot_esf = new Plot("Edge spread function", "Distance (mm)", "Pixel value");
 		plot_esf.add("dot", raw_esf_pos, raw_esf_val);
 		plot_esf.show();
 		//---------------------------------------------------------------------
@@ -159,22 +163,23 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		double start_pos = StatUtils.min(raw_esf_pos) + rebinned_sample_inc;
 		double num_samples = Math.floor( (StatUtils.max(raw_esf_pos) - start_pos) / rebinned_sample_inc );
 
-		// Populate an array containing the regularly-spaced locations for the
-		// ESF.
+		// Populate an array containing the regularly-spaced locations for the ESF.
 		double current_pos = start_pos;
 		double[] esf_rebinned_pos = new double[(int) num_samples];
-		for (i=0; i<num_samples; i++) {
+		for (i=0; i<esf_rebinned_pos.length; i++) {
 			esf_rebinned_pos[i] = current_pos;
 			current_pos += rebinned_sample_inc;
 		}
 
-		// Work out the value of the ESF at the rebinned positions using the Apache Commons Math 3.6 API
-		// local regression algorithm. See:
+		// Work out the value of the ESF at the rebinned positions using the
+		// Apache Commons Math 3.6 API local regression algorithm. See:
 		// http://commons.apache.org/proper/commons-math/javadocs/api-3.6/org/apache/commons/math3/analysis/interpolation/LoessInterpolator.html
+
 		UnivariateInterpolator loess_interpolator = new LoessInterpolator(loess_bandwidth, loess_robustness);
-		UnivariateFunction loess_function = loess_interpolator.interpolate(raw_esf_pos, raw_esf_val);
-		double[] esf_rebinned_val = new double[(int) num_samples];
-		for (i=0; i<num_samples; i++) {
+		double[] smoothed_esf = new LoessInterpolator(loess_bandwidth, loess_robustness).smooth(raw_esf_pos, raw_esf_val);
+		UnivariateFunction loess_function = loess_interpolator.interpolate(raw_esf_pos, smoothed_esf);
+		double[] esf_rebinned_val = new double[esf_rebinned_pos.length];
+		for (i=0; i<esf_rebinned_val.length; i++) {
 			esf_rebinned_val[i] = loess_function.value(esf_rebinned_pos[i]);
 		}
 
@@ -193,15 +198,15 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		// gradient between each pair of points in the rebinned ESF.
 		FiniteDifferencesDifferentiator differentiator = new FiniteDifferencesDifferentiator(2, rebinned_sample_inc);
 		UnivariateDifferentiableFunction completeF = differentiator.differentiate(loess_function);
-		double[] lsf_val = new double[(int) num_samples];
-		for (i=0; i<num_samples; i++) {
+		double[] lsf_val = new double[esf_rebinned_pos.length];
+		for (i=0; i<esf_rebinned_pos.length; i++) {
 			DerivativeStructure xDS = new DerivativeStructure(1, 1, 0, esf_rebinned_pos[i]);
 			DerivativeStructure yDS = completeF.value(xDS);
 			lsf_val[i] = yDS.getPartialDerivative(1);
 		}
 
-		// Plot the LSF
-		Plot plot_lsf = new Plot("LSF", "Distance", "Value");
+		// Plot the LSF.
+		Plot plot_lsf = new Plot("Line spread function", "Distance (mm)", "Value");
 		plot_lsf.setColor("Red");
 		plot_lsf.add("line", esf_rebinned_pos, lsf_val);
 		plot_lsf.show();
@@ -219,7 +224,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
 			lsf_val_float[i] = (float) lsf_val[i];
 		}
 
-		// Calculate the TTF of the (float) LSF values
+		// Calculate the TTF of the (float) LSF values.
 		FHT fht = new FHT();
 		float[] ttf_val = fht.fourier1D(lsf_val_float, FHT.NO_WINDOW);
 
@@ -239,10 +244,16 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		}
 
 		// Plot the nTTF
-		Plot plot_ttf = new Plot("nTTF", "Frequency (mm-1)", "nTTF");
+		Plot plot_ttf = new Plot("Normalised TTF", "Frequency (per mm)", "nTTF");
 		plot_ttf.setColor("Red");
 		plot_ttf.add("line", freq_scale, nttf_val);
 		plot_ttf.show();
+		//---------------------------------------------------------------------
+
+
+		//---------------------------------------------------------------------
+		// Remove the current ROI
+		imp.deleteRoi();
 		//---------------------------------------------------------------------
 	}
 
