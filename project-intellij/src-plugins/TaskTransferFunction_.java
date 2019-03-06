@@ -29,6 +29,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
     private double loess_bandwidth = 0.02;
     private int loess_robustness = 10;
     private Roi main_roi;
+    private Boolean find_com = Boolean.TRUE;
 
     public int setup(String arg, ImagePlus imp) {
     	this.imp = imp;
@@ -59,6 +60,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
     		 gd.addNumericField("LOESS bandwidth", loess_bandwidth, 2);
     		 gd.addNumericField("LOESS robustness", loess_robustness, 0);
 
+    		 gd.addCheckbox("Find centre of mass", find_com);
+
     		 gd.showDialog();
     		 if(gd.wasCanceled()) {
     			 IJ.error("Plugin cancelled");
@@ -69,6 +72,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
     		 pixel_reduction_factor = gd.getNextNumber();
     		 loess_bandwidth = gd.getNextNumber();
     		 loess_robustness = (int) gd.getNextNumber();
+    		 find_com = gd.getNextBoolean();
     	}
     	return DOES_ALL;
     }
@@ -84,49 +88,86 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
 
 		//---------------------------------------------------------------------
-    	// Obtain the centre of mass of the ROI set by the user.
-		imp.setRoi(main_roi);
-		double[] com = centreOfMass(ip, main_roi, cal, 0.0);
-		IJ.log("Initial CoM: " + com[0] + ", " + com[1]);
-		//---------------------------------------------------------------------
+		// Determine the centre of mass (Com). Initialise the CoM to the centre
+		// of the main_roi.
+		double[] com = new double[2];
+		com[0] = cal.getX(main_roi.getXBase() + (main_roi.getFloatWidth()/2.0));
+		com[1] = cal.getY(main_roi.getYBase() + (main_roi.getFloatHeight()/2.0));
 
-
-		//---------------------------------------------------------------------
-		// Recalculate the CoM after subtracting the background using an
-		// annular region of interest centred on the centre of mass that has an
-		// internal diameter of object diameter + 10 mm and an external
-		// diameter of 2 x object diameter.
 		double inner_dia = obj_dia_pix + (10.0 / pixel_size_in_mm);
-		Roi inner_roi = new OvalRoi(cal.getRawX(com[0])-inner_dia/2.0, cal.getRawY(com[1])-inner_dia/2.0, inner_dia, inner_dia);
-		Roi outer_roi = new OvalRoi(cal.getRawX(com[0])-obj_dia_pix, cal.getRawY(com[1])-obj_dia_pix, obj_dia_pix*2.0, obj_dia_pix*2.0);
+		Roi inner_roi = new OvalRoi(cal.getRawX(com[0]) - inner_dia / 2.0, cal.getRawY(com[1]) - inner_dia / 2.0, inner_dia, inner_dia);
+		Roi outer_roi = new OvalRoi(cal.getRawX(com[0]) - obj_dia_pix, cal.getRawY(com[1]) - obj_dia_pix, obj_dia_pix * 2.0, obj_dia_pix * 2.0);
 		Roi annular_roi = new ShapeRoi(outer_roi).xor(new ShapeRoi(inner_roi));
 
-		// Set the annular ROI to be active on the image
-		imp.setRoi(annular_roi);
+		if (find_com) {
+			//---------------------------------------------------------------------
+			// Obtain the centre of mass of the ROI set by the user.
+			imp.setRoi(main_roi);
+			com = centreOfMass(ip, main_roi, cal, 0.0);
+			IJ.log("Initial CoM: " + com[0] + ", " + com[1]);
+			//---------------------------------------------------------------------
 
-		// Get the (uncalibrated) statistics for the ROI
-		ImageStatistics annular_stats = annular_roi.getStatistics();
 
-		// Obtain the calibrated mean pixel value
-		double bgd_mean = cal.getCValue(annular_stats.mean);
+			//---------------------------------------------------------------------
+			// Recalculate the CoM after subtracting the background using an
+			// annular region of interest centred on the centre of mass that has an
+			// internal diameter of object diameter + 10 mm and an external
+			// diameter of 2 x object diameter.
+			inner_roi = new OvalRoi(cal.getRawX(com[0]) - inner_dia / 2.0, cal.getRawY(com[1]) - inner_dia / 2.0, inner_dia, inner_dia);
+			outer_roi = new OvalRoi(cal.getRawX(com[0]) - obj_dia_pix, cal.getRawY(com[1]) - obj_dia_pix, obj_dia_pix * 2.0, obj_dia_pix * 2.0);
+			annular_roi = new ShapeRoi(outer_roi).xor(new ShapeRoi(inner_roi));
 
-		// Recalculate the CoM with background subtracted
-		imp.setRoi(outer_roi);
-		com = centreOfMass(ip, outer_roi, cal, -bgd_mean);
-		IJ.log("New CoM: " + com[0] + ", " + com[1]);
+
+			// Obtain the mean pixel value of the annular ROI
+			imp.setRoi(annular_roi);
+			ImageStatistics annular_stats = imp.getAllStatistics();
+			double bgd_mean = annular_stats.mean;
+
+			// Recalculate the CoM with background subtracted
+			imp.setRoi(outer_roi);
+			com = centreOfMass(ip, outer_roi, cal, -bgd_mean);
+			IJ.log("Adjusted CoM: " + com[0] + ", " + com[1]);
+
+			// Recentre the annualar roi on the new CoM and recalculate CoM  for a final time
+			annular_roi.setLocation(cal.getRawX(com[0]) - obj_dia_pix, cal.getRawY(com[1]) - obj_dia_pix);
+			imp.setRoi(annular_roi);
+			annular_stats = imp.getAllStatistics();
+			bgd_mean = annular_stats.mean;
+			imp.setRoi(outer_roi);
+			com = centreOfMass(ip, outer_roi, cal, -bgd_mean);
+		}
+
+		IJ.log("Final CoM: " + com[0] + ", " + com[1]);
 
 		// Add a marker to the image showing the location of the CoM
 		Roi com_marker = new PointRoi(cal.getRawX(com[0]), cal.getRawY(com[1]));
+		Overlay com_overlay = new Overlay(com_marker);
+		com_overlay.setStrokeColor(Color.red);
+		imp.setOverlay(com_overlay);
 
-		// Recentre the outer_roi using the new centre of mass.
+		// Recentre the outer_roi using the centre of mass.
 		outer_roi.setLocation(cal.getRawX(com[0])-obj_dia_pix, cal.getRawY(com[1])-obj_dia_pix);
 
-		// Display the annular ROI on the image.
-		Overlay overlay = new Overlay(annular_roi);
-		overlay.setStrokeColor(Color.green);
-		overlay.add(outer_roi);
-		overlay.add(com_marker);
+		// Create an overlay to display the annular ROI and CoM on the image.
+		Overlay overlay = new Overlay();
 		imp.setOverlay(overlay);
+		overlay.add(annular_roi);
+		overlay.add(com_marker);
+		//---------------------------------------------------------------------
+
+
+		//---------------------------------------------------------------------
+		// Calculate the CNR of the object
+		double obj_roi_dia = obj_dia_pix - (3.0 / pixel_size_in_mm);
+		Roi obj_roi = new OvalRoi(cal.getRawX(com[0])-obj_roi_dia/2.0, cal.getRawY(com[1])-obj_roi_dia/2.0, obj_roi_dia, obj_roi_dia);
+		CNR_result cnr_results = contrastToNoiseRatio(imp, obj_roi, annular_roi);
+
+		IJ.log("CNR is: " + cnr_results.cnr);
+		IJ.log("Contrast is: " + cnr_results.contrast);
+		IJ.log("Noise is: " + cnr_results.noise);
+
+		overlay.add(obj_roi);
+		overlay.setStrokeColor(Color.green);
 		//---------------------------------------------------------------------
 
 
@@ -141,6 +182,39 @@ public class TaskTransferFunction_ implements PlugInFilter {
 			raw_esf_val[i] = ip.getPixelValue(p.x, p.y); // getPixelValue includes calibration
             i++;
 		}
+
+		// There's a chance that two or more elements are at exactly the same
+		// position. This violates the monotonic requirement of the
+		// interpolator used later on. So find duplicate position entries and
+		// replace with the mean value at that position.
+		// http://commons.apache.org/proper/commons-math/javadocs/api-3.6/org/apache/commons/math3/util/MathArrays.html#unique(double[])
+		double[] unique_pos = MathArrays.unique(raw_esf_pos);
+		double[] unique_pos_vals = new double[unique_pos.length];
+
+		if (unique_pos.length != raw_esf_pos.length) {
+
+			for (i = 0; i < unique_pos.length; i++) {
+
+				int count = 0;
+				double sum = 0.0;
+
+				for (int j = 0; j < raw_esf_pos.length; j++) {
+					if (raw_esf_pos[j] == unique_pos[i]) {
+						count++;
+						sum += raw_esf_val[j];
+					}
+				}
+
+				unique_pos_vals[i] = sum / count;
+
+			}
+
+			// Overwrite the initial position and value data with the new set
+			// of data at unique positions.
+			raw_esf_pos = unique_pos;
+			raw_esf_val = unique_pos_vals;
+		}
+
 		// Sort the raw ESF arrays into ascending position order using Apache
 		// Commons Math 3.6 API. See:
 		// http://commons.apache.org/proper/commons-math/javadocs/api-3.6/org/apache/commons/math3/util/MathArrays.html#sortInPlace(double[],%20double[]...)
@@ -174,10 +248,10 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		// Work out the value of the ESF at the rebinned positions using the
 		// Apache Commons Math 3.6 API local regression algorithm. See:
 		// http://commons.apache.org/proper/commons-math/javadocs/api-3.6/org/apache/commons/math3/analysis/interpolation/LoessInterpolator.html
-
 		UnivariateInterpolator loess_interpolator = new LoessInterpolator(loess_bandwidth, loess_robustness);
 		double[] smoothed_esf = new LoessInterpolator(loess_bandwidth, loess_robustness).smooth(raw_esf_pos, raw_esf_val);
 		UnivariateFunction loess_function = loess_interpolator.interpolate(raw_esf_pos, smoothed_esf);
+		//UnivariateFunction loess_function = loess_interpolator.interpolate(raw_esf_pos, raw_esf_val);
 		double[] esf_rebinned_val = new double[esf_rebinned_pos.length];
 		for (i=0; i<esf_rebinned_val.length; i++) {
 			esf_rebinned_val[i] = loess_function.value(esf_rebinned_pos[i]);
@@ -224,15 +298,22 @@ public class TaskTransferFunction_ implements PlugInFilter {
 			lsf_val_float[i] = (float) lsf_val[i];
 		}
 
-		// Calculate the TTF of the (float) LSF values.
+		// Calculate the TTF of the (float) LSF values; apply a Hann window
+		// before the FFT to match ImaQuest software - see paper by Chen et al:
+		// http://dx.doi.org/10.1118/1.4881519]
 		FHT fht = new FHT();
-		float[] ttf_val = fht.fourier1D(lsf_val_float, FHT.NO_WINDOW);
+		float[] ttf_val = fht.fourier1D(lsf_val_float, FHT.HANN);
+
+		// Work out the Nyquist frequency and how many TTF elements to plot in
+		// order to get to 2 x Nyquist.
+		double nyquist_freq = 1.0 / (2.0 * pixel_size_in_mm);
+		int ttf_elements_to_plot = (int)Math.floor((2.0 * nyquist_freq) * (2.0 * ttf_val.length * rebinned_sample_inc));
 
 		// Calculate the normalised TTF (nTTF).
 		// Using double data type so they can be used directly with Plot.
-		double[] nttf_val = new double[ttf_val.length];
-		double[] freq_scale = new double[ttf_val.length];
-		for (i=0; i<ttf_val.length; i++) {
+		double[] nttf_val = new double[ttf_elements_to_plot];
+		double[] freq_scale = new double[ttf_elements_to_plot];
+		for (i=0; i<ttf_elements_to_plot; i++) {
 			// ttf_val[0] is the DC component so don't use it to normalise,
 			// use ttf_val[1] instead.
 			nttf_val[i] = (double) (ttf_val[i] / ttf_val[1]);
@@ -281,5 +362,31 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		double x_com = x_wt / total_wt;
 		double y_com = y_wt / total_wt;
 		return new double[] {x_com, y_com};
+	}
+
+
+	private CNR_result contrastToNoiseRatio(ImagePlus imp, Roi obj_roi, Roi bgd_roi) {
+		// Calculate the contrast to noise ratio between the two regions of interest.
+		// CNR calculated as (obj_mean - bgd_mean) / bgd_stdDev as show in equation
+		// 1 of Christianson et al, https://doi.org/10.1148/radiol.15132091
+		imp.setRoi(obj_roi);
+		ImageStatistics obj_stats = imp.getAllStatistics();
+
+		imp.setRoi(bgd_roi);
+		ImageStatistics bgd_stats = imp.getAllStatistics();
+
+		CNR_result result = new CNR_result();
+		result.contrast = obj_stats.mean - bgd_stats.mean;
+		result.noise = bgd_stats.stdDev;
+		result.cnr = Math.abs(result.contrast) / result.noise;
+
+		return result;
+	}
+
+
+	public class CNR_result {
+		public double cnr;
+		public double contrast;
+		public double noise;
 	}
 }
