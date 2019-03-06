@@ -15,8 +15,7 @@ import ij.measure.Calibration;
 import ij.process.ImageStatistics;
 import org.apache.commons.math3.analysis.UnivariateFunction;
 import org.apache.commons.math3.analysis.differentiation.*;
-import org.apache.commons.math3.analysis.interpolation.UnivariateInterpolator;
-import org.apache.commons.math3.analysis.interpolation.LoessInterpolator;
+import org.apache.commons.math3.analysis.interpolation.*;
 import org.apache.commons.math3.stat.StatUtils;
 import org.apache.commons.math3.util.MathArrays;
 import ij.process.FHT;
@@ -191,22 +190,19 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		double[] unique_pos = MathArrays.unique(raw_esf_pos);
 		double[] unique_pos_vals = new double[unique_pos.length];
 
-		if (unique_pos.length != raw_esf_pos.length) {
-
+		// If the length of unique_pos is less than raw_esf_pos then there must
+		// be multiple data points at the same distance from the CoM.
+		if (unique_pos.length < raw_esf_pos.length) {
 			for (i = 0; i < unique_pos.length; i++) {
-
 				int count = 0;
 				double sum = 0.0;
-
 				for (int j = 0; j < raw_esf_pos.length; j++) {
 					if (raw_esf_pos[j] == unique_pos[i]) {
 						count++;
 						sum += raw_esf_val[j];
 					}
 				}
-
 				unique_pos_vals[i] = sum / count;
-
 			}
 
 			// Overwrite the initial position and value data with the new set
@@ -224,6 +220,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		Plot plot_esf = new Plot("Edge spread function", "Distance (mm)", "Pixel value");
 		plot_esf.add("dot", raw_esf_pos, raw_esf_val);
 		plot_esf.show();
+		String esf_labels = "Raw ESF\t";
 		//---------------------------------------------------------------------
 
 
@@ -248,10 +245,10 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		// Work out the value of the ESF at the rebinned positions using the
 		// Apache Commons Math 3.6 API local regression algorithm. See:
 		// http://commons.apache.org/proper/commons-math/javadocs/api-3.6/org/apache/commons/math3/analysis/interpolation/LoessInterpolator.html
+		// and https://en.wikipedia.org/wiki/Local_regression
 		UnivariateInterpolator loess_interpolator = new LoessInterpolator(loess_bandwidth, loess_robustness);
 		double[] smoothed_esf = new LoessInterpolator(loess_bandwidth, loess_robustness).smooth(raw_esf_pos, raw_esf_val);
 		UnivariateFunction loess_function = loess_interpolator.interpolate(raw_esf_pos, smoothed_esf);
-		//UnivariateFunction loess_function = loess_interpolator.interpolate(raw_esf_pos, raw_esf_val);
 		double[] esf_rebinned_val = new double[esf_rebinned_pos.length];
 		for (i=0; i<esf_rebinned_val.length; i++) {
 			esf_rebinned_val[i] = loess_function.value(esf_rebinned_pos[i]);
@@ -260,6 +257,45 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		// Add the rebinned ESF to the existing ESF plot as a red line.
 		plot_esf.setColor("Red");
 		plot_esf.add("line", esf_rebinned_pos, esf_rebinned_val);
+		esf_labels += "Local regression ESF\t";
+		plot_esf.addLegend(esf_labels);
+		//---------------------------------------------------------------------
+
+
+		//---------------------------------------------------------------------
+		// TEST: Rebin the raw ESF into a regularly-spaced array using the
+		// method described by Samei et at here: http://doi.org/10.1118/1.598165
+		start_pos = StatUtils.min(raw_esf_pos);
+		num_samples = Math.floor( (StatUtils.max(raw_esf_pos) - start_pos) / rebinned_sample_inc );
+		double[] esf_binned_pos = new double[(int) num_samples];
+		double[] esf_binned_val = new double[esf_binned_pos.length];
+		current_pos = start_pos;
+		for (i=0; i<esf_binned_pos.length; i++) {
+			int count = 0;
+			double sum = 0.0;
+
+			esf_binned_pos[i] = current_pos;
+
+			for (int j=0; j<raw_esf_pos.length; j++) {
+				if ( (raw_esf_pos[j] >= esf_binned_pos[i] - rebinned_sample_inc/2.0) && (raw_esf_pos[j] <= esf_binned_pos[i] + rebinned_sample_inc/2.0) ) {
+					count ++;
+					sum += raw_esf_val[j];
+				}
+			}
+
+			if (count > 0) {
+				esf_binned_val[i] = sum / count;
+			}
+			else esf_binned_val[i] = esf_binned_val[i-1];
+
+			current_pos += rebinned_sample_inc;
+		}
+
+		//plot_esf.setColor("Blue");
+		//plot_esf.add("line", esf_binned_pos, esf_binned_val);
+		//esf_labels += "Rebinned ESF";
+		//plot_esf.addLegend(esf_labels);
+		// TEST end
 		//---------------------------------------------------------------------
 
 
@@ -301,6 +337,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		// Calculate the TTF of the (float) LSF values; apply a Hann window
 		// before the FFT to match ImaQuest software - see paper by Chen et al:
 		// http://dx.doi.org/10.1118/1.4881519]
+		// Also see http://download.ni.com/evaluation/pxi/Understanding%20FFTs%20and%20Windowing.pdf
 		FHT fht = new FHT();
 		float[] ttf_val = fht.fourier1D(lsf_val_float, FHT.HANN);
 
