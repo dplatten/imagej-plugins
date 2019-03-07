@@ -16,10 +16,13 @@ import ij.process.ImageStatistics;
 import org.apache.commons.math3.analysis.UnivariateFunction;
 import org.apache.commons.math3.analysis.differentiation.*;
 import org.apache.commons.math3.analysis.interpolation.*;
+import org.apache.commons.math3.exception.OutOfRangeException;
 import org.apache.commons.math3.stat.StatUtils;
 import org.apache.commons.math3.util.MathArrays;
 import ij.process.FHT;
 import java.awt.*;
+import java.text.DecimalFormat;
+import java.util.stream.Collectors;
 
 public class TaskTransferFunction_ implements PlugInFilter {
     private ImagePlus imp;
@@ -225,12 +228,16 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
 
 		//---------------------------------------------------------------------
-		// Interpolate the raw ESF to a regularly-spaced array.
+		// Interpolate the raw ESF to a regularly-spaced array with sub-pixel
+		// sampling using a local regression algorithm.  See:
+		// http://commons.apache.org/proper/commons-math/javadocs/api-3.6/org/apache/commons/math3/analysis/interpolation/LoessInterpolator.html
+		// and https://en.wikipedia.org/wiki/Local_regression
+
 		// Work out the distance scale increment.
 		double rebinned_sample_inc = pixel_size_in_mm / pixel_reduction_factor;
 
-		// Define the starting position, with an offset of one sample increment
-		// and work out the number of samples.
+		// Define the starting position of the resampled ESF, with an offset of
+		// one sample increment, and work out the number of samples.
 		double start_pos = StatUtils.min(raw_esf_pos) + rebinned_sample_inc;
 		double num_samples = Math.floor( (StatUtils.max(raw_esf_pos) - start_pos) / rebinned_sample_inc );
 
@@ -258,11 +265,40 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		plot_esf.setColor("Red");
 		plot_esf.add("line", esf_rebinned_pos, esf_rebinned_val);
 		esf_labels += "Local regression ESF\t";
+		//---------------------------------------------------------------------
+
+
+		//---------------------------------------------------------------------
+		// Make ESF monotonic (using brute force)
+		double[] monotonic_esf = new double[esf_rebinned_val.length];
+		// Check to see if ESF starts high and goes low
+		if (esf_rebinned_val[0] > esf_rebinned_val[esf_rebinned_val.length-1]) {
+			// Need to reverse the values array
+			MathArrays.sortInPlace(esf_rebinned_pos, MathArrays.OrderDirection.DECREASING, esf_rebinned_val);
+		}
+		monotonic_esf[0] = esf_rebinned_val[0];
+		for (i=1; i<esf_rebinned_val.length; i++) {
+			if (esf_rebinned_val[i] >= monotonic_esf[i-1]) {
+				monotonic_esf[i] = esf_rebinned_val[i];
+			}
+			else {
+				monotonic_esf[i] = monotonic_esf[i-1];
+			}
+		}
+
+		// Sort the esf_rebinned_pos and associated arrays back to ascending order
+		MathArrays.sortInPlace(esf_rebinned_pos, esf_rebinned_val, monotonic_esf);
+
+		// Plot the monotonic ESF
+		plot_esf.setColor("Blue");
+		plot_esf.add("line", esf_rebinned_pos, monotonic_esf);
+		esf_labels += "Monotonic local regression ESF\t";
+
 		plot_esf.addLegend(esf_labels);
 		//---------------------------------------------------------------------
 
 
-		//---------------------------------------------------------------------
+/*		//---------------------------------------------------------------------
 		// TEST: Rebin the raw ESF into a regularly-spaced array using the
 		// method described by Samei et at here: http://doi.org/10.1118/1.598165
 		start_pos = StatUtils.min(raw_esf_pos);
@@ -296,7 +332,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		//esf_labels += "Rebinned ESF";
 		//plot_esf.addLegend(esf_labels);
 		// TEST end
-		//---------------------------------------------------------------------
+		//---------------------------------------------------------------------*/
 
 
 		//---------------------------------------------------------------------
@@ -308,64 +344,56 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		// gradient between each pair of points in the rebinned ESF.
 		FiniteDifferencesDifferentiator differentiator = new FiniteDifferencesDifferentiator(2, rebinned_sample_inc);
 		UnivariateDifferentiableFunction completeF = differentiator.differentiate(loess_function);
-		double[] lsf_val = new double[esf_rebinned_pos.length];
-		for (i=0; i<esf_rebinned_pos.length; i++) {
-			DerivativeStructure xDS = new DerivativeStructure(1, 1, 0, esf_rebinned_pos[i]);
-			DerivativeStructure yDS = completeF.value(xDS);
-			lsf_val[i] = yDS.getPartialDerivative(1);
-		}
+		double[] lsf_val = differentiate(esf_rebinned_pos, completeF);
 
 		// Plot the LSF.
 		Plot plot_lsf = new Plot("Line spread function", "Distance (mm)", "Value");
 		plot_lsf.setColor("Red");
 		plot_lsf.add("line", esf_rebinned_pos, lsf_val);
+		String lsf_labels = "LSF from local regression ESF\t";
 		plot_lsf.show();
 		//---------------------------------------------------------------------
 
 
 		//---------------------------------------------------------------------
-		// Fourier transform the LSF to obtain the MTF (TTF) using the FHT
-		// routine within ImageJ. See:
-		// https://imagej.nih.gov/ij/developer/api/ij/process/FHT.html#fourier1D-float:A-int-
+		// Differentiate the monotonic ESF to produce a LSF
+		UnivariateInterpolator linear_interpolator = new LinearInterpolator();
+		UnivariateFunction function_linear = linear_interpolator.interpolate(esf_rebinned_pos, monotonic_esf);
+		UnivariateDifferentiableFunction monotonicF = differentiator.differentiate(function_linear);
+		double[] lsf_val_monotonic = differentiate(esf_rebinned_pos, monotonicF);
 
-		// The FHT routine requires the values to be of type "float".
-		float[] lsf_val_float = new float[lsf_val.length];
-		for (i=0; i<lsf_val.length; i++) {
-			lsf_val_float[i] = (float) lsf_val[i];
-		}
+		// Plot the LSF calcualted from the monotonic ESF.
+		plot_lsf.setColor("Blue");
+		plot_lsf.add("line", esf_rebinned_pos, lsf_val_monotonic);
+		lsf_labels += "LSF from monotonic ESF\t";
+		plot_lsf.addLegend(lsf_labels);
+		//---------------------------------------------------------------------
 
-		// Calculate the TTF of the (float) LSF values; apply a Hann window
-		// before the FFT to match ImaQuest software - see paper by Chen et al:
-		// http://dx.doi.org/10.1118/1.4881519]
-		// Also see http://download.ni.com/evaluation/pxi/Understanding%20FFTs%20and%20Windowing.pdf
-		FHT fht = new FHT();
-		float[] ttf_val = fht.fourier1D(lsf_val_float, FHT.HANN);
 
-		// Work out the Nyquist frequency and how many TTF elements to plot in
-		// order to get to 2 x Nyquist.
-		double nyquist_freq = 1.0 / (2.0 * pixel_size_in_mm);
-		int ttf_elements_to_plot = (int)Math.floor((2.0 * nyquist_freq) * (2.0 * ttf_val.length * rebinned_sample_inc));
-
-		// Calculate the normalised TTF (nTTF).
-		// Using double data type so they can be used directly with Plot.
-		double[] nttf_val = new double[ttf_elements_to_plot];
-		double[] freq_scale = new double[ttf_elements_to_plot];
-		for (i=0; i<ttf_elements_to_plot; i++) {
-			// ttf_val[0] is the DC component so don't use it to normalise,
-			// use ttf_val[1] instead.
-			nttf_val[i] = (double) (ttf_val[i] / ttf_val[1]);
-
-			// The frequencies are calculated according to the documentation
-			// under the "Returns" section of this page:
-			// https://imagej.nih.gov/ij/developer/api/ij/process/FHT.html#fourier1D-float:A-int-
-			freq_scale[i] = (double) i / (2.0 * ttf_val.length * rebinned_sample_inc);
-		}
+		//---------------------------------------------------------------------
+		// Fourier transform the LSF to obtain the MTF (TTF)
+		TTF_result ttf_data = TTF(lsf_val, rebinned_sample_inc, pixel_size_in_mm);
+		TTF_result ttf_data_monotonic = TTF(lsf_val_monotonic, rebinned_sample_inc, pixel_size_in_mm);
 
 		// Plot the nTTF
 		Plot plot_ttf = new Plot("Normalised TTF", "Frequency (per mm)", "nTTF");
 		plot_ttf.setColor("Red");
-		plot_ttf.add("line", freq_scale, nttf_val);
+		plot_ttf.add("line", ttf_data.freq, ttf_data.val);
+		String ttf_labels = "TTF from local regression ESF\t";
 		plot_ttf.show();
+
+		plot_ttf.setColor("Blue");
+		plot_ttf.add("line", ttf_data_monotonic.freq, ttf_data_monotonic.val);
+		ttf_labels += "TTF from monotonic ESF\t";
+
+		plot_ttf.addLegend(ttf_labels);
+		//---------------------------------------------------------------------
+
+
+		//---------------------------------------------------------------------
+		// Write out TTF data in 0.05 mm^-1 increments to the ImageJ log
+		logTTF(ttf_data, 0.05, "TTF (local regression ESF)");
+		logTTF(ttf_data_monotonic, 0.05, "TTF (monotonic ESF)");
 		//---------------------------------------------------------------------
 
 
@@ -421,9 +449,105 @@ public class TaskTransferFunction_ implements PlugInFilter {
 	}
 
 
-	public class CNR_result {
-		public double cnr;
-		public double contrast;
-		public double noise;
+	private TTF_result TTF(double[] lsf, double lsf_inc_mm, double px_size_mm) {
+		// This uses the FHT routine within ImageJ. See:
+		// https://imagej.nih.gov/ij/developer/api/ij/process/FHT.html#fourier1D-float:A-int-
+
+		// The FHT routine requires the values to be of type "float".
+		float[] lsf_float = new float[lsf.length];
+		for (int i=0; i<lsf.length; i++) {
+			lsf_float[i] = (float) lsf[i];
+		}
+
+		// Calculate the TTF of the (float) LSF values; apply a Hann window
+		// before the FFT to match ImaQuest software - see paper by Chen et al:
+		// http://dx.doi.org/10.1118/1.4881519]
+		// Also see http://download.ni.com/evaluation/pxi/Understanding%20FFTs%20and%20Windowing.pdf
+		FHT fht = new FHT();
+		float[] ttf_val = fht.fourier1D(lsf_float, FHT.HANN);
+
+		// Work out the Nyquist frequency and how many TTF elements to plot in
+		// order to get to 2 x Nyquist.
+		double nyquist_freq = 1.0 / (2.0 * px_size_mm);
+		int ttf_elements_to_plot = (int)Math.floor((2.0 * nyquist_freq) * (2.0 * ttf_val.length * lsf_inc_mm));
+
+		// Calculate the normalised TTF (nTTF). Using double data type so they
+		// can be used directly with Plot.
+		double[] nttf_val = new double[ttf_elements_to_plot-1];
+		double[] freq_scale = new double[ttf_elements_to_plot-1];
+		// Start at element 1 of ttf_val as we don't want to use the DC
+		// component value that is stored in element 0.
+		for (int i=1; i<ttf_elements_to_plot; i++) {
+			// ttf_val[0] is the DC component so don't use it to normalise,
+			// use ttf_val[1] instead.
+			nttf_val[i-1] = (double) (ttf_val[i] / ttf_val[1]);
+
+			// The frequencies are calculated according to the documentation
+			// under the "Returns" section of this page:
+			// https://imagej.nih.gov/ij/developer/api/ij/process/FHT.html#fourier1D-float:A-int-
+			freq_scale[i-1] = (double) i / (2.0 * ttf_val.length * lsf_inc_mm);
+		}
+
+		TTF_result results = new TTF_result();
+		results.freq = freq_scale;
+		results.val = nttf_val;
+
+		return results;
+	}
+
+
+	private double[] differentiate(double[] locations, UnivariateDifferentiableFunction diff_func) {
+		double[] deriv_val = new double[locations.length];
+		for (int i=0; i<locations.length; i++) {
+			try {
+				DerivativeStructure xDS = new DerivativeStructure(1, 1, 0, locations[i]);
+				DerivativeStructure yDS = diff_func.value(xDS);
+				deriv_val[i] = yDS.getPartialDerivative(1);
+			}
+			catch (OutOfRangeException e) {
+				// This is thrown for the first and last locations if a linear
+				// interpolator is used because the interpolator doesn't have a
+				// data point at either side of the required position to use
+				// for its calculation.
+				continue;
+			}
+		}
+		return deriv_val;
+	}
+
+
+	private void logTTF(TTF_result ttf, double freq_inc, String ttf_label) {
+		DecimalFormat twodp = new DecimalFormat("0.00");
+		DecimalFormat threedp = new DecimalFormat("0.000");
+
+    	UnivariateInterpolator linear_interpolator = new LinearInterpolator();
+		UnivariateFunction fn_ttf_lin = linear_interpolator.interpolate(ttf.freq, ttf.val);
+
+		IJ.log("Freq (mm^-1)," + ttf_label);
+
+		double freq = 0.0;
+		while (freq < StatUtils.max(ttf.freq)) {
+			try {
+				IJ.log("" + twodp.format(freq) + ", " + threedp.format(fn_ttf_lin.value(freq)));
+			}
+			catch (OutOfRangeException e) {
+				// If the interpolator doesn't have data on either side of the
+				// required position then it throws an error.
+			}
+			freq += freq_inc;
+		}
+	}
+
+
+	private class TTF_result {
+    	private double[] freq;
+    	private double[] val;
+	}
+
+
+	private class CNR_result {
+		private double cnr;
+		private double contrast;
+		private double noise;
 	}
 }
