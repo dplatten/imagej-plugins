@@ -13,7 +13,7 @@
     <option name="MAKE_PROJECT_ON_SAVE" value="true" />
   </component>
   <component name="CoverageDataManager">
-    <SUITE FILE_PATH="coverage/project_intellij$ImageJ.ic" NAME="ImageJ Coverage Results" MODIFIED="1551874863454" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="idea" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" />
+    <SUITE FILE_PATH="coverage/project_intellij$ImageJ.ic" NAME="ImageJ Coverage Results" MODIFIED="1551957986614" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="idea" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" />
   </component>
   <component name="FileEditorManager">
     <splitter split-orientation="horizontal" split-proportion="0.5">
@@ -22,10 +22,12 @@
           <file pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/src-plugins/TaskTransferFunction_.java">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="412">
-                  <caret line="394" selection-start-line="394" selection-end-line="394" />
+                <state relative-caret-position="-51">
+                  <caret line="18" column="62" lean-forward="true" selection-start-line="18" selection-start-column="62" selection-end-line="18" selection-end-column="62" />
                   <folding>
-                    <element signature="imports" expanded="true" />
+                    <element signature="e#0#22293#0" expanded="true" />
+                    <element signature="e#22401#22409#0" expanded="true" />
+                    <element signature="e#22456#22464#0" expanded="true" />
                   </folding>
                 </state>
               </provider>
@@ -34,14 +36,16 @@
         </leaf>
       </split-first>
       <split-second>
-        <leaf>
+        <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
           <file pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/src-plugins/TaskTransferFunction_.java">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="-159">
-                  <caret line="478" column="19" lean-forward="true" selection-start-line="478" selection-start-column="19" selection-end-line="478" selection-end-column="19" />
+                <state relative-caret-position="680">
+                  <caret line="582" lean-forward="true" selection-start-line="582" selection-end-line="582" />
                   <folding>
                     <element signature="imports" expanded="true" />
+                    <element signature="e#22401#22409#0" expanded="true" />
+                    <element signature="e#22456#22464#0" expanded="true" />
                   </folding>
                 </state>
               </provider>
@@ -65,6 +69,7 @@
       <find>green</find>
       <find>round</find>
       <find>floor</find>
+      <find>q</find>
     </findStrings>
     <replaceStrings>
       <replace>com[0]</replace>
@@ -91,8 +96,6 @@
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
-      <pane id="PackagesPane" />
-      <pane id="Scope" />
       <pane id="ProjectPane">
         <subPane>
           <expand>
@@ -109,10 +112,12 @@
           <select />
         </subPane>
       </pane>
+      <pane id="Scope" />
+      <pane id="PackagesPane" />
     </panes>
   </component>
   <component name="PropertiesComponent">
-    <property name="com.android.tools.idea.instantapp.provision.ProvisionBeforeRunTaskProvider.myTimeStamp" value="1551955996567" />
+    <property name="com.android.tools.idea.instantapp.provision.ProvisionBeforeRunTaskProvider.myTimeStamp" value="1551960795888" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$/jars" />
     <property name="project.structure.last.edited" value="Modules" />
     <property name="project.structure.proportion" value="0.15" />
@@ -271,9 +276,8 @@
   </component>
   <component name="ToolWindowManager">
     <frame x="-8" y="-8" width="2576" height="1416" extended-state="6" />
-    <editor active="true" />
     <layout>
-      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.09618442" />
+      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.096979335" />
       <window_info id="Structure" order="1" weight="0.25" />
       <window_info id="Nl-Palette" order="2" />
       <window_info id="Image Layers" order="3" />
@@ -312,6 +316,16 @@
     </ignored-roots>
   </component>
   <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="java-line">
+          <url>file://$PROJECT_DIR$/src-plugins/TaskTransferFunction_.java</url>
+          <line>424</line>
+          <properties />
+          <option name="timeStamp" value="2" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
     <watches-manager>
       <configuration name="Application">
         <watch expression="monotonicF.value(xDS)" />
@@ -358,10 +372,12 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src-plugins/TaskTransferFunction_.java">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="412">
-          <caret line="394" selection-start-line="394" selection-end-line="394" />
+        <state relative-caret-position="-51">
+          <caret line="18" column="62" lean-forward="true" selection-start-line="18" selection-start-column="62" selection-end-line="18" selection-end-column="62" />
           <folding>
-            <element signature="imports" expanded="true" />
+            <element signature="e#0#22293#0" expanded="true" />
+            <element signature="e#22401#22409#0" expanded="true" />
+            <element signature="e#22456#22464#0" expanded="true" />
           </folding>
         </state>
       </provider>

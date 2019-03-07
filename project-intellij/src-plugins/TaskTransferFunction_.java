@@ -2,7 +2,7 @@
 // present in an image.
 //
 // The routine will run on a user-selected oval region of interest (ROI). If no
-// ROI is selected then the user is returned out of the routine.
+// ROI is selected then the routine exits.
 //
 //package ij.plugin;
 
@@ -22,7 +22,7 @@ import org.apache.commons.math3.util.MathArrays;
 import ij.process.FHT;
 import java.awt.*;
 import java.text.DecimalFormat;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
 
 public class TaskTransferFunction_ implements PlugInFilter {
     private ImagePlus imp;
@@ -33,7 +33,10 @@ public class TaskTransferFunction_ implements PlugInFilter {
     private Roi main_roi;
     private Boolean find_com = Boolean.TRUE;
 
-    public int setup(String arg, ImagePlus imp) {
+	private DecimalFormat two_dp = new DecimalFormat("0.00");
+	private DecimalFormat three_dp = new DecimalFormat("0.000");
+
+	public int setup(String arg, ImagePlus imp) {
     	this.imp = imp;
 
     	if(this.imp == null) {
@@ -106,7 +109,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
 			// Obtain the centre of mass of the ROI set by the user.
 			imp.setRoi(main_roi);
 			com = centreOfMass(ip, main_roi, cal, 0.0);
-			IJ.log("Initial CoM: " + com[0] + ", " + com[1]);
+			IJ.log("Initial CoM: " + three_dp.format(com[0]) + ", " + three_dp.format(com[1]));
 			//---------------------------------------------------------------------
 
 
@@ -128,7 +131,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
 			// Recalculate the CoM with background subtracted
 			imp.setRoi(outer_roi);
 			com = centreOfMass(ip, outer_roi, cal, -bgd_mean);
-			IJ.log("Adjusted CoM: " + com[0] + ", " + com[1]);
+			IJ.log("Adjusted CoM: " + three_dp.format(com[0]) + ", " + three_dp.format(com[1]));
 
 			// Recentre the annualar roi on the new CoM and recalculate CoM  for a final time
 			annular_roi.setLocation(cal.getRawX(com[0]) - obj_dia_pix, cal.getRawY(com[1]) - obj_dia_pix);
@@ -139,7 +142,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
 			com = centreOfMass(ip, outer_roi, cal, -bgd_mean);
 		}
 
-		IJ.log("Final CoM: " + com[0] + ", " + com[1]);
+		IJ.log("Final CoM: " + three_dp.format(com[0]) + ", " + three_dp.format(com[1]));
 
 		// Add a marker to the image showing the location of the CoM
 		Roi com_marker = new PointRoi(cal.getRawX(com[0]), cal.getRawY(com[1]));
@@ -164,9 +167,9 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		Roi obj_roi = new OvalRoi(cal.getRawX(com[0])-obj_roi_dia/2.0, cal.getRawY(com[1])-obj_roi_dia/2.0, obj_roi_dia, obj_roi_dia);
 		CNR_result cnr_results = contrastToNoiseRatio(imp, obj_roi, annular_roi);
 
-		IJ.log("CNR is: " + cnr_results.cnr);
-		IJ.log("Contrast is: " + cnr_results.contrast);
-		IJ.log("Noise is: " + cnr_results.noise);
+		IJ.log("CNR is: " + three_dp.format(cnr_results.cnr));
+		IJ.log("Contrast is: " + three_dp.format(cnr_results.contrast));
+		IJ.log("Noise is: " + three_dp.format(cnr_results.noise));
 
 		overlay.add(obj_roi);
 		overlay.setStrokeColor(Color.green);
@@ -391,9 +394,29 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
 
 		//---------------------------------------------------------------------
-		// Write out TTF data in 0.05 mm^-1 increments to the ImageJ log
-		logTTF(ttf_data, 0.05, "TTF (local regression ESF)");
-		logTTF(ttf_data_monotonic, 0.05, "TTF (monotonic ESF)");
+		// Work out TTF 50 and TTF 10
+		double ttf_50 = freqAtSpecificTTF(ttf_data, 0.5);
+		double ttf_10 = freqAtSpecificTTF(ttf_data, 0.1);
+
+		double ttf_50_mono = freqAtSpecificTTF(ttf_data_monotonic, 0.5);
+		double ttf_10_mono = freqAtSpecificTTF(ttf_data_monotonic, 0.1);
+
+		IJ.log("MTF 50 and 10 are: " + three_dp.format(ttf_50) + ", " + three_dp.format(ttf_10));
+		IJ.log("MTF mono 50 and 10 are: " + three_dp.format(ttf_50_mono) + ", " + three_dp.format(ttf_10_mono));
+		//---------------------------------------------------------------------
+
+
+		//---------------------------------------------------------------------
+		// Resample the TTF data to 0.05 lp/mm increments
+		TTF_result resampled_ttf = resampleTTF(ttf_data, 0.02);
+		TTF_result resampled_ttf_mono = resampleTTF(ttf_data_monotonic, 0.02);
+		//---------------------------------------------------------------------
+
+
+		//---------------------------------------------------------------------
+		// Write the resampled TTF data to the ImageJ log
+		logTTF(resampled_ttf, "TTF (local regression ESF)");
+		logTTF(resampled_ttf_mono, "TTF (monotonic ESF)");
 		//---------------------------------------------------------------------
 
 
@@ -509,26 +532,24 @@ public class TaskTransferFunction_ implements PlugInFilter {
 				// interpolator is used because the interpolator doesn't have a
 				// data point at either side of the required position to use
 				// for its calculation.
-				continue;
 			}
 		}
 		return deriv_val;
 	}
 
 
-	private void logTTF(TTF_result ttf, double freq_inc, String ttf_label) {
-		DecimalFormat twodp = new DecimalFormat("0.00");
-		DecimalFormat threedp = new DecimalFormat("0.000");
-
-    	UnivariateInterpolator linear_interpolator = new LinearInterpolator();
+	private TTF_result resampleTTF(TTF_result ttf, double freq_inc) {
+		UnivariateInterpolator linear_interpolator = new LinearInterpolator();
 		UnivariateFunction fn_ttf_lin = linear_interpolator.interpolate(ttf.freq, ttf.val);
 
-		IJ.log("Freq (mm^-1)," + ttf_label);
+		ArrayList<Double> ttf_freq = new ArrayList<Double>();
+		ArrayList<Double> ttf_val = new ArrayList<Double>();
 
 		double freq = 0.0;
 		while (freq < StatUtils.max(ttf.freq)) {
 			try {
-				IJ.log("" + twodp.format(freq) + ", " + threedp.format(fn_ttf_lin.value(freq)));
+				ttf_val.add(fn_ttf_lin.value(freq));
+				ttf_freq.add(freq);
 			}
 			catch (OutOfRangeException e) {
 				// If the interpolator doesn't have data on either side of the
@@ -536,6 +557,57 @@ public class TaskTransferFunction_ implements PlugInFilter {
 			}
 			freq += freq_inc;
 		}
+
+		double[] freq_array = new double[ttf_freq.size()];
+		double[] val_array = new double[ttf_val.size()];
+		for (int i=0; i<freq_array.length; i++) {
+			freq_array[i] = ttf_freq.get(i);
+			val_array[i] = ttf_val.get(i);
+		}
+
+		TTF_result result = new TTF_result();
+		result.freq = freq_array;
+		result.val = val_array;
+
+		return result;
+    }
+
+
+	private void logTTF(TTF_result ttf, String ttf_label) {
+		IJ.log("Freq (mm^-1)," + ttf_label);
+
+		for (int i=0; i<ttf.freq.length; i++) {
+			IJ.log("" + two_dp.format(ttf.freq[i]) + ", " + three_dp.format(ttf.val[i]));
+		}
+	}
+
+
+	private double freqAtSpecificTTF(TTF_result ttf, double req_ttf_val) {
+		UnivariateInterpolator linear_interpolator = new LinearInterpolator();
+		UnivariateFunction fn_ttf_lin = linear_interpolator.interpolate(ttf.freq, ttf.val);
+
+		double current_ttf = 100.0;
+		double prev_ttf = 100.0;
+
+		double freq_step = 0.01;
+
+		double current_freq = ttf.freq[0];
+		double prev_freq = ttf.freq[0];
+
+		while (current_ttf > req_ttf_val) {
+			prev_ttf = current_ttf;
+			prev_freq = current_freq - freq_step;
+
+			current_ttf = fn_ttf_lin.value(current_freq);
+			current_freq += freq_step;
+		}
+		double[] ttf_vals = {prev_ttf, current_ttf};
+		double[] ttf_freqs = {prev_freq, current_freq-freq_step};
+
+		MathArrays.sortInPlace(ttf_vals, ttf_freqs);
+		fn_ttf_lin = linear_interpolator.interpolate(ttf_vals, ttf_freqs);
+
+		return fn_ttf_lin.value(req_ttf_val);
 	}
 
 
