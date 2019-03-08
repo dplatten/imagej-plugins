@@ -9,6 +9,7 @@
 import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.*;
+import ij.measure.CurveFitter;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
 import ij.measure.Calibration;
@@ -194,11 +195,12 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		// replace with the mean value at that position.
 		// http://commons.apache.org/proper/commons-math/javadocs/api-3.6/org/apache/commons/math3/util/MathArrays.html#unique(double[])
 		double[] unique_pos = MathArrays.unique(raw_esf_pos);
-		double[] unique_pos_vals = new double[unique_pos.length];
 
 		// If the length of unique_pos is less than raw_esf_pos then there must
 		// be multiple data points at the same distance from the CoM.
 		if (unique_pos.length < raw_esf_pos.length) {
+			double[] unique_pos_vals = new double[unique_pos.length];
+
 			for (i = 0; i < unique_pos.length; i++) {
 				int count = 0;
 				double sum = 0.0;
@@ -225,8 +227,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		// Plot the raw esf
 		Plot plot_esf = new Plot("Edge spread function", "Distance (mm)", "Pixel value");
 		plot_esf.add("dot", raw_esf_pos, raw_esf_val);
-		plot_esf.show();
 		String esf_labels = "Raw ESF\t";
+		plot_esf.show();
 		//---------------------------------------------------------------------
 
 
@@ -252,8 +254,9 @@ public class TaskTransferFunction_ implements PlugInFilter {
 			current_pos += rebinned_sample_inc;
 		}
 
-		// Work out the value of the ESF at the rebinned positions using the
-		// Apache Commons Math 3.6 API local regression algorithm. See:
+		//.....................................................................
+		// Calculate resampled ESF values using local regression with the
+		// Apache Commons Math 3.6 API. See:
 		// http://commons.apache.org/proper/commons-math/javadocs/api-3.6/org/apache/commons/math3/analysis/interpolation/LoessInterpolator.html
 		// and https://en.wikipedia.org/wiki/Local_regression
 		UnivariateInterpolator loess_interpolator = new LoessInterpolator(loess_bandwidth, loess_robustness);
@@ -264,15 +267,16 @@ public class TaskTransferFunction_ implements PlugInFilter {
 			esf_rebinned_val[i] = loess_function.value(esf_rebinned_pos[i]);
 		}
 
-		// Add the rebinned ESF to the existing ESF plot as a red line.
+		// Add the ESF to the existing ESF plot as a red line.
 		plot_esf.setColor("Red");
 		plot_esf.add("line", esf_rebinned_pos, esf_rebinned_val);
 		esf_labels += "Local regression ESF\t";
-		//---------------------------------------------------------------------
+		//.....................................................................
 
 
-		//---------------------------------------------------------------------
-		// Make ESF monotonic (using brute force)
+		//.....................................................................
+		// Create a monotonic ESF from the local regression ESF using brute
+		// force.
 		double[] monotonic_esf = new double[esf_rebinned_val.length];
 		// Check to see if ESF starts high and goes low
 		if (esf_rebinned_val[0] > esf_rebinned_val[esf_rebinned_val.length-1]) {
@@ -296,9 +300,24 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		plot_esf.setColor("Blue");
 		plot_esf.add("line", esf_rebinned_pos, monotonic_esf);
 		esf_labels += "Monotonic local regression ESF\t";
+		//.....................................................................
 
+
+		//.....................................................................
+		// Calculate resampled ESF values using linear interpolation
+		UnivariateInterpolator linear_interpolator = new LinearInterpolator();
+		UnivariateFunction linear_function = linear_interpolator.interpolate(raw_esf_pos, smoothed_esf);
+		double[] esf_rebinned_val_lin = new double[esf_rebinned_pos.length];
+		for (i=0; i<esf_rebinned_val_lin.length; i++) {
+			esf_rebinned_val_lin[i] = linear_function.value(esf_rebinned_pos[i]);
+		}
+
+		// Add the rebinned linear ESF to the existing ESF plot as a green line.
+		plot_esf.setColor("Green");
+		plot_esf.add("line", esf_rebinned_pos, esf_rebinned_val_lin);
+		esf_labels += "Linear regression ESF\t";
 		plot_esf.addLegend(esf_labels);
-		//---------------------------------------------------------------------
+		//.....................................................................
 
 
 /*		//---------------------------------------------------------------------
@@ -337,10 +356,15 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		// TEST end
 		//---------------------------------------------------------------------*/
 
+		// End of creating ESFs
+		//---------------------------------------------------------------------
+
 
 		//---------------------------------------------------------------------
-		// Differentiate the ESF to obtain a line spread function (LSF) using
-		// a Apache Commons Math 3.6 API differentiator. See:
+		// Differentiate the ESFs to obtain line spread functions (LSFs)
+
+		//.....................................................................
+		// First using an Apache Commons Math 3.6 API differentiator. See:
 		// http://commons.apache.org/proper/commons-math/javadocs/api-3.6/org/apache/commons/math3/analysis/differentiation/FiniteDifferencesDifferentiator.html
 		// I have configured the FiniteDifferencesDifferentiator to use two
 		// points with a step size of rebinned_sample_inc to provide the
@@ -355,53 +379,106 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		plot_lsf.add("line", esf_rebinned_pos, lsf_val);
 		String lsf_labels = "LSF from local regression ESF\t";
 		plot_lsf.show();
-		//---------------------------------------------------------------------
+		//.....................................................................
 
 
-		//---------------------------------------------------------------------
+		//.....................................................................
 		// Differentiate the monotonic ESF to produce a LSF
-		UnivariateInterpolator linear_interpolator = new LinearInterpolator();
-		UnivariateFunction function_linear = linear_interpolator.interpolate(esf_rebinned_pos, monotonic_esf);
-		UnivariateDifferentiableFunction monotonicF = differentiator.differentiate(function_linear);
-		double[] lsf_val_monotonic = differentiate(esf_rebinned_pos, monotonicF);
+		//UnivariateInterpolator linear_interpolator = new LinearInterpolator();
+		linear_function = linear_interpolator.interpolate(esf_rebinned_pos, monotonic_esf);
+		completeF = differentiator.differentiate(linear_function);
+		double[] lsf_val_monotonic = differentiate(esf_rebinned_pos, completeF);
 
-		// Plot the LSF calcualted from the monotonic ESF.
+		// Plot the LSF calculated from the monotonic ESF.
 		plot_lsf.setColor("Blue");
 		plot_lsf.add("line", esf_rebinned_pos, lsf_val_monotonic);
 		lsf_labels += "LSF from monotonic ESF\t";
+		//.....................................................................
+
+
+		//.....................................................................
+		// Differentiate the linear ESF to produce a LSF
+		linear_function = linear_interpolator.interpolate(esf_rebinned_pos, esf_rebinned_val_lin);
+		completeF = differentiator.differentiate(linear_function);
+		double[] lsf_val_linear = differentiate(esf_rebinned_pos, completeF);
+
+		// Plot the LSF calculated from the monotonic ESF.
+		plot_lsf.setColor("Green");
+		plot_lsf.add("line", esf_rebinned_pos, lsf_val_linear);
+		lsf_labels += "LSF from linear ESF\t";
+		//.....................................................................
+
+
+		//.....................................................................
+		// Carry out a Gaussian fit to the linear LSF result
+		CurveFitter gaussian_fitter = new CurveFitter(esf_rebinned_pos, lsf_val_linear);
+		gaussian_fitter.doFit(CurveFitter.GAUSSIAN);
+		double[] p = gaussian_fitter.getParams();
+		double[] lsf_val_gaussian = new double[esf_rebinned_pos.length];
+		for (i=0; i<esf_rebinned_pos.length; i++) {
+			double x = esf_rebinned_pos[i];
+			lsf_val_gaussian[i] = p[0] + (p[1] - p[0]) * Math.exp(-(x - p[2]) * (x - p[2]) / (2.0 * p[3] * p[3]));
+		}
+
+		// Plot the LSF calculated from the Gaussian fit of the linear ESF.
+		plot_lsf.setColor("Orange");
+		plot_lsf.add("line", esf_rebinned_pos, lsf_val_gaussian);
+		lsf_labels += "LSF from Gaussian fit of linear ESF\t";
 		plot_lsf.addLegend(lsf_labels);
+		//.....................................................................
+
+		// End of LSF calculation
 		//---------------------------------------------------------------------
 
 
 		//---------------------------------------------------------------------
-		// Fourier transform the LSF to obtain the MTF (TTF)
+		// Fourier transform the LSFs to obtain TTFs
 		TTF_result ttf_data = TTF(lsf_val, rebinned_sample_inc, pixel_size_in_mm);
+		TTF_result ttf_data_linear = TTF(lsf_val_linear, rebinned_sample_inc, pixel_size_in_mm);
+		TTF_result ttf_data_gaussian = TTF(lsf_val_gaussian, rebinned_sample_inc, pixel_size_in_mm);
 		TTF_result ttf_data_monotonic = TTF(lsf_val_monotonic, rebinned_sample_inc, pixel_size_in_mm);
 
-		// Plot the nTTF
+		// Plot the nTTFs
 		Plot plot_ttf = new Plot("Normalised TTF", "Frequency (per mm)", "nTTF");
+
 		plot_ttf.setColor("Red");
 		plot_ttf.add("line", ttf_data.freq, ttf_data.val);
 		String ttf_labels = "TTF from local regression ESF\t";
-		plot_ttf.show();
+
+		plot_ttf.setColor("Green");
+		plot_ttf.add("line", ttf_data_linear.freq, ttf_data_linear.val);
+		ttf_labels += "TTF from linear ESF\t";
+
+		plot_ttf.setColor("Orange");
+		plot_ttf.add("line", ttf_data_gaussian.freq, ttf_data_gaussian.val);
+		ttf_labels += "TTF from Gaussian LSF fit\t";
 
 		plot_ttf.setColor("Blue");
 		plot_ttf.add("line", ttf_data_monotonic.freq, ttf_data_monotonic.val);
 		ttf_labels += "TTF from monotonic ESF\t";
 
+		plot_ttf.show();
 		plot_ttf.addLegend(ttf_labels);
 		//---------------------------------------------------------------------
 
 
 		//---------------------------------------------------------------------
-		// Work out TTF 50 and TTF 10
+		// Work out TTF 50 and TTF 10 for each TTF
 		double ttf_50 = freqAtSpecificTTF(ttf_data, 0.5);
 		double ttf_10 = freqAtSpecificTTF(ttf_data, 0.1);
+
+		double ttf_50_linear = freqAtSpecificTTF(ttf_data_linear, 0.5);
+		double ttf_10_linear = freqAtSpecificTTF(ttf_data_linear, 0.1);
+
+		double ttf_50_gaussian = freqAtSpecificTTF(ttf_data_gaussian, 0.5);
+		double ttf_10_gaussian = freqAtSpecificTTF(ttf_data_gaussian, 0.1);
 
 		double ttf_50_mono = freqAtSpecificTTF(ttf_data_monotonic, 0.5);
 		double ttf_10_mono = freqAtSpecificTTF(ttf_data_monotonic, 0.1);
 
 		IJ.log("MTF 50 and 10 are: " + three_dp.format(ttf_50) + ", " + three_dp.format(ttf_10));
+		IJ.log("MTF linear 50 and 10 are: " + three_dp.format(ttf_50_linear) + ", " + three_dp.format(ttf_10_linear));
+		IJ.log("MTF Gaussian 50 and 10 are: " + three_dp.format(ttf_50_gaussian) + ", " + three_dp.format(ttf_10_gaussian));
 		IJ.log("MTF mono 50 and 10 are: " + three_dp.format(ttf_50_mono) + ", " + three_dp.format(ttf_10_mono));
 		//---------------------------------------------------------------------
 
@@ -409,6 +486,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		//---------------------------------------------------------------------
 		// Resample the TTF data to 0.05 lp/mm increments
 		TTF_result resampled_ttf = resampleTTF(ttf_data, 0.02);
+		TTF_result resampled_ttf_linear = resampleTTF(ttf_data_linear, 0.02);
+		TTF_result resampled_ttf_gaussian = resampleTTF(ttf_data_gaussian, 0.02);
 		TTF_result resampled_ttf_mono = resampleTTF(ttf_data_monotonic, 0.02);
 		//---------------------------------------------------------------------
 
@@ -416,6 +495,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		//---------------------------------------------------------------------
 		// Write the resampled TTF data to the ImageJ log
 		logTTF(resampled_ttf, "TTF (local regression ESF)");
+		logTTF(resampled_ttf_linear, "TTF (linear ESF)");
+		logTTF(resampled_ttf_gaussian, "TTF (Gaussian fit to LSF)");
 		logTTF(resampled_ttf_mono, "TTF (monotonic ESF)");
 		//---------------------------------------------------------------------
 
@@ -598,7 +679,16 @@ public class TaskTransferFunction_ implements PlugInFilter {
 			prev_ttf = current_ttf;
 			prev_freq = current_freq - freq_step;
 
-			current_ttf = fn_ttf_lin.value(current_freq);
+			try {
+				current_ttf = fn_ttf_lin.value(current_freq);
+			}
+			catch (OutOfRangeException e) {
+				// If the interpolator doesn't have data on either side of the
+				// required position then it throws an error. This may also
+				// be thrown if there is a problem with the TTF data that means
+				// this while loop never reaches the required ttf value.
+				return 999.0;
+			}
 			current_freq += freq_step;
 		}
 		double[] ttf_vals = {prev_ttf, current_ttf};
