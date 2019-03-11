@@ -19,8 +19,12 @@ import org.apache.commons.math3.analysis.differentiation.*;
 import org.apache.commons.math3.analysis.interpolation.*;
 import org.apache.commons.math3.exception.OutOfRangeException;
 import org.apache.commons.math3.stat.StatUtils;
+import org.apache.commons.math3.transform.DftNormalization;
+import org.apache.commons.math3.transform.FastFourierTransformer;
+import org.apache.commons.math3.transform.TransformType;
 import org.apache.commons.math3.util.MathArrays;
-import ij.process.FHT;
+import org.apache.commons.math3.complex.Complex;
+
 import java.awt.*;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
@@ -34,8 +38,21 @@ public class TaskTransferFunction_ implements PlugInFilter {
     private Roi main_roi;
     private Boolean find_com = Boolean.TRUE;
 
+    private static TTF_result ttf_result;
+    private static CNR_result cnr_result;
+
 	private DecimalFormat two_dp = new DecimalFormat("0.00");
 	private DecimalFormat three_dp = new DecimalFormat("0.000");
+
+	// Defined to enable other plugins to access the TTF results
+	TTF_result getTTFResult() {
+		return ttf_result;
+	}
+
+	// Defined to enable other plugins to access the CNR results
+	CNR_result getCNRResult() {
+		return cnr_result;
+	}
 
 	public int setup(String arg, ImagePlus imp) {
     	this.imp = imp;
@@ -56,7 +73,15 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		}
 
 		if ((arg != null) && (arg.length() > 0)) {
-			pixel_reduction_factor = Float.parseFloat(arg);
+			if (arg.equals("defaults")) {
+				// Use defaults
+				IJ.log("TaskTransferFunction using " + obj_dia_mm + " mm object diameter");
+			}
+			else {
+				// Assume the argument contains the diameter of the TTF object.
+				obj_dia_mm = Float.parseFloat(arg);
+				IJ.log("TaskTransferFunction using " + obj_dia_mm + " mm object diameter");
+			}
 		}
 		else {
     		 GenericDialog gd = new GenericDialog("Processing options");
@@ -174,6 +199,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
 		overlay.add(obj_roi);
 		overlay.setStrokeColor(Color.green);
+
+		cnr_result = cnr_results;
 		//---------------------------------------------------------------------
 
 
@@ -505,6 +532,12 @@ public class TaskTransferFunction_ implements PlugInFilter {
 		// Remove the current ROI
 		imp.deleteRoi();
 		//---------------------------------------------------------------------
+
+
+		//---------------------------------------------------------------------
+		// Set the final_results property so it can be obtained for further use
+		ttf_result = ttf_data_monotonic;
+		//---------------------------------------------------------------------
 	}
 
 
@@ -554,47 +587,57 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
 
 	private TTF_result TTF(double[] lsf, double lsf_inc_mm, double px_size_mm) {
-		// This uses the FHT routine within ImageJ. See:
-		// https://imagej.nih.gov/ij/developer/api/ij/process/FHT.html#fourier1D-float:A-int-
+		// This uses the Fourier transform routine within the Apache Commons
+		// Math 3.6 API. See:
+		// http://commons.apache.org/proper/commons-math/javadocs/api-3.6/org/apache/commons/math3/transform/FastFourierTransformer.html
 
-		// The FHT routine requires the values to be of type "float".
-		float[] lsf_float = new float[lsf.length];
-		for (int i=0; i<lsf.length; i++) {
-			lsf_float[i] = (float) lsf[i];
+		// Apply a Hann window before the FFT to match ImaQuest software - see
+		// paper by Chen et al: http://dx.doi.org/10.1118/1.4881519
+		// Also see http://download.ni.com/evaluation/pxi/Understanding%20FFTs%20and%20Windowing.pdf
+		double[] hann = hannWindow(lsf.length);
+		lsf = MathArrays.ebeMultiply(lsf, hann);
+
+		FastFourierTransformer fourier_transformer = new FastFourierTransformer(DftNormalization.STANDARD);
+
+		// FastFourierTransformer requires that the number of data elements is
+		// a power of 2, so pad the LSF to the next highest power of 2 if
+		// necessary.
+		int N = lsf.length;
+		int M = (int) (Math.log(N) / Math.log(2.0));
+		int N_power_two = (int) Math.pow(2, M);
+
+		if (N_power_two != N) { // Pad the ttf_val array with zeros to be a power of 2
+			N_power_two = (int) Math.pow(2, M+1);
+
+			// Create the padding part
+			double[] zero_padding = new double[N_power_two - N];
+			for (int i=0; i<zero_padding.length; i++) zero_padding[i] = 0;
+
+			// Concatenate the padding on to the original LSF
+			lsf = MathArrays.concatenate(lsf, zero_padding);
 		}
 
-		// Calculate the TTF of the (float) LSF values; apply a Hann window
-		// before the FFT to match ImaQuest software - see paper by Chen et al:
-		// http://dx.doi.org/10.1118/1.4881519]
-		// Also see http://download.ni.com/evaluation/pxi/Understanding%20FFTs%20and%20Windowing.pdf
-		FHT fht = new FHT();
-		float[] ttf_val = fht.fourier1D(lsf_float, FHT.HANN);
+		// Fourier transform the padded LSF
+		Complex[] complex_ttf_results = fourier_transformer.transform(lsf, TransformType.FORWARD);
 
 		// Work out the Nyquist frequency and how many TTF elements to plot in
 		// order to get to 2 x Nyquist.
 		double nyquist_freq = 1.0 / (2.0 * px_size_mm);
-		int ttf_elements_to_plot = (int)Math.floor((2.0 * nyquist_freq) * (2.0 * ttf_val.length * lsf_inc_mm));
+		double freq_inc = 1.0 / (lsf.length * lsf_inc_mm);
+		int num_ttf_elements_to_inc = (int) Math.floor( (2.0 * nyquist_freq) / freq_inc);
 
-		// Calculate the normalised TTF (nTTF). Using double data type so they
-		// can be used directly with Plot.
-		double[] nttf_val = new double[ttf_elements_to_plot-1];
-		double[] freq_scale = new double[ttf_elements_to_plot-1];
-		// Start at element 1 of ttf_val as we don't want to use the DC
-		// component value that is stored in element 0.
-		for (int i=1; i<ttf_elements_to_plot; i++) {
-			// ttf_val[0] is the DC component so don't use it to normalise,
-			// use ttf_val[1] instead.
-			nttf_val[i-1] = (double) (ttf_val[i] / ttf_val[1]);
+		// Calculate the normalised TTF and the frequency scale up to 2 x Nyquist
+		double[] nttf_results = new double[num_ttf_elements_to_inc];
+		double[] ttf_freq_scale = new double[num_ttf_elements_to_inc];
 
-			// The frequencies are calculated according to the documentation
-			// under the "Returns" section of this page:
-			// https://imagej.nih.gov/ij/developer/api/ij/process/FHT.html#fourier1D-float:A-int-
-			freq_scale[i-1] = (double) i / (2.0 * ttf_val.length * lsf_inc_mm);
+		for (int i=0; i<num_ttf_elements_to_inc; i++) {
+			nttf_results[i] = complex_ttf_results[i].abs() / complex_ttf_results[0].abs();
+			ttf_freq_scale[i] = i * freq_inc;
 		}
 
 		TTF_result results = new TTF_result();
-		results.freq = freq_scale;
-		results.val = nttf_val;
+		results.freq = ttf_freq_scale;
+		results.val = nttf_results;
 
 		return results;
 	}
@@ -701,13 +744,25 @@ public class TaskTransferFunction_ implements PlugInFilter {
 	}
 
 
-	private class TTF_result {
+	private double[] hannWindow(int N) {
+		// See https://en.wikipedia.org/wiki/Hann_function
+		double[] hann_window = new double[N];
+
+		for (int n=0; n<N; n++) {
+			hann_window[n] = 0.5 * (1.0 - Math.cos((2.0 * Math.PI * n) / (N - 1)));
+		}
+
+		return hann_window;
+	}
+
+
+	static class TTF_result {
     	private double[] freq;
     	private double[] val;
 	}
 
 
-	private class CNR_result {
+	static class CNR_result {
 		private double cnr;
 		private double contrast;
 		private double noise;
