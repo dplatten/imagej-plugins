@@ -1,8 +1,9 @@
-// ImageJ plugin to calculate the detectability index of a circular object
+package QuantitativeIQ;// ImageJ plugin to calculate the detectability index of a circular object
 // present in an image.
 //
 //package ij.plugin;
 
+import QuantitativeIQ.TaskTransferFunction_;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.plugin.filter.PlugInFilter;

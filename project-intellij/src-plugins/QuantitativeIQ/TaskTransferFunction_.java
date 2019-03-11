@@ -1,4 +1,4 @@
-// ImageJ plugin to calculate the task transfer function of a circular object
+package QuantitativeIQ;// ImageJ plugin to calculate the task transfer function of a circular object
 // present in an image.
 //
 // The routine will run on a user-selected oval region of interest (ROI). If no
