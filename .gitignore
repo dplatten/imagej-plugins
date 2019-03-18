@@ -1,3 +1,5 @@
 project-intellij/.idea/*
 project-intellij/.idea/workspace.xml
 *.class
+.idea*
+project-intellij/.idea
