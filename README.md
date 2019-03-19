@@ -15,12 +15,15 @@ the chosen statistical parameter for each region. The user is
 asked to supply the side-length of the smaller ROIs (in mm).
 
 The routine calculates variance as:
+
 sum[x - mean(x)] / n
 
 The routine calculates standard deviation as:
+
 sqrt(variance)
 
 The routine calculates signal-to-noise as:
+
 mean(x) / standard deviation(x)
 
 ## ResampleImage
