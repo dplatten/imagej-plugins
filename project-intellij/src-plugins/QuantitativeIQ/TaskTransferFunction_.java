@@ -33,6 +33,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
     private ImagePlus imp;
     private double obj_dia_mm = 25.0;
     private double pixel_reduction_factor = 5.0;
+    private double rebin_f_inc = 0.05; // in mm^-1
     private double loess_bandwidth = 0.02;
     private int loess_robustness = 10;
     private Roi main_roi;
@@ -86,11 +87,10 @@ public class TaskTransferFunction_ implements PlugInFilter {
         else {
             GenericDialog gd = new GenericDialog("Processing options");
             gd.addNumericField("Object diameter (mm)", obj_dia_mm, 0);
-
             gd.addNumericField("Pixel reduction factor", pixel_reduction_factor, 0);
             gd.addNumericField("LOESS bandwidth", loess_bandwidth, 2);
             gd.addNumericField("LOESS robustness", loess_robustness, 0);
-
+            gd.addNumericField("Frequency rebin increment (mm^-1)", rebin_f_inc, 2);
             gd.addCheckbox("Find centre of mass", find_com);
 
             gd.showDialog();
@@ -103,6 +103,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
             pixel_reduction_factor = gd.getNextNumber();
             loess_bandwidth = gd.getNextNumber();
             loess_robustness = (int) gd.getNextNumber();
+            rebin_f_inc = gd.getNextNumber();
             find_com = gd.getNextBoolean();
         }
         return DOES_ALL;
@@ -511,11 +512,11 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
 
         //---------------------------------------------------------------------
-        // Resample the TTF data to 0.05 lp/mm increments
-        TTF_result resampled_ttf = resampleTTF(ttf_data, 0.02);
-        TTF_result resampled_ttf_linear = resampleTTF(ttf_data_linear, 0.02);
-        TTF_result resampled_ttf_gaussian = resampleTTF(ttf_data_gaussian, 0.02);
-        TTF_result resampled_ttf_mono = resampleTTF(ttf_data_monotonic, 0.02);
+        // Resample the TTF data
+        TTF_result resampled_ttf = resampleTTF(ttf_data, rebin_f_inc);
+        TTF_result resampled_ttf_linear = resampleTTF(ttf_data_linear, rebin_f_inc);
+        TTF_result resampled_ttf_gaussian = resampleTTF(ttf_data_gaussian, rebin_f_inc);
+        TTF_result resampled_ttf_mono = resampleTTF(ttf_data_monotonic, rebin_f_inc);
         //---------------------------------------------------------------------
 
 
@@ -757,14 +758,14 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
 
     static class TTF_result {
-        private double[] freq;
-        private double[] val;
+        double[] freq;
+        double[] val;
     }
 
 
     static class CNR_result {
-        private double cnr;
-        private double contrast;
-        private double noise;
+        double cnr;
+        double contrast;
+        double noise;
     }
 }

@@ -29,7 +29,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
     private int num_records = 8;
     private int record_size = 64;
-    private double record_radius = 75.0; // in mm
+    private double record_radius = 100.0; // in mm
 
     private double rebin_f_inc = 0.05; // in mm^-1
 
@@ -379,8 +379,8 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
     }
 
 
-    private static class NPS_result {
-        private double[] freq;
-        private double[] val;
+    static class NPS_result {
+        double[] freq;
+        double[] val;
     }
 }

@@ -3,6 +3,9 @@
   <component name="ChangeListManager">
     <list default="true" id="eefd127d-219c-411d-a6c5-8e49df6923a3" name="Default" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src-plugins/QuantitativeIQ/DetectabilityIndex_.java" beforeDir="false" afterPath="$PROJECT_DIR$/src-plugins/QuantitativeIQ/DetectabilityIndex_.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src-plugins/QuantitativeIQ/NoisePowerSpectrum_.java" beforeDir="false" afterPath="$PROJECT_DIR$/src-plugins/QuantitativeIQ/NoisePowerSpectrum_.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src-plugins/QuantitativeIQ/TaskTransferFunction_.java" beforeDir="false" afterPath="$PROJECT_DIR$/src-plugins/QuantitativeIQ/TaskTransferFunction_.java" afterDir="false" />
     </list>
     <ignored path="$PROJECT_DIR$/plugins/" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -19,11 +22,38 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file pinned="false" current-in-tab="true">
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src-plugins/QuantitativeIQ/NoisePowerSpectrum_.java">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="374">
-              <caret line="17" column="21" lean-forward="true" selection-start-line="17" selection-start-column="21" selection-end-line="17" selection-end-column="21" />
+            <state relative-caret-position="571">
+              <caret line="381" column="4" selection-start-line="381" selection-start-column="4" selection-end-line="381" selection-end-column="4" />
+              <folding>
+                <element signature="imports" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src-plugins/QuantitativeIQ/TaskTransferFunction_.java">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="656">
+              <caret line="771" selection-start-line="771" selection-end-line="771" />
+              <folding>
+                <element signature="imports" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/src-plugins/QuantitativeIQ/DetectabilityIndex_.java">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="1386">
+              <caret line="63" selection-start-line="63" selection-end-line="63" />
+              <folding>
+                <element signature="imports" expanded="true" />
+              </folding>
             </state>
           </provider>
         </entry>
@@ -32,7 +62,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>red</find>
       <find>measure</find>
       <find>p.x</find>
       <find>requires</find>
@@ -62,6 +91,7 @@
       <find>poly</find>
       <find>logttf</find>
       <find>lang</find>
+      <find>function</find>
     </findStrings>
     <replaceStrings>
       <replace>com[0]</replace>
@@ -78,17 +108,17 @@
         <option value="$PROJECT_DIR$/src-plugins/ResampleImage_.java" />
         <option value="$PROJECT_DIR$/src-plugins/TaskTransferFunction_.java" />
         <option value="$PROJECT_DIR$/src-plugins/DetectabilityIndex_.java" />
-        <option value="$PROJECT_DIR$/src-plugins/QuantitativeIQ/TaskTransferFunction_.java" />
         <option value="$PROJECT_DIR$/src-plugins/Fit_Polynomial.java" />
         <option value="$PROJECT_DIR$/src-plugins/QuantitativeIQ/Fit_Polynomial_.java" />
+        <option value="$PROJECT_DIR$/src-plugins/QuantitativeIQ/TaskTransferFunction_.java" />
         <option value="$PROJECT_DIR$/src-plugins/QuantitativeIQ/NoisePowerSpectrum_.java" />
+        <option value="$PROJECT_DIR$/src-plugins/QuantitativeIQ/DetectabilityIndex_.java" />
       </list>
     </option>
   </component>
   <component name="ProjectFrameBounds" extendedState="6">
-    <option name="x" value="65" />
-    <option name="y" value="113" />
-    <option name="width" value="1294" />
+    <option name="x" value="219" />
+    <option name="width" value="1927" />
     <option name="height" value="1407" />
   </component>
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
@@ -97,6 +127,7 @@
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
+      <pane id="PackagesPane" />
       <pane id="ProjectPane">
         <subPane>
           <expand>
@@ -135,7 +166,6 @@
           <select />
         </subPane>
       </pane>
-      <pane id="PackagesPane" />
       <pane id="Scope" />
     </panes>
   </component>
@@ -300,8 +330,9 @@
   </component>
   <component name="ToolWindowManager">
     <frame x="-8" y="-8" width="2576" height="1416" extended-state="6" />
+    <editor active="true" />
     <layout>
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.20310016" />
+      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.20468998" />
       <window_info id="Structure" order="1" weight="0.25" />
       <window_info id="Nl-Palette" order="2" />
       <window_info id="Image Layers" order="3" />
@@ -311,8 +342,8 @@
       <window_info id="Favorites" order="7" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
       <window_info anchor="bottom" id="Find" order="1" weight="0.3289166" />
-      <window_info anchor="bottom" id="Run" order="2" sideWeight="0.49798658" weight="0.33593142" />
-      <window_info anchor="bottom" id="Debug" order="3" sideWeight="0.49930653" weight="0.4395947" />
+      <window_info anchor="bottom" id="Run" order="2" sideWeight="0.49798658" weight="0.25393495" />
+      <window_info anchor="bottom" id="Debug" order="3" sideWeight="0.49930653" weight="0.24785659" />
       <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
       <window_info anchor="bottom" id="TODO" order="6" />
@@ -320,7 +351,7 @@
       <window_info anchor="bottom" id="Terminal" order="8" />
       <window_info anchor="bottom" id="Event Log" order="9" sideWeight="0.50201344" side_tool="true" weight="0.25253314" />
       <window_info anchor="bottom" id="Version Control" order="10" />
-      <window_info anchor="bottom" id="Messages" order="11" sideWeight="0.49960256" weight="0.32735777" />
+      <window_info anchor="bottom" id="Messages" order="11" sideWeight="0.49960256" weight="0.3257989" />
       <window_info anchor="right" id="Commander" order="0" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
@@ -340,6 +371,16 @@
     </ignored-roots>
   </component>
   <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="java-line">
+          <url>file://$PROJECT_DIR$/src-plugins/QuantitativeIQ/DetectabilityIndex_.java</url>
+          <line>81</line>
+          <properties />
+          <option name="timeStamp" value="6" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
     <watches-manager>
       <configuration name="Application">
         <watch expression="result[x][y]" />
@@ -386,41 +427,9 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/plugins/Fit_Polynomial.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-1650">
-          <folding>
-            <element signature="imports" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/plugins/Fit_Polynomial.class">
-      <provider selected="true" editor-type-id="text-editor">
-        <state>
-          <folding>
-            <element signature="e#0#14611#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src-plugins/QuantitativeIQ/Fit_Polynomial_.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1694">
-          <caret line="107" column="28" lean-forward="true" selection-start-line="107" selection-start-column="28" selection-end-line="107" selection-end-column="28" />
-          <folding>
-            <element signature="imports" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src-plugins/QuantitativeIQ/DetectabilityIndex_.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="198">
-          <caret line="9" column="14" selection-start-line="9" selection-start-column="14" selection-end-line="9" selection-end-column="14" />
-        </state>
-      </provider>
-    </entry>
+    <entry file="file://$PROJECT_DIR$/plugins/Fit_Polynomial.java" />
+    <entry file="file://$PROJECT_DIR$/plugins/Fit_Polynomial.class" />
+    <entry file="file://$PROJECT_DIR$/src-plugins/QuantitativeIQ/Fit_Polynomial_.java" />
     <entry file="file://$PROJECT_DIR$/src-plugins/QuantitativeIQ/Fit_Polynomial.java">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="1232">
@@ -430,8 +439,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src-plugins/QuantitativeIQ/TaskTransferFunction_.java">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-2247">
-          <caret line="548" lean-forward="true" selection-start-line="548" selection-end-line="548" />
+        <state relative-caret-position="656">
+          <caret line="771" selection-start-line="771" selection-end-line="771" />
           <folding>
             <element signature="imports" expanded="true" />
           </folding>
@@ -440,8 +449,21 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src-plugins/QuantitativeIQ/NoisePowerSpectrum_.java">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="374">
-          <caret line="17" column="21" lean-forward="true" selection-start-line="17" selection-start-column="21" selection-end-line="17" selection-end-column="21" />
+        <state relative-caret-position="571">
+          <caret line="381" column="4" selection-start-line="381" selection-start-column="4" selection-end-line="381" selection-end-column="4" />
+          <folding>
+            <element signature="imports" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src-plugins/QuantitativeIQ/DetectabilityIndex_.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1386">
+          <caret line="63" selection-start-line="63" selection-end-line="63" />
+          <folding>
+            <element signature="imports" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
