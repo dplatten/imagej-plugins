@@ -179,6 +179,8 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
         IJ.run(nps_2d, "Swap Quadrants", "");
         nps_2d.show();
         nps_2d.updateAndDraw();
+        IJ.run(nps_2d, "Enhance Contrast", "saturated=0.35");
+        IJ.run("Set... ", "zoom=800");
         // ---------------------------------------------------------------------
 
 

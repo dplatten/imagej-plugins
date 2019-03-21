@@ -328,10 +328,11 @@ public class TaskTransferFunction_ implements PlugInFilter {
         plot_esf.setColor("Blue");
         plot_esf.add("line", esf_rebinned_pos, monotonic_esf);
         esf_labels += "Monotonic local regression ESF\t";
+        plot_esf.addLegend(esf_labels);
         //.....................................................................
 
 
-        //.....................................................................
+/*        //.....................................................................
         // Calculate resampled ESF values using linear interpolation
         UnivariateInterpolator linear_interpolator = new LinearInterpolator();
         UnivariateFunction linear_function = linear_interpolator.interpolate(raw_esf_pos, smoothed_esf);
@@ -345,7 +346,15 @@ public class TaskTransferFunction_ implements PlugInFilter {
         plot_esf.add("line", esf_rebinned_pos, esf_rebinned_val_lin);
         esf_labels += "Linear regression ESF\t";
         plot_esf.addLegend(esf_labels);
-        //.....................................................................
+        //.....................................................................*/
+
+
+/*        // Rebin the ESF using the average values within a bin width
+        ESF_result esf_binned = rebinESF(raw_esf_pos, raw_esf_val, rebinned_sample_inc, pixel_size_in_mm/2.0);
+        plot_esf.setColor("Black");
+        plot_esf.add("line", esf_binned.pos, esf_binned.val);
+        esf_labels += "Rebinned ESF\t";
+        plot_esf.addLegend(esf_labels);*/
 
 
 /*		//---------------------------------------------------------------------
@@ -412,8 +421,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
         //.....................................................................
         // Differentiate the monotonic ESF to produce a LSF
-        //UnivariateInterpolator linear_interpolator = new LinearInterpolator();
-        linear_function = linear_interpolator.interpolate(esf_rebinned_pos, monotonic_esf);
+        UnivariateInterpolator linear_interpolator = new LinearInterpolator();
+        UnivariateFunction linear_function = linear_interpolator.interpolate(esf_rebinned_pos, monotonic_esf);
         completeF = differentiator.differentiate(linear_function);
         double[] lsf_val_monotonic = differentiate(esf_rebinned_pos, completeF);
 
@@ -424,7 +433,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
         //.....................................................................
 
 
-        //.....................................................................
+/*        //.....................................................................
         // Differentiate the linear ESF to produce a LSF
         linear_function = linear_interpolator.interpolate(esf_rebinned_pos, esf_rebinned_val_lin);
         completeF = differentiator.differentiate(linear_function);
@@ -434,10 +443,10 @@ public class TaskTransferFunction_ implements PlugInFilter {
         plot_lsf.setColor("Green");
         plot_lsf.add("line", esf_rebinned_pos, lsf_val_linear);
         lsf_labels += "LSF from linear ESF\t";
-        //.....................................................................
+        //.....................................................................*/
 
 
-        //.....................................................................
+/*        //.....................................................................
         // Carry out a Gaussian fit to the linear LSF result
         CurveFitter gaussian_fitter = new CurveFitter(esf_rebinned_pos, lsf_val_linear);
         gaussian_fitter.doFit(CurveFitter.GAUSSIAN);
@@ -453,7 +462,21 @@ public class TaskTransferFunction_ implements PlugInFilter {
         plot_lsf.add("line", esf_rebinned_pos, lsf_val_gaussian);
         lsf_labels += "LSF from Gaussian fit of linear ESF\t";
         plot_lsf.addLegend(lsf_labels);
-        //.....................................................................
+        //.....................................................................*/
+
+
+/*        //.....................................................................
+        // Differentiate the rebinned ESF to produce a LSF
+        linear_function = linear_interpolator.interpolate(esf_binned.pos, esf_binned.val);
+        completeF = differentiator.differentiate(linear_function);
+        double[] lsf_val_binned = differentiate(esf_binned.pos, completeF);
+
+        // Plot the LSF calculated from the rebinned ESF.
+        plot_lsf.setColor("Black");
+        plot_lsf.add("line", esf_binned.pos, lsf_val_binned);
+        lsf_labels += "LSF from binned ESF\t";
+        //.....................................................................*/
+
 
         // End of LSF calculation
         //---------------------------------------------------------------------
@@ -462,8 +485,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
         //---------------------------------------------------------------------
         // Fourier transform the LSFs to obtain TTFs
         TTF_result ttf_data = TTF(lsf_val, rebinned_sample_inc, pixel_size_in_mm);
-        TTF_result ttf_data_linear = TTF(lsf_val_linear, rebinned_sample_inc, pixel_size_in_mm);
-        TTF_result ttf_data_gaussian = TTF(lsf_val_gaussian, rebinned_sample_inc, pixel_size_in_mm);
+        //TTF_result ttf_data_linear = TTF(lsf_val_linear, rebinned_sample_inc, pixel_size_in_mm);
+        //TTF_result ttf_data_gaussian = TTF(lsf_val_gaussian, rebinned_sample_inc, pixel_size_in_mm);
         TTF_result ttf_data_monotonic = TTF(lsf_val_monotonic, rebinned_sample_inc, pixel_size_in_mm);
 
         // Plot the nTTFs
@@ -473,13 +496,13 @@ public class TaskTransferFunction_ implements PlugInFilter {
         plot_ttf.add("line", ttf_data.freq, ttf_data.val);
         String ttf_labels = "TTF from local regression ESF\t";
 
-        plot_ttf.setColor("Green");
+/*        plot_ttf.setColor("Green");
         plot_ttf.add("line", ttf_data_linear.freq, ttf_data_linear.val);
-        ttf_labels += "TTF from linear ESF\t";
+        ttf_labels += "TTF from linear ESF\t";*/
 
-        plot_ttf.setColor("Orange");
+/*        plot_ttf.setColor("Orange");
         plot_ttf.add("line", ttf_data_gaussian.freq, ttf_data_gaussian.val);
-        ttf_labels += "TTF from Gaussian LSF fit\t";
+        ttf_labels += "TTF from Gaussian LSF fit\t";*/
 
         plot_ttf.setColor("Blue");
         plot_ttf.add("line", ttf_data_monotonic.freq, ttf_data_monotonic.val);
@@ -495,18 +518,18 @@ public class TaskTransferFunction_ implements PlugInFilter {
         double ttf_50 = freqAtSpecificTTF(ttf_data, 0.5);
         double ttf_10 = freqAtSpecificTTF(ttf_data, 0.1);
 
-        double ttf_50_linear = freqAtSpecificTTF(ttf_data_linear, 0.5);
-        double ttf_10_linear = freqAtSpecificTTF(ttf_data_linear, 0.1);
+        //double ttf_50_linear = freqAtSpecificTTF(ttf_data_linear, 0.5);
+        //double ttf_10_linear = freqAtSpecificTTF(ttf_data_linear, 0.1);
 
-        double ttf_50_gaussian = freqAtSpecificTTF(ttf_data_gaussian, 0.5);
-        double ttf_10_gaussian = freqAtSpecificTTF(ttf_data_gaussian, 0.1);
+        //double ttf_50_gaussian = freqAtSpecificTTF(ttf_data_gaussian, 0.5);
+        //double ttf_10_gaussian = freqAtSpecificTTF(ttf_data_gaussian, 0.1);
 
         double ttf_50_mono = freqAtSpecificTTF(ttf_data_monotonic, 0.5);
         double ttf_10_mono = freqAtSpecificTTF(ttf_data_monotonic, 0.1);
 
         IJ.log("MTF 50 and 10 are: " + three_dp.format(ttf_50) + ", " + three_dp.format(ttf_10));
-        IJ.log("MTF linear 50 and 10 are: " + three_dp.format(ttf_50_linear) + ", " + three_dp.format(ttf_10_linear));
-        IJ.log("MTF Gaussian 50 and 10 are: " + three_dp.format(ttf_50_gaussian) + ", " + three_dp.format(ttf_10_gaussian));
+        //IJ.log("MTF linear 50 and 10 are: " + three_dp.format(ttf_50_linear) + ", " + three_dp.format(ttf_10_linear));
+        //IJ.log("MTF Gaussian 50 and 10 are: " + three_dp.format(ttf_50_gaussian) + ", " + three_dp.format(ttf_10_gaussian));
         IJ.log("MTF mono 50 and 10 are: " + three_dp.format(ttf_50_mono) + ", " + three_dp.format(ttf_10_mono));
         //---------------------------------------------------------------------
 
@@ -514,8 +537,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
         //---------------------------------------------------------------------
         // Resample the TTF data
         TTF_result resampled_ttf = resampleTTF(ttf_data, rebin_f_inc);
-        TTF_result resampled_ttf_linear = resampleTTF(ttf_data_linear, rebin_f_inc);
-        TTF_result resampled_ttf_gaussian = resampleTTF(ttf_data_gaussian, rebin_f_inc);
+        //TTF_result resampled_ttf_linear = resampleTTF(ttf_data_linear, rebin_f_inc);
+        //TTF_result resampled_ttf_gaussian = resampleTTF(ttf_data_gaussian, rebin_f_inc);
         TTF_result resampled_ttf_mono = resampleTTF(ttf_data_monotonic, rebin_f_inc);
         //---------------------------------------------------------------------
 
@@ -523,8 +546,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
         //---------------------------------------------------------------------
         // Write the resampled TTF data to the ImageJ log
         logTTF(resampled_ttf, "TTF (local regression ESF)");
-        logTTF(resampled_ttf_linear, "TTF (linear ESF)");
-        logTTF(resampled_ttf_gaussian, "TTF (Gaussian fit to LSF)");
+        //logTTF(resampled_ttf_linear, "TTF (linear ESF)");
+        //logTTF(resampled_ttf_gaussian, "TTF (Gaussian fit to LSF)");
         logTTF(resampled_ttf_mono, "TTF (monotonic ESF)");
         //---------------------------------------------------------------------
 
@@ -745,6 +768,73 @@ public class TaskTransferFunction_ implements PlugInFilter {
     }
 
 
+    private ESF_result rebinESF(double[] pos, double[] val, double pos_inc, double pos_bin) {
+
+        double max_pos = StatUtils.max(pos);
+        double min_pos = StatUtils.min(pos);
+        int num_intervals = (int) Math.round( (max_pos-min_pos) / pos_inc) + 1;
+
+        double[] new_val = new double[num_intervals];
+        double[] new_pos = new double[num_intervals];
+        for (int i=0; i<num_intervals; i++) {
+            new_pos[i] = min_pos + (i * pos_inc);
+        }
+
+        for (int i=0; i<num_intervals; i++) {
+            double sum = 0;
+            double count = 0;
+            double lower_edge = new_pos[i] - pos_bin;
+            double upper_edge = new_pos[i] + pos_bin;
+            for (int j=0; j<pos.length; j++) {
+                if (pos[j] >= lower_edge && pos[j] <= upper_edge) {
+                    count++;
+                    sum += val[j];
+                }
+            }
+            new_val[i] = sum / count;
+        }
+
+        ESF_result results = new ESF_result();
+        results.pos = new_pos;
+        results.val = new_val;
+
+        return results;
+    }
+
+
+    private TTF_result rebinTTF(double[] freq, double[] val, double f_inc, double f_bin) {
+
+        double max_freq = StatUtils.max(freq);
+        int num_intervals = (int) Math.round( max_freq / f_inc) + 1;
+
+        double[] new_val = new double[num_intervals];
+        double[] new_freq = new double[num_intervals];
+        for (int i=0; i<num_intervals; i++) {
+            new_freq[i] = i * f_inc;
+        }
+
+        for (int i=0; i<num_intervals; i++) {
+            double sum = 0;
+            double count = 0;
+            double lower_edge = new_freq[i] - f_bin;
+            double upper_edge = new_freq[i] + f_bin;
+            for (int j=0; j<freq.length; j++) {
+                if (freq[j] >= lower_edge && freq[j] <= upper_edge) {
+                    count++;
+                    sum += val[j];
+                }
+            }
+            new_val[i] = sum / count;
+        }
+
+        TTF_result results = new TTF_result();
+        results.freq = new_freq;
+        results.val = new_val;
+
+        return results;
+    }
+
+
     private double[] hannWindow(int N) {
         // See https://en.wikipedia.org/wiki/Hann_function
         double[] hann_window = new double[N];
@@ -759,6 +849,12 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
     static class TTF_result {
         double[] freq;
+        double[] val;
+    }
+
+
+    static class ESF_result {
+        double[] pos;
         double[] val;
     }
 

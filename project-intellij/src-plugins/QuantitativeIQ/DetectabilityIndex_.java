@@ -6,6 +6,7 @@ package QuantitativeIQ;// ImageJ plugin to calculate the detectability index of 
 import QuantitativeIQ.TaskTransferFunction_.TTF_result;
 import QuantitativeIQ.TaskTransferFunction_.CNR_result;
 import QuantitativeIQ.NoisePowerSpectrum_.NPS_result;
+import QuantitativeIQ.EyeModel_.Eye_result;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.measure.Calibration;
@@ -17,8 +18,12 @@ import org.apache.commons.math3.analysis.integration.UnivariateIntegrator;
 import org.apache.commons.math3.analysis.interpolation.LinearInterpolator;
 import org.apache.commons.math3.analysis.interpolation.UnivariateInterpolator;
 
+import java.text.DecimalFormat;
+
 public class DetectabilityIndex_ implements PlugInFilter {
     private ImagePlus imp;
+
+    private DecimalFormat two_dp = new DecimalFormat("0.00");
 
     public int setup(String arg, ImagePlus imp) {
         this.imp = imp;
@@ -64,6 +69,15 @@ public class DetectabilityIndex_ implements PlugInFilter {
         // Obtain the Nyquist frequency of the image
         Calibration cal = imp.getCalibration();
         double nyquist = 1.0 / (2.0 * cal.pixelWidth);
+
+
+        // Obtain the eye model data
+        EyeModel_ eye_model = new EyeModel_();
+        eye_model.setup(two_dp.format(nyquist));
+        eye_model.run();
+        Eye_result eye_result = eye_model.getEyeResult();
+
+
 
 
         // TEST
