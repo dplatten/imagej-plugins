@@ -52,7 +52,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
         }
         ttf.run(ip);
         TTF_result ttf_result = ttf.getTTFResult();
-        CNR_result cnr_result = ttf.getCNRResult();
+        CNR_result cnr_result = ttf.getCNRResult(); // We're going to use the cnr_result.contrast when creating the task function
 
 
         // Then run the NPS on the same image using default settings
