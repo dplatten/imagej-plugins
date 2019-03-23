@@ -72,8 +72,14 @@ public class EyeModel_ {
             E.val[i] = Math.pow(E.freq[i], n) * Math.exp(-1.0 * c * E.freq[i] * E.freq[i]);
         }
 
+        Plot plot_eye = new Plot("Eye response", "Frequency(mm^-1)", "Eye response");
+        plot_eye.add("line", E.freq, E.val);
+        String eye_labels = "Eye response\t";
+        plot_eye.addLegend(eye_labels);
+        plot_eye.show();
+
         // Write the results to the ImageJ log
-        logResults(E, "NPS (HU^2.mm^2)");
+        logResults(E, "Eye response");
 
         eye_result = E;
     }
