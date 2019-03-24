@@ -36,9 +36,9 @@ import java.util.ArrayList;
 public class TaskFunction_ {
     private String task_type = "cylinder";
 
-    private double task_radius = 1.5; // Radius of task in mm
-
+    private double task_radius = 1.5; // Radius of task (mm)
     private double task_contrast = 1.0; // The contrast of the task
+    private double x_inc = 0.01; // Increment for task function calcuiation (mm)
 
     private UnivariateFunction task_function;
     private UnivariateFunction task_function_fft;

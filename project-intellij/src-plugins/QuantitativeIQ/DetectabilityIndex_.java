@@ -41,18 +41,27 @@ public class DetectabilityIndex_ implements PlugInFilter {
         TaskTransferFunction_.CNR_result cnr_results = ttf.getCNRResult();
 
         TaskFunction_ task_function = new TaskFunction_();
-        task_function.setTaskRadius(1.5);
-        task_function.setTaskContrast(30);
+        double task_radius = 1.5; // mm
+        double task_contrast = 30.0; // HU
+
+        Calibration cal = imp.getCalibration();
+        double pixel_size_in_mm = cal.pixelWidth;
+        double task_inc = pixel_size_in_mm / 5.0;
+
+        task_function.setTaskRadius(task_radius);
+        task_function.setTaskContrast(task_contrast);
 
         task_function.disc_function();
         UnivariateFunction task_fn = task_function.getTaskFunction();
-        double[] x_pos = new double[1001];
-        double[] y_val = new double[1001];
-        double x_min = -2.0 * 1.5;
-        double x_max = 2.0 * 1.5;
-        double x_inc = (x_max - x_min) / 1000.0;
-        for (int x=0; x<1001; x++) {
-            x_pos[x] = x_min + x*x_inc;
+        double x_min = -2.0 * task_radius;
+        double x_max = 2.0 * task_radius;
+        int n_elements = (int) ((x_max - x_min) / task_inc) + 1;
+
+        double[] x_pos = new double[n_elements];
+        double[] y_val = new double[n_elements];
+
+        for (int x=0; x<n_elements; x++) {
+            x_pos[x] = x_min + x*task_inc;
             y_val[x] = task_fn.value(x_pos[x]);
         }
         Plot plot_task = new Plot("Task function", "Distance (mm)", "Pixel value");
@@ -64,11 +73,11 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
         task_function.disc_function_fft();
         UnivariateFunction task_fn_fft =  task_function.getTaskFunctionTTF();
-        double[] f_pos = new double[1001];
-        double[] fft_val = new double[1001];
+        double[] f_pos = new double[n_elements];
+        double[] fft_val = new double[n_elements];
         double f_max = 5.0;
-        double f_inc = f_max / 1000.0;
-        for (int x=0; x<1001; x++) {
+        double f_inc = f_max / n_elements;
+        for (int x=0; x<n_elements; x++) {
             f_pos[x] = x*f_inc;
             fft_val[x] = task_fn_fft.value(f_pos[x]);
         }
