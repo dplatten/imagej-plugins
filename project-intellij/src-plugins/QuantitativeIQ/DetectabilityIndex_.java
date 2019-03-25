@@ -26,6 +26,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
     private ImagePlus imp;
 
     private DecimalFormat two_dp = new DecimalFormat("0.00");
+    private DecimalFormat three_dp = new DecimalFormat("0.000");
 
     public int setup(String arg, ImagePlus imp) {
         this.imp = imp;
@@ -165,5 +166,13 @@ public class DetectabilityIndex_ implements PlugInFilter {
         IJ.log("Denominator_a is: " + denominator_a_int);
         IJ.log("Denominator_b is: " + denominator_b_int);
         IJ.log("Eye noise is: " + eye_noise);
+
+        // Log TTF, NPS, Eye, Task, eye noise
+        IJ.log("Freq (mm^-1),TTF,NPS,Eye,Task,Eye Noise");
+        double f = 0.0;
+        while (f <= nyquist) {
+            IJ.log( three_dp.format(f) + "," + ttf_function.value(f) + "," + nps_function.value(f) + "," + eye_function.value(f) + "," + task_fn_fft.value(f) + "," + eye_noise);
+            f += 0.01;
+        }
     }
 }

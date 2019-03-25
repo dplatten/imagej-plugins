@@ -55,6 +55,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
         return cnr_result;
     }
 
+    double getFreqBinInc() { return rebin_f_inc; }
+
     public int setup(String arg, ImagePlus imp) {
         this.imp = imp;
 
