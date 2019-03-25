@@ -12,6 +12,7 @@ import ij.ImagePlus;
 import ij.measure.Calibration;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
+import org.apache.commons.math3.analysis.FunctionUtils;
 import org.apache.commons.math3.analysis.UnivariateFunction;
 import org.apache.commons.math3.analysis.integration.SimpsonIntegrator;
 import org.apache.commons.math3.analysis.integration.UnivariateIntegrator;
@@ -19,10 +20,6 @@ import org.apache.commons.math3.analysis.interpolation.LinearInterpolator;
 import org.apache.commons.math3.analysis.interpolation.UnivariateInterpolator;
 import java.text.DecimalFormat;
 import ij.gui.Plot;
-import ij.plugin.filter.PlugInFilter;
-import ij.process.ImageProcessor;
-import ij.measure.Calibration;
-import org.apache.commons.math3.analysis.UnivariateFunction;
 
 
 public class DetectabilityIndex_ implements PlugInFilter {
@@ -71,6 +68,12 @@ public class DetectabilityIndex_ implements PlugInFilter {
         NPS_result nps_result = nps.getNPSResult();
 
 
+        // Work out the internal noise of the eye
+        // This is considered to be constant with frequency
+        // See equation 6 in Richard and Siewerdsen 2008, http://dx.doi.org/10.1118/1.2988161
+        double eye_noise = 0.02 * Math.pow(50.0/100.0, 2.0) * nps_result.val[0];
+
+
         // Obtain the Nyquist frequency of the image
         Calibration cal = imp.getCalibration();
         double nyquist = 1.0 / (2.0 * cal.pixelWidth);
@@ -83,45 +86,28 @@ public class DetectabilityIndex_ implements PlugInFilter {
         Eye_result eye_result = eye_model.getEyeResult();
 
 
-
-
-        // TEST
-        // Play about with integration - note, need to multiply NPS, TTF etc
-        // together before integrating when working out detectability index.
-        // Integrate the TTF and NPS from 0 to Nyquist
-        UnivariateIntegrator simpson_integrator = new SimpsonIntegrator();
-        UnivariateInterpolator linear_interpolator = new LinearInterpolator();
-
-        UnivariateFunction ttf_function = linear_interpolator.interpolate(ttf_result.freq, ttf_result.val);
-        double ttf_int = simpson_integrator.integrate(2000, ttf_function, 0, nyquist);
-
-        UnivariateFunction nps_function = linear_interpolator.interpolate(nps_result.freq, nps_result.val);
-        double nps_int = simpson_integrator.integrate(2000, nps_function, 0, nyquist);
-        // TEST end
-
-
-        
+        // Obtain the task function
+        double task_radius = 1.5; // mm
+        double task_contrast = cnr_result.contrast; // HU
+        double task_x_inc = 0.01; // mm
 
         TaskFunction_ task_function = new TaskFunction_();
-        double task_radius = 1.5; // mm
-        double task_contrast = 30.0; // HU
-
-        double task_inc = 0.01; // mm
-
         task_function.setTaskRadius(task_radius);
         task_function.setTaskContrast(task_contrast);
-
         task_function.disc_function();
+
         UnivariateFunction task_fn = task_function.getTaskFunction();
+
+        // Plot the task function
         double x_min = -2.0 * task_radius;
         double x_max = 2.0 * task_radius;
-        int n_elements = (int) ((x_max - x_min) / task_inc) + 1;
+        int n_elements = (int) ((x_max - x_min) / task_x_inc) + 1;
 
         double[] x_pos = new double[n_elements];
         double[] y_val = new double[n_elements];
 
         for (int i=0; i<n_elements; i++) {
-            x_pos[i] = x_min + i*task_inc;
+            x_pos[i] = x_min + i*task_x_inc;
             y_val[i] = task_fn.value(x_pos[i]);
         }
         Plot plot_task = new Plot("Task function", "Distance (mm)", "Pixel value");
@@ -131,8 +117,11 @@ public class DetectabilityIndex_ implements PlugInFilter {
         plot_task.show();
 
 
+        // Obtain the FFT of the task function, W
         task_function.disc_function_fft();
         UnivariateFunction task_fn_fft =  task_function.getTaskFunctionTTF();
+
+        // Plot the FFT of the task function
         double f_inc = task_function.getFreqRes();
         int n_felements = (int) Math.ceil(nyquist / f_inc) + 1;
 
@@ -147,5 +136,34 @@ public class DetectabilityIndex_ implements PlugInFilter {
         String task_fft_labels = "FFT of task function up to Nyquist\t";
         plot_task_fft.addLegend(task_fft_labels);
         plot_task_fft.show();
+
+
+        // Calculate the detectability index using a modified version of equation 8 in Richard and Siewerdsen 2008, http://dx.doi.org/10.1118/1.2988161
+        // We are using radial functions here, so it's only a single integral over the radial frequency, rather than
+        // a double integral over u and v.
+        UnivariateInterpolator linear_interpolator = new LinearInterpolator();
+        UnivariateFunction ttf_function = linear_interpolator.interpolate(ttf_result.freq, ttf_result.val);
+        UnivariateFunction eye_function = linear_interpolator.interpolate(eye_result.freq, eye_result.val);
+        UnivariateFunction nps_function = linear_interpolator.interpolate(nps_result.freq, nps_result.val);
+
+        // Using equation 8 in Richard and Siewerdsen 2008, http://dx.doi.org/10.1118/1.2988161
+        UnivariateFunction numerator = FunctionUtils.multiply(task_fn_fft, task_fn_fft, ttf_function, ttf_function, eye_function, eye_function);
+        UnivariateFunction denominator_a = FunctionUtils.multiply(nps_function, ttf_function, ttf_function, task_fn_fft, task_fn_fft, eye_function, eye_function, eye_function, eye_function);
+        UnivariateFunction denominator_b = FunctionUtils.multiply(ttf_function, ttf_function, task_fn_fft, task_fn_fft); // Must multiply denominator_b integral by eye_noise later on...
+
+
+        // Now integrate the numerator and denominator
+        UnivariateIntegrator simpson_integrator = new SimpsonIntegrator();
+        double numerator_int = simpson_integrator.integrate(20000, numerator, 0, nyquist);
+        double denominator_a_int = simpson_integrator.integrate(20000, denominator_a, 0, nyquist);
+        double denominator_b_int = simpson_integrator.integrate(20000, denominator_b, 0, nyquist) * eye_noise;
+
+        double detectability = Math.sqrt( Math.pow(numerator_int, 2.0) / (denominator_a_int + denominator_b_int) );
+
+        IJ.log("Detectability is: " + detectability);
+        IJ.log("Numerator is: " + numerator_int);
+        IJ.log("Denominator_a is: " + denominator_a_int);
+        IJ.log("Denominator_b is: " + denominator_b_int);
+        IJ.log("Eye noise is: " + eye_noise);
     }
 }

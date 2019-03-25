@@ -72,7 +72,7 @@ public class TaskFunction_ {
             y_val[i] = task_function.value(x_pos[i]);
         }
 
-        FastFourierTransformer fourier_transformer = new FastFourierTransformer(DftNormalization.STANDARD);
+        FastFourierTransformer fourier_transformer = new FastFourierTransformer(DftNormalization.UNITARY);
         Complex[] fft = fourier_transformer.transform(y_val, TransformType.FORWARD);
 
         double[] freq_scale = new double[n_elements];
