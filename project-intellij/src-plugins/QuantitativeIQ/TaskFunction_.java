@@ -72,14 +72,14 @@ public class TaskFunction_ {
             y_val[i] = task_function.value(x_pos[i]);
         }
 
-        FastFourierTransformer fourier_transformer = new FastFourierTransformer(DftNormalization.UNITARY);
+        FastFourierTransformer fourier_transformer = new FastFourierTransformer(DftNormalization.STANDARD);
         Complex[] fft = fourier_transformer.transform(y_val, TransformType.FORWARD);
 
         double[] freq_scale = new double[n_elements];
         double[] abs_fft = new double[n_elements];
         for (int i=0; i<n_elements; i++) {
             freq_scale[i] = i * f_res;
-            abs_fft[i] = fft[i].abs();
+            abs_fft[i] = fft[i].abs() * pos_range / n_elements; // Scaling the result to length / N. See https://dsp.stackexchange.com/questions/31984/matlab-tt-fft-and-tt-ifft-scaling
         }
 
         UnivariateInterpolator linear_interpoloator = new LinearInterpolator();

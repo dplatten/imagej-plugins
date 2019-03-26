@@ -40,39 +40,36 @@ public class DetectabilityIndex_ implements PlugInFilter {
     }
 
     public void run(ImageProcessor ip) {
-        // Detectability index needs
+        // Calculate the detectability index according to equation 2 in http://dx.doi.org/10.1118/1.4923172,
+        // adapted for radial frequency rather than u, v.
+        //
+        // Detectability index needs:
+        //  Task function (W)
         //  Task Transfer Function (TTF)
         //  Noise Power Spectrum (NPS)
         //  Eye model (E)
-        //  Task function (TF)
 
         // First run the TTF analysis using default settings
-        TaskTransferFunction_ ttf = new TaskTransferFunction_();
-        int result = ttf.setup("defaults", imp);
+        TaskTransferFunction_ TTF = new TaskTransferFunction_();
+        int result = TTF.setup("defaults", imp);
         if (result == 0) {
             IJ.error("There was a problem setting up the TTF routine");
             return;
         }
-        ttf.run(ip);
-        TTF_result ttf_result = ttf.getTTFResult();
-        CNR_result cnr_result = ttf.getCNRResult(); // We're going to use the cnr_result.contrast when creating the task function
+        TTF.run(ip);
+        TTF_result ttf_result = TTF.getTTFResult();
+        CNR_result cnr_result = TTF.getCNRResult(); // We're going to use the cnr_result.contrast when creating the task function
 
 
         // Then run the NPS on the same image using default settings
-        NoisePowerSpectrum_ nps = new NoisePowerSpectrum_();
-        result = nps.setup("defaults", imp);
+        NoisePowerSpectrum_ NPS = new NoisePowerSpectrum_();
+        result = NPS.setup("defaults", imp);
         if (result == 0) {
             IJ.error("There was a problem setting up the NPS routine");
             return;
         }
-        nps.run(ip);
-        NPS_result nps_result = nps.getNPSResult();
-
-
-        // Work out the internal noise of the eye
-        // This is considered to be constant with frequency
-        // See equation 6 in Richard and Siewerdsen 2008, http://dx.doi.org/10.1118/1.2988161
-        double eye_noise = 0.02 * Math.pow(50.0/100.0, 2.0) * nps_result.val[0];
+        NPS.run(ip);
+        NPS_result nps_result = NPS.getNPSResult();
 
 
         // Obtain the Nyquist frequency of the image
@@ -84,7 +81,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
         EyeModel_ eye_model = new EyeModel_();
         eye_model.setup(two_dp.format(nyquist));
         eye_model.run();
-        Eye_result eye_result = eye_model.getEyeResult();
+        Eye_result E = eye_model.getEyeResult();
 
 
         // Obtain the task function
@@ -118,9 +115,9 @@ public class DetectabilityIndex_ implements PlugInFilter {
         plot_task.show();
 
 
-        // Obtain the FFT of the task function, W
+        // Obtain the FFT of the task function, W_fn
         task_function.disc_function_fft();
-        UnivariateFunction task_fn_fft =  task_function.getTaskFunctionTTF();
+        UnivariateFunction W_fn =  task_function.getTaskFunctionTTF();
 
         // Plot the FFT of the task function
         double f_inc = task_function.getFreqRes();
@@ -130,7 +127,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
         double[] fft_val = new double[n_felements];
         for (int i=0; i<n_felements; i++) {
             f_pos[i] = i*f_inc;
-            fft_val[i] = task_fn_fft.value(f_pos[i]);
+            fft_val[i] = W_fn.value(f_pos[i]);
         }
         Plot plot_task_fft = new Plot("Task function fft", "Frequency (mm^-1)", "Value");
         plot_task_fft.add("line", f_pos, fft_val);
@@ -139,39 +136,34 @@ public class DetectabilityIndex_ implements PlugInFilter {
         plot_task_fft.show();
 
 
-        // Calculate the detectability index using a modified version of equation 8 in Richard and Siewerdsen 2008, http://dx.doi.org/10.1118/1.2988161
+        // Calculate the detectability index using a modified version of equation 2 in http://dx.doi.org/10.1118/1.4923172
         // We are using radial functions here, so it's only a single integral over the radial frequency, rather than
         // a double integral over u and v.
         UnivariateInterpolator linear_interpolator = new LinearInterpolator();
-        UnivariateFunction ttf_function = linear_interpolator.interpolate(ttf_result.freq, ttf_result.val);
-        UnivariateFunction eye_function = linear_interpolator.interpolate(eye_result.freq, eye_result.val);
-        UnivariateFunction nps_function = linear_interpolator.interpolate(nps_result.freq, nps_result.val);
+        UnivariateFunction TTF_fn = linear_interpolator.interpolate(ttf_result.freq, ttf_result.val);
+        UnivariateFunction E_fn = linear_interpolator.interpolate(E.freq, E.val);
+        UnivariateFunction NPS_fn = linear_interpolator.interpolate(nps_result.freq, nps_result.val);
 
-        // Using equation 8 in Richard and Siewerdsen 2008, http://dx.doi.org/10.1118/1.2988161
-        UnivariateFunction numerator = FunctionUtils.multiply(task_fn_fft, task_fn_fft, ttf_function, ttf_function, eye_function, eye_function);
-        UnivariateFunction denominator_a = FunctionUtils.multiply(nps_function, ttf_function, ttf_function, task_fn_fft, task_fn_fft, eye_function, eye_function, eye_function, eye_function);
-        UnivariateFunction denominator_b = FunctionUtils.multiply(ttf_function, ttf_function, task_fn_fft, task_fn_fft); // Must multiply denominator_b integral by eye_noise later on...
-
+        // Using equation 2 in http://dx.doi.org/10.1118/1.4923172
+        UnivariateFunction numerator = FunctionUtils.multiply(W_fn, W_fn, TTF_fn, TTF_fn, E_fn, E_fn);
+        UnivariateFunction denominator = FunctionUtils.multiply(W_fn, W_fn, TTF_fn, TTF_fn, NPS_fn, E_fn, E_fn, E_fn, E_fn);
 
         // Now integrate the numerator and denominator
         UnivariateIntegrator simpson_integrator = new SimpsonIntegrator();
         double numerator_int = simpson_integrator.integrate(20000, numerator, 0, nyquist);
-        double denominator_a_int = simpson_integrator.integrate(20000, denominator_a, 0, nyquist);
-        double denominator_b_int = simpson_integrator.integrate(20000, denominator_b, 0, nyquist) * eye_noise;
+        double denominator_int = simpson_integrator.integrate(20000, denominator, 0, nyquist);
 
-        double detectability = Math.sqrt( Math.pow(numerator_int, 2.0) / (denominator_a_int + denominator_b_int) );
+        double detectability = Math.sqrt( Math.pow(numerator_int, 2.0) / denominator_int );
 
         IJ.log("Detectability is: " + detectability);
         IJ.log("Numerator is: " + numerator_int);
-        IJ.log("Denominator_a is: " + denominator_a_int);
-        IJ.log("Denominator_b is: " + denominator_b_int);
-        IJ.log("Eye noise is: " + eye_noise);
+        IJ.log("Denominator is: " + denominator_int);
 
         // Log TTF, NPS, Eye, Task, eye noise
-        IJ.log("Freq (mm^-1),TTF,NPS,Eye,Task,Eye Noise");
+        IJ.log("Freq (mm^-1),TTF,NPS,Eye,Task");
         double f = 0.0;
         while (f <= nyquist) {
-            IJ.log( three_dp.format(f) + "," + ttf_function.value(f) + "," + nps_function.value(f) + "," + eye_function.value(f) + "," + task_fn_fft.value(f) + "," + eye_noise);
+            IJ.log( three_dp.format(f) + "," + TTF_fn.value(f) + "," + NPS_fn.value(f) + "," + E_fn.value(f) + "," + W_fn.value(f));
             f += 0.01;
         }
     }
