@@ -25,12 +25,13 @@ package QuantitativeIQ;
 //
 import ij.IJ;
 import ij.gui.*;
+import ij.plugin.PlugIn;
 import org.apache.commons.math3.stat.StatUtils;
 import org.apache.commons.math3.util.MathArrays;
 
 import java.text.DecimalFormat;
 
-public class EyeModel_ {
+public class EyeModel_ implements PlugIn {
 
     // Richard and Siewerdsen 2008, assuming a 50 cm viewing distance
     private double n = 1.3;
@@ -99,19 +100,23 @@ public class EyeModel_ {
     }
 
 
-    public int run() {
-        if (model_choice == SOLOMON_ET_AL) {
-            SolomonEtAl();
-        }
-        else if (model_choice == RICHARD_AND_SIEWERDSEN) {
-            RichardAndSiewerdsen();
+    public void run(String arg) {
+        if ((arg != null) && (arg.length() > 0)) {
+            if (model_choice == SOLOMON_ET_AL) {
+                SolomonEtAl();
+            } else if (model_choice == RICHARD_AND_SIEWERDSEN) {
+                RichardAndSiewerdsen();
+            } else {
+                IJ.error("Unrecognised value passed to run");
+                return;
+            }
         }
         else {
-            IJ.error("Unrecognised value passed to run");
-            return(1);
+            setup("2.0", 999);
+            run(String.valueOf(model_choice));
         }
 
-        return(0);
+        return;
     }
 
 

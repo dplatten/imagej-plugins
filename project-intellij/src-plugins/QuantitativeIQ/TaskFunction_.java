@@ -6,6 +6,10 @@ package QuantitativeIQ;// ImageJ plugin to calculate the task transfer function 
 //
 //package ij.plugin;
 
+import ij.IJ;
+import ij.gui.GenericDialog;
+import ij.gui.Plot;
+import ij.plugin.PlugIn;
 import org.apache.commons.math3.analysis.UnivariateFunction;
 import org.apache.commons.math3.analysis.interpolation.LinearInterpolator;
 import org.apache.commons.math3.analysis.interpolation.UnivariateInterpolator;
@@ -14,7 +18,7 @@ import org.apache.commons.math3.transform.DftNormalization;
 import org.apache.commons.math3.transform.FastFourierTransformer;
 import org.apache.commons.math3.transform.TransformType;
 
-public class TaskFunction_ {
+public class TaskFunction_ implements PlugIn {
     private String task_type = "cylinder";
 
     private double task_radius = 1.5; // Radius of task (mm)
@@ -42,6 +46,67 @@ public class TaskFunction_ {
 
     void setFreqRes(double new_f_res) { f_res = new_f_res; }
     double getFreqRes() { return f_res; }
+
+
+    public void run(String arg) {
+        // Produce a task function for the user, but don't do anything with it
+        double pixel_size = 0.5;
+
+        GenericDialog gd = new GenericDialog("Task function options");
+        gd.addNumericField("Task radius (mm)", task_radius, 2);
+        gd.addNumericField("Task contrast (HU)", task_contrast, 1);
+        gd.addNumericField("Image pixel size (mm)", pixel_size, 3);
+
+        gd.showDialog();
+        if(gd.wasCanceled()) {
+            IJ.error("Cancelled");
+            return;
+        }
+
+        task_radius = gd.getNextNumber();
+        task_contrast = gd.getNextNumber();
+        pixel_size = gd.getNextNumber();
+
+        double nyquist = 1.0 / (2.0*pixel_size);
+
+        disc_function();
+        disc_function_fft();
+
+        // Plot the task function
+        double task_x_inc = 0.01;
+        double x_min = -2.0 * task_radius;
+        double x_max = 2.0 * task_radius;
+        int n_elements = (int) ((x_max - x_min) / task_x_inc) + 1;
+
+        double[] x_pos = new double[n_elements];
+        double[] y_val = new double[n_elements];
+
+        for (int i=0; i<n_elements; i++) {
+            x_pos[i] = x_min + i*task_x_inc;
+            y_val[i] = task_function.value(x_pos[i]);
+        }
+        Plot plot_task = new Plot("Task function", "Distance (mm)", "Pixel value");
+        plot_task.add("line", x_pos, y_val);
+        String task_labels = "Task function\t";
+        plot_task.addLegend(task_labels);
+        plot_task.show();
+
+
+        // Plot the FFT of the task function
+        int n_felements = (int) Math.ceil(nyquist / f_res) + 1;
+
+        double[] f_pos = new double[n_felements];
+        double[] fft_val = new double[n_felements];
+        for (int i=0; i<n_felements; i++) {
+            f_pos[i] = i*f_res;
+            fft_val[i] = task_function_fft.value(f_pos[i]);
+        }
+        Plot plot_task_fft = new Plot("Task function fft", "Frequency (mm^-1)", "Value");
+        plot_task_fft.add("line", f_pos, fft_val);
+        String task_fft_labels = "FFT of task function up to Nyquist\t";
+        plot_task_fft.addLegend(task_fft_labels);
+        plot_task_fft.show();
+    }
 
 
     public void disc_function() {

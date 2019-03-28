@@ -9,7 +9,6 @@ package QuantitativeIQ;// ImageJ plugin to calculate the task transfer function 
 import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.*;
-import ij.measure.CurveFitter;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
 import ij.measure.Calibration;

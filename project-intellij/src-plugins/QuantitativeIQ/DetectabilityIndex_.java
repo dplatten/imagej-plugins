@@ -80,7 +80,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
         // Obtain the eye model data
         EyeModel_ eye_model = new EyeModel_();
         eye_model.setup(two_dp.format(nyquist), 999);
-        eye_model.run();
+        eye_model.run("normal");
         Eye_result E = eye_model.getEyeResult();
 
 
