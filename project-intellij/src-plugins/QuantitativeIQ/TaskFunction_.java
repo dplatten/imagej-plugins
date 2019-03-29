@@ -4,9 +4,6 @@ package QuantitativeIQ;// ImageJ plugin to calculate the task transfer function 
 // The routine will run on a user-selected oval region of interest (ROI). If no
 // ROI is selected then the routine exits.
 //
-//package ij.plugin;
-
-import ij.IJ;
 import ij.gui.GenericDialog;
 import ij.gui.Plot;
 import ij.plugin.PlugIn;

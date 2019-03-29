@@ -1,7 +1,7 @@
 package QuantitativeIQ;
 // ImageJ plugin to calculate the detectability index of a circular object
 // present in an image.
-
+//
 import QuantitativeIQ.TaskTransferFunction_.TTF_result;
 import QuantitativeIQ.TaskTransferFunction_.CNR_result;
 import QuantitativeIQ.NoisePowerSpectrum_.NPS_result;

@@ -4,8 +4,6 @@ package QuantitativeIQ;
 // The routine will run on a user-selected oval region of interest (ROI). If no
 // ROI is selected then the routine uses the whole image.
 //
-//package ij.plugin;
-
 import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.*;
