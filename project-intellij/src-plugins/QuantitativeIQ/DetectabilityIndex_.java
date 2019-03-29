@@ -21,13 +21,21 @@ import org.apache.commons.math3.analysis.interpolation.UnivariateInterpolator;
 import java.text.DecimalFormat;
 import ij.gui.Plot;
 
-
+/**
+ *
+ */
 public class DetectabilityIndex_ implements PlugInFilter {
     private ImagePlus imp;
 
     private DecimalFormat two_dp = new DecimalFormat("0.00");
     private DecimalFormat three_dp = new DecimalFormat("0.000");
 
+    /**
+     *
+     * @param arg
+     * @param imp
+     * @return
+     */
     public int setup(String arg, ImagePlus imp) {
         this.imp = imp;
 
@@ -39,6 +47,10 @@ public class DetectabilityIndex_ implements PlugInFilter {
         return DOES_ALL;
     }
 
+    /**
+     *
+     * @param ip
+     */
     public void run(ImageProcessor ip) {
         // Calculate the detectability index according to equation 2 in http://dx.doi.org/10.1118/1.4923172,
         // adapted for radial frequency rather than u, v.

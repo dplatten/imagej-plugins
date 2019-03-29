@@ -31,6 +31,9 @@ import org.apache.commons.math3.util.MathArrays;
 
 import java.text.DecimalFormat;
 
+/**
+ *
+ */
 public class EyeModel_ implements PlugIn {
 
     // Richard and Siewerdsen 2008, assuming a 50 cm viewing distance
@@ -57,28 +60,48 @@ public class EyeModel_ implements PlugIn {
     static int RICHARD_AND_SIEWERDSEN = 1;
     private int model_choice = SOLOMON_ET_AL;
 
+    /**
+     *
+     * @return
+     */
     // Defined to enable other plugins to access the results
     Eye_result getEyeResult() {
         return eye_result;
     }
 
+    /**
+     *
+     * @param new_recon_fov
+     */
     void setReconFOV(double new_recon_fov) {
         recon_fov = new_recon_fov;
         f_to_rho = calc_f_to_rho_factor();
     };
 
+    /**
+     *
+     * @param new_display_pixel_pitch
+     */
     void setDisplayPixelPitch(double new_display_pixel_pitch) {
         display_pixel_pitch = new_display_pixel_pitch;
         display_size = calc_displayed_image_size();
         f_to_rho = calc_f_to_rho_factor();
     };
 
+    /**
+     *
+     * @param new_image_pixel_width
+     */
     void setImagePixelWidth(double new_image_pixel_width) {
         image_pixel_width = new_image_pixel_width;
         display_size = calc_displayed_image_size();
         f_to_rho = calc_f_to_rho_factor();
     };
 
+    /**
+     *
+     * @param new_display_zoom_factor
+     */
     void setDisplayZoomFactor(double new_display_zoom_factor) {
         display_zoom_factor = new_display_zoom_factor;
         display_size = calc_displayed_image_size();
@@ -86,6 +109,12 @@ public class EyeModel_ implements PlugIn {
     };
 
 
+    /**
+     *
+     * @param arg
+     * @param model_type
+     * @return
+     */
     public int setup(String arg, int model_type) {
         if (model_type == SOLOMON_ET_AL) {
             IJ.log("Using Solomon et al model");
@@ -132,6 +161,10 @@ public class EyeModel_ implements PlugIn {
     }
 
 
+    /**
+     *
+     * @param arg
+     */
     public void run(String arg) {
         if ((arg != null) && (arg.length() > 0)) {
             if (model_choice == SOLOMON_ET_AL) {
@@ -152,6 +185,11 @@ public class EyeModel_ implements PlugIn {
     }
 
 
+    /**
+     *
+     * @param arg
+     * @return
+     */
     private int RichardAndSiewerdsenSetup(String arg) {
 /*
         if ((arg != null) && (arg.length() > 0)) {
@@ -188,6 +226,9 @@ public class EyeModel_ implements PlugIn {
     }
 
 
+    /**
+     *
+     */
     private void RichardAndSiewerdsen() {
 
         int num_elements = (int) Math.ceil(cutoff_f / f_inc) + 1;
@@ -214,6 +255,11 @@ public class EyeModel_ implements PlugIn {
     }
 
 
+    /**
+     *
+     * @param arg
+     * @return
+     */
     public int SolomonEtAlSetup(String arg) {
         // Entirely ignoring arg at the moment and showing the dialogue
         GenericDialog gd = new GenericDialog("Solomon et al eye model options");
@@ -247,6 +293,9 @@ public class EyeModel_ implements PlugIn {
     }
 
 
+    /**
+     *
+     */
     public void SolomonEtAl() {
         double a1 = 1.5;
         double a2 = 0.98;
@@ -287,6 +336,11 @@ public class EyeModel_ implements PlugIn {
     }
 
 
+    /**
+     *
+     * @param E
+     * @param label
+     */
     private void logResults(Eye_result E, String label) {
         IJ.log("Freq (mm^-1)," + label);
 
@@ -296,16 +350,27 @@ public class EyeModel_ implements PlugIn {
     }
 
 
+    /**
+     *
+     * @return
+     */
     private double calc_f_to_rho_factor() {
         return (recon_fov * viewing_dist * Math.PI) / (display_size * 180.0);
     }
 
 
+    /**
+     *
+     * @return
+     */
     private double calc_displayed_image_size() {
         return display_pixel_pitch * image_pixel_width * display_zoom_factor;
     }
 
 
+    /**
+     *
+     */
     static class Eye_result {
         double[] freq;
         double[] val;

@@ -26,6 +26,9 @@ import java.awt.*;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 
+/**
+ *
+ */
 public class TaskTransferFunction_ implements PlugInFilter {
     private ImagePlus imp;
     private double obj_dia_mm = 25.0;
@@ -52,8 +55,18 @@ public class TaskTransferFunction_ implements PlugInFilter {
         return cnr_result;
     }
 
+    /**
+     *
+     * @return
+     */
     double getFreqBinInc() { return rebin_f_inc; }
 
+    /**
+     *
+     * @param arg
+     * @param imp
+     * @return
+     */
     public int setup(String arg, ImagePlus imp) {
         this.imp = imp;
 
@@ -107,6 +120,10 @@ public class TaskTransferFunction_ implements PlugInFilter {
         return DOES_ALL;
     }
 
+    /**
+     *
+     * @param ip
+     */
     public void run(ImageProcessor ip) {
         //---------------------------------------------------------------------
         // Obtain the pixel size of the image. This will return 1.0 if ImageJ
@@ -563,12 +580,28 @@ public class TaskTransferFunction_ implements PlugInFilter {
     }
 
 
+    /**
+     *
+     * @param x1
+     * @param y1
+     * @param x2
+     * @param y2
+     * @return
+     */
     private double calculateDistanceBetweenPoints(double x1, double y1, double x2,double y2) {
         // Calculate the distance between two points in cartesian space.
         return Math.sqrt( (y2 - y1) * (y2 - y1) + (x2 - x1) * (x2 - x1));
     }
 
 
+    /**
+     *
+     * @param ip
+     * @param roi
+     * @param cal
+     * @param pv_offset
+     * @return
+     */
     private double[] centreOfMass(ImageProcessor ip, Roi roi, Calibration cal, double pv_offset) {
         // Calculate the centre of mass of pixels in a Roi positioned on an
         // ImageProcessor with a specific calibration. The user can apply a
@@ -589,6 +622,13 @@ public class TaskTransferFunction_ implements PlugInFilter {
     }
 
 
+    /**
+     *
+     * @param imp
+     * @param obj_roi
+     * @param bgd_roi
+     * @return
+     */
     private CNR_result contrastToNoiseRatio(ImagePlus imp, Roi obj_roi, Roi bgd_roi) {
         // Calculate the contrast to noise ratio between the two regions of interest.
         // CNR calculated as (obj_mean - bgd_mean) / bgd_stdDev as show in equation
@@ -608,6 +648,13 @@ public class TaskTransferFunction_ implements PlugInFilter {
     }
 
 
+    /**
+     *
+     * @param lsf
+     * @param lsf_inc_mm
+     * @param px_size_mm
+     * @return
+     */
     private TTF_result TTF(double[] lsf, double lsf_inc_mm, double px_size_mm) {
         // This uses the Fourier transform routine within the Apache Commons
         // Math 3.6 API. See:
@@ -665,6 +712,12 @@ public class TaskTransferFunction_ implements PlugInFilter {
     }
 
 
+    /**
+     *
+     * @param locations
+     * @param diff_func
+     * @return
+     */
     private double[] differentiate(double[] locations, UnivariateDifferentiableFunction diff_func) {
         double[] deriv_val = new double[locations.length];
         for (int i=0; i<locations.length; i++) {
@@ -684,6 +737,12 @@ public class TaskTransferFunction_ implements PlugInFilter {
     }
 
 
+    /**
+     *
+     * @param ttf
+     * @param freq_inc
+     * @return
+     */
     private TTF_result resampleTTF(TTF_result ttf, double freq_inc) {
         UnivariateInterpolator linear_interpolator = new LinearInterpolator();
         UnivariateFunction fn_ttf_lin = linear_interpolator.interpolate(ttf.freq, ttf.val);
@@ -719,6 +778,11 @@ public class TaskTransferFunction_ implements PlugInFilter {
     }
 
 
+    /**
+     *
+     * @param ttf
+     * @param ttf_label
+     */
     private void logTTF(TTF_result ttf, String ttf_label) {
         IJ.log("Freq (mm^-1)," + ttf_label);
 
@@ -728,6 +792,12 @@ public class TaskTransferFunction_ implements PlugInFilter {
     }
 
 
+    /**
+     *
+     * @param ttf
+     * @param req_ttf_val
+     * @return
+     */
     private double freqAtSpecificTTF(TTF_result ttf, double req_ttf_val) {
         UnivariateInterpolator linear_interpolator = new LinearInterpolator();
         UnivariateFunction fn_ttf_lin = linear_interpolator.interpolate(ttf.freq, ttf.val);
@@ -766,6 +836,14 @@ public class TaskTransferFunction_ implements PlugInFilter {
     }
 
 
+    /**
+     *
+     * @param pos
+     * @param val
+     * @param pos_inc
+     * @param pos_bin
+     * @return
+     */
     private ESF_result rebinESF(double[] pos, double[] val, double pos_inc, double pos_bin) {
 
         double max_pos = StatUtils.max(pos);
@@ -800,6 +878,14 @@ public class TaskTransferFunction_ implements PlugInFilter {
     }
 
 
+    /**
+     *
+     * @param freq
+     * @param val
+     * @param f_inc
+     * @param f_bin
+     * @return
+     */
     private TTF_result rebinTTF(double[] freq, double[] val, double f_inc, double f_bin) {
 
         double max_freq = StatUtils.max(freq);
@@ -833,6 +919,11 @@ public class TaskTransferFunction_ implements PlugInFilter {
     }
 
 
+    /**
+     *
+     * @param N
+     * @return
+     */
     private double[] hannWindow(int N) {
         // See https://en.wikipedia.org/wiki/Hann_function
         double[] hann_window = new double[N];
@@ -845,18 +936,27 @@ public class TaskTransferFunction_ implements PlugInFilter {
     }
 
 
+    /**
+     *
+     */
     static class TTF_result {
         double[] freq;
         double[] val;
     }
 
 
+    /**
+     *
+     */
     static class ESF_result {
         double[] pos;
         double[] val;
     }
 
 
+    /**
+     *
+     */
     static class CNR_result {
         double cnr;
         double contrast;

@@ -16,6 +16,9 @@ import org.apache.commons.math3.transform.FastFourierTransformer;
 import org.apache.commons.math3.transform.TransformType;
 import org.apache.commons.math3.util.MathArrays;
 
+/**
+ *
+ */
 public class TaskFunction_ implements PlugIn {
     private String task_type = "cylinder";
 
@@ -27,31 +30,74 @@ public class TaskFunction_ implements PlugIn {
     private UnivariateFunction task_function_fft;
     private UnivariateFunction task_function_sinc;
 
+    /**
+     *
+     * @return
+     */
     // Defined to enable other plugins to access the task function
     UnivariateFunction getTaskFunction() {
         return task_function;
     }
 
+    /**
+     *
+     * @return
+     */
     // Defined to enable other plugins to access the task function TTF
     UnivariateFunction getTaskFunctionTTF() {
         return task_function_fft;
     }
 
+    /**
+     *
+     * @return
+     */
     // Defined to enable other plugins to access the task function TTF
     UnivariateFunction getTaskFunctionSinc() {
         return task_function_sinc;
     }
 
+    /**
+     *
+     * @param new_radius
+     */
     void setTaskRadius(double new_radius) { task_radius = new_radius; }
+
+    /**
+     *
+     * @return
+     */
     double getTaskRadius() { return task_radius; }
 
+    /**
+     *
+     * @param new_contrast
+     */
     void setTaskContrast(double new_contrast) { task_contrast = new_contrast; }
+
+    /**
+     *
+     * @return
+     */
     double getTaskContrast() { return task_contrast; }
 
+    /**
+     *
+     * @param new_f_res
+     */
     void setFreqRes(double new_f_res) { f_res = new_f_res; }
+
+    /**
+     *
+     * @return
+     */
     double getFreqRes() { return f_res; }
 
 
+    /**
+     *
+     * @param arg
+     */
     public void run(String arg) {
         // Produce a task function for the user, but don't do anything with it
         double pixel_size = 0.5;
@@ -118,6 +164,9 @@ public class TaskFunction_ implements PlugIn {
     }
 
 
+    /**
+     *
+     */
     public void disc_function() {
         task_function = new UnivariateFunction() {
             @Override
@@ -130,6 +179,9 @@ public class TaskFunction_ implements PlugIn {
     }
 
 
+    /**
+     *
+     */
     public void disc_function_fft() {
         double pos_range = 1.0 / f_res;
         double min_x = -1.0 * pos_range/2.0;
@@ -161,6 +213,9 @@ public class TaskFunction_ implements PlugIn {
     }
 
 
+    /**
+     *
+     */
     public void disc_function_sinc() {
         // The Fourier transform of a rectangular function is a sinc function with
         // the height scaled by the height of the rectangular function multiplied

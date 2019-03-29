@@ -21,6 +21,9 @@ import org.apache.commons.math3.util.MathArrays;
 import java.awt.*;
 import java.text.DecimalFormat;
 
+/**
+ *
+ */
 public class NoisePowerSpectrum_ implements PlugInFilter {
     private ImagePlus imp;
     private Roi main_roi;
@@ -36,11 +39,21 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
     private DecimalFormat two_dp = new DecimalFormat("0.00");
     private DecimalFormat three_dp = new DecimalFormat("0.000");
 
+    /**
+     *
+     * @return
+     */
     // Defined to enable other plugins to access the TTF results
     NPS_result getNPSResult() {
         return nps_result;
     }
 
+    /**
+     *
+     * @param arg
+     * @param imp
+     * @return
+     */
     public int setup(String arg, ImagePlus imp) {
         this.imp = imp;
 
@@ -91,6 +104,10 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
         return DOES_ALL;
     }
 
+    /**
+     *
+     * @param ip
+     */
     public void run(ImageProcessor ip) {
         //---------------------------------------------------------------------
         // Obtain the pixel size of the image. This will return 1.0 if ImageJ
@@ -238,6 +255,12 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
     }
 
 
+    /**
+     *
+     * @param values
+     * @param mult_val
+     * @return
+     */
     private static double[][] multiply2dDoubleArray(final double[][] values, final double mult_val) {
         int width = values[0].length;
         int height = values.length;
@@ -253,6 +276,11 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
     }
 
 
+    /**
+     *
+     * @param values
+     * @return
+     */
     private static float[][] convertDoubleToFloat(final double[][] values) {
         int width = values[0].length;
         int height = values.length;
@@ -268,6 +296,11 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
     }
 
 
+    /**
+     *
+     * @param values
+     * @return
+     */
     private static Complex[][] convertDoubleToComplex(final double[][] values) {
         int width = values[0].length;
         int height = values.length;
@@ -281,6 +314,12 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
     }
 
 
+    /**
+     *
+     * @param ip
+     * @param roi
+     * @return
+     */
     private static double[][] getCalibratedPixelValues(ImageProcessor ip, Roi roi) {
         int width = (int) roi.getFloatWidth();
         int height = (int) roi.getFloatHeight();
@@ -301,6 +340,11 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
     }
 
 
+    /**
+     *
+     * @param values
+     * @return
+     */
     private static double[][] absSqrdOfComplex2dArray(final Complex[][] values) {
         int width = values[0].length;
         int height = values.length;
@@ -316,6 +360,12 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
     }
 
 
+    /**
+     *
+     * @param arr1
+     * @param arr2
+     * @return
+     */
     private static double[][] add2dArrays(final double[][] arr1, final double[][] arr2) {
         int width = arr1[0].length;
         int height = arr1.length;
@@ -331,12 +381,28 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
     }
 
 
+    /**
+     *
+     * @param x1
+     * @param y1
+     * @param x2
+     * @param y2
+     * @return
+     */
     private double calculateDistanceBetweenPoints(double x1, double y1, double x2,double y2) {
         // Calculate the distance between two points in cartesian space.
         return Math.sqrt( (y2 - y1) * (y2 - y1) + (x2 - x1) * (x2 - x1));
     }
 
 
+    /**
+     *
+     * @param freq
+     * @param val
+     * @param f_inc
+     * @param f_bin
+     * @return
+     */
     private NPS_result rebinNPS(double[] freq, double[] val, double f_inc, double f_bin) {
 
         double max_f = StatUtils.max(freq);
@@ -370,6 +436,11 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
     }
 
 
+    /**
+     *
+     * @param nps
+     * @param nps_label
+     */
     private void logNPS(NPS_result nps, String nps_label) {
         IJ.log("Freq (mm^-1)," + nps_label);
 
@@ -379,6 +450,9 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
     }
 
 
+    /**
+     *
+     */
     static class NPS_result {
         double[] freq;
         double[] val;
