@@ -40,7 +40,10 @@ public class EyeModel_ implements PlugIn {
     // Solomon et al 2015
     private double recon_fov = 400.0; // Reconstructed field of view of image (mm)
     private double viewing_dist = 500.0; // The viewing distance (mm)
-    private double display_size = 350.0; // The display size (mm)
+    private double display_pixel_pitch = 0.2; // The size of a pixel on the display (mm)
+    private double image_pixel_width = 512; // The number of pixels in the image width
+    private double display_zoom_factor = 3.0; // The zoom applied to the image on the display
+    private double display_size = calc_displayed_image_size(); // The display size (mm)
     private double f_to_rho = calc_f_to_rho_factor(); // Conversion from radial freq to cycles per degree
 
     private double cutoff_f = 2.0; // Maximum frequency for which to calculate E(f)
@@ -59,6 +62,29 @@ public class EyeModel_ implements PlugIn {
         return eye_result;
     }
 
+    void setReconFOV(double new_recon_fov) {
+        recon_fov = new_recon_fov;
+        f_to_rho = calc_f_to_rho_factor();
+    };
+
+    void setDisplayPixelPitch(double new_display_pixel_pitch) {
+        display_pixel_pitch = new_display_pixel_pitch;
+        display_size = calc_displayed_image_size();
+        f_to_rho = calc_f_to_rho_factor();
+    };
+
+    void setImagePixelWidth(double new_image_pixel_width) {
+        image_pixel_width = new_image_pixel_width;
+        display_size = calc_displayed_image_size();
+        f_to_rho = calc_f_to_rho_factor();
+    };
+
+    void setDisplayZoomFactor(double new_display_zoom_factor) {
+        display_zoom_factor = new_display_zoom_factor;
+        display_size = calc_displayed_image_size();
+        f_to_rho = calc_f_to_rho_factor();
+    };
+
 
     public int setup(String arg, int model_type) {
         if (model_type == SOLOMON_ET_AL) {
@@ -75,8 +101,7 @@ public class EyeModel_ implements PlugIn {
             gd.addChoice("Eye model", choices, choices[0]);
             gd.showDialog();
             if(gd.wasCanceled()) {
-                IJ.error("Cancelled");
-                return(1);
+                return(1); // Return to the calling method with a non-zero result
             }
             model_choice = gd.getNextChoiceIndex();
         }
@@ -93,10 +118,17 @@ public class EyeModel_ implements PlugIn {
             }
         }
 
-        if (model_choice == SOLOMON_ET_AL) SolomonEtAlSetup(arg);
-        else RichardAndSiewerdsenSetup(arg);
-
-        return(0);
+        int result = 0;
+        if (model_choice == SOLOMON_ET_AL) {
+            result = SolomonEtAlSetup(arg);
+        }
+        else {
+            result = RichardAndSiewerdsenSetup(arg);
+        }
+        if (result != 0) {
+            return(1); // Return to the calling method with a non-zero result
+        }
+        else return(0);
     }
 
 
@@ -112,8 +144,8 @@ public class EyeModel_ implements PlugIn {
             }
         }
         else {
-            setup("2.0", 999);
-            run(String.valueOf(model_choice));
+            int result  = setup("2.0", 999);
+            if (result == 0) run(String.valueOf(model_choice));
         }
 
         return;
@@ -121,6 +153,7 @@ public class EyeModel_ implements PlugIn {
 
 
     private int RichardAndSiewerdsenSetup(String arg) {
+/*
         if ((arg != null) && (arg.length() > 0)) {
             if (arg.equals("defaults")) {
                 // Use defaults
@@ -133,7 +166,9 @@ public class EyeModel_ implements PlugIn {
             }
         }
         else {
+*/
             GenericDialog gd = new GenericDialog("Richard and Siewerdsen eye model options");
+            gd.addMessage("This assumes a 500 mm viewing distance");
             gd.addNumericField("Frequency cutoff (mm^-1)", cutoff_f, 1);
             gd.addNumericField("Frequency increment (mm^-1)", f_inc, 2);
             gd.addNumericField("n", n, 3);
@@ -141,15 +176,14 @@ public class EyeModel_ implements PlugIn {
 
             gd.showDialog();
             if(gd.wasCanceled()) {
-                IJ.error("Plugin cancelled");
-                return(1);
+                return(1); // Return to the calling method with a non-zero result
             }
 
             cutoff_f = gd.getNextNumber();
             f_inc = gd.getNextNumber();
             n = gd.getNextNumber();
             c = gd.getNextNumber();
-        }
+        //}
         return(0);
     }
 
@@ -186,22 +220,27 @@ public class EyeModel_ implements PlugIn {
         gd.addNumericField("Frequency cutoff (mm^-1)", cutoff_f, 2);
         gd.addNumericField("Frequency increment (mm^-1)", f_inc, 2);
         gd.addNumericField("Viewing distance (mm)", viewing_dist, 0);
-        gd.addNumericField("Displayed image size (mm)", display_size, 0);
-        gd.addNumericField("Recon field of view (mm)", recon_fov, 0);
+        gd.addNumericField("Image reconstructed field of view (mm)", recon_fov, 0);
+        gd.addMessage("Physical image size on the display monitor:");
+        gd.addNumericField("Display pixel pitch (mm)", display_pixel_pitch, 2);
+        gd.addNumericField("Display zoom factor", display_zoom_factor, 1);
+        gd.addNumericField("Image pixel width", image_pixel_width, 0);
 
         gd.showDialog();
         if(gd.wasCanceled()) {
-            IJ.error("Plugin cancelled");
-            return(1);
+            return(1);  // Return to the calling method with a non-zero result
         }
 
         cutoff_f = gd.getNextNumber();
         f_inc = gd.getNextNumber();
         viewing_dist = gd.getNextNumber();
-        display_size = gd.getNextNumber();
+        display_pixel_pitch = gd.getNextNumber();
+        display_zoom_factor = gd.getNextNumber();
+        image_pixel_width = gd.getNextNumber();
         recon_fov = gd.getNextNumber();
 
         // Recalculate the conversion from radial frequency to angular frequency
+        display_size = calc_displayed_image_size();
         f_to_rho = calc_f_to_rho_factor();
 
         return(0);
@@ -259,6 +298,11 @@ public class EyeModel_ implements PlugIn {
 
     private double calc_f_to_rho_factor() {
         return (recon_fov * viewing_dist * Math.PI) / (display_size * 180.0);
+    }
+
+
+    private double calc_displayed_image_size() {
+        return display_pixel_pitch * image_pixel_width * display_zoom_factor;
     }
 
 

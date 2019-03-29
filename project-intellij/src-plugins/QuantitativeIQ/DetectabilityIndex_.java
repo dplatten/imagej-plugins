@@ -1,7 +1,6 @@
-package QuantitativeIQ;// ImageJ plugin to calculate the detectability index of a circular object
+package QuantitativeIQ;
+// ImageJ plugin to calculate the detectability index of a circular object
 // present in an image.
-//
-//package ij.plugin;
 
 import QuantitativeIQ.TaskTransferFunction_.TTF_result;
 import QuantitativeIQ.TaskTransferFunction_.CNR_result;
@@ -80,6 +79,10 @@ public class DetectabilityIndex_ implements PlugInFilter {
         // Obtain the eye model data
         EyeModel_ eye_model = new EyeModel_();
         eye_model.setup(two_dp.format(nyquist), 999);
+        eye_model.setReconFOV(cal.pixelWidth * imp.getWidth());
+        eye_model.setImagePixelWidth(imp.getWidth());
+        eye_model.setDisplayZoomFactor(3.0);
+        eye_model.setDisplayPixelPitch(0.02);
         eye_model.run("normal");
         Eye_result E = eye_model.getEyeResult();
 
@@ -150,8 +153,8 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
         // Now integrate the numerator and denominator
         UnivariateIntegrator simpson_integrator = new SimpsonIntegrator();
-        double numerator_int = simpson_integrator.integrate(20000, numerator, 0, nyquist);
-        double denominator_int = simpson_integrator.integrate(20000, denominator, 0, nyquist);
+        double numerator_int = simpson_integrator.integrate(100000, numerator, 0, nyquist);
+        double denominator_int = simpson_integrator.integrate(100000, denominator, 0, nyquist);
 
         double detectability = Math.sqrt( Math.pow(numerator_int, 2.0) / denominator_int );
 
