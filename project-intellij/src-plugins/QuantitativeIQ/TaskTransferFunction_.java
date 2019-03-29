@@ -96,7 +96,6 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
             gd.showDialog();
             if(gd.wasCanceled()) {
-                IJ.error("Plugin cancelled");
                 return(0);
             }
 

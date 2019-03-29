@@ -17,6 +17,7 @@ import org.apache.commons.math3.complex.Complex;
 import org.apache.commons.math3.transform.DftNormalization;
 import org.apache.commons.math3.transform.FastFourierTransformer;
 import org.apache.commons.math3.transform.TransformType;
+import org.apache.commons.math3.util.MathArrays;
 
 public class TaskFunction_ implements PlugIn {
     private String task_type = "cylinder";
@@ -27,6 +28,7 @@ public class TaskFunction_ implements PlugIn {
 
     private UnivariateFunction task_function;
     private UnivariateFunction task_function_fft;
+    private UnivariateFunction task_function_sinc;
 
     // Defined to enable other plugins to access the task function
     UnivariateFunction getTaskFunction() {
@@ -36,6 +38,11 @@ public class TaskFunction_ implements PlugIn {
     // Defined to enable other plugins to access the task function TTF
     UnivariateFunction getTaskFunctionTTF() {
         return task_function_fft;
+    }
+
+    // Defined to enable other plugins to access the task function TTF
+    UnivariateFunction getTaskFunctionSinc() {
+        return task_function_sinc;
     }
 
     void setTaskRadius(double new_radius) { task_radius = new_radius; }
@@ -59,7 +66,6 @@ public class TaskFunction_ implements PlugIn {
 
         gd.showDialog();
         if(gd.wasCanceled()) {
-            IJ.error("Cancelled");
             return;
         }
 
@@ -71,6 +77,7 @@ public class TaskFunction_ implements PlugIn {
 
         disc_function();
         disc_function_fft();
+        disc_function_sinc();
 
         // Plot the task function
         double task_x_inc = 0.01;
@@ -92,18 +99,23 @@ public class TaskFunction_ implements PlugIn {
         plot_task.show();
 
 
-        // Plot the FFT of the task function
+        // Plot the FFT and sinc of the task function
         int n_felements = (int) Math.ceil(nyquist / f_res) + 1;
 
         double[] f_pos = new double[n_felements];
         double[] fft_val = new double[n_felements];
+        double[] sinc_val = new double[n_felements];
         for (int i=0; i<n_felements; i++) {
             f_pos[i] = i*f_res;
             fft_val[i] = task_function_fft.value(f_pos[i]);
+            sinc_val[i] = task_function_sinc.value(f_pos[i]);
         }
         Plot plot_task_fft = new Plot("Task function fft", "Frequency (mm^-1)", "Value");
         plot_task_fft.add("line", f_pos, fft_val);
         String task_fft_labels = "FFT of task function up to Nyquist\t";
+        plot_task_fft.setColor("Red");
+        plot_task_fft.add("line", f_pos, sinc_val);
+        task_fft_labels += "Sinc of task function up to Nyquist\t";
         plot_task_fft.addLegend(task_fft_labels);
         plot_task_fft.show();
     }
@@ -148,7 +160,34 @@ public class TaskFunction_ implements PlugIn {
         }
 
         UnivariateInterpolator linear_interpoloator = new LinearInterpolator();
-
         task_function_fft = linear_interpoloator.interpolate(freq_scale, abs_fft);
+    }
+
+
+    public void disc_function_sinc() {
+        // The Fourier transform of a rectangular function is a sinc function with
+        // the height scaled by the height of the rectangular function multiplied
+        // by the width. In this case height = task_contrast, and width = 2*task_radius
+        // https://www.cpp.edu/~zaliyazici/ece307/Fourier%20Transform.pdf
+        // https://www.math.ubc.ca/~feldman/m267/ft.pdf example 3
+        // http://www.thefouriertransform.com/pairs/box.php
+        int n_elements = 4096;
+
+        double[] freq_scale = new double[n_elements];
+        double[] abs_sinc = new double[n_elements];
+
+        abs_sinc[0] = 1.0; // Manually set zero frequency value to avoid divide by zero error in loop
+        for (int i=1; i<n_elements; i++) {
+            freq_scale[i] = i * f_res;
+            double x = freq_scale[i] * Math.PI * 2.0*task_radius;
+            abs_sinc[i] = Math.abs(Math.sin(x) / x);
+        }
+
+        // Scale the height of the sinc function by the height * width of the
+        // rectangular function.
+        MathArrays.scaleInPlace(2.0*task_radius * task_contrast, abs_sinc);
+
+        UnivariateInterpolator linear_interpoloator = new LinearInterpolator();
+        task_function_sinc = linear_interpoloator.interpolate(freq_scale, abs_sinc);
     }
 }
