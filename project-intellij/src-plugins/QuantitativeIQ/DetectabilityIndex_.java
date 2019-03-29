@@ -8,6 +8,7 @@ import QuantitativeIQ.NoisePowerSpectrum_.NPS_result;
 import QuantitativeIQ.EyeModel_.Eye_result;
 import ij.IJ;
 import ij.ImagePlus;
+import ij.gui.GenericDialog;
 import ij.measure.Calibration;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
@@ -91,6 +92,16 @@ public class DetectabilityIndex_ implements PlugInFilter {
         double task_radius = 1.5; // mm
         double task_contrast = cnr_result.contrast; // HU
         double task_x_inc = 0.01; // mm
+
+        // Ask the user what task settings they want to use
+        GenericDialog gd = new GenericDialog("Task function settings");
+        gd.addNumericField("Task radius (mm)", task_radius, 2);
+        gd.addNumericField("Task contrast (HU)", task_contrast, 1);
+        gd.showDialog();
+        if (! gd.wasCanceled()) { // if the dialogue was not cancelled
+            task_radius = gd.getNextNumber();
+            task_contrast = gd.getNextNumber();
+        }
 
         TaskFunction_ task_function = new TaskFunction_();
         task_function.setTaskRadius(task_radius);
