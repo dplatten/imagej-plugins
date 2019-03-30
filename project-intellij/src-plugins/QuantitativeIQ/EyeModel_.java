@@ -1,28 +1,4 @@
 package QuantitativeIQ;
-// ImageJ plugin to calculate eye frequency response using
-// Richard and Siewerdsen 2008:
-// E(f) = f^n.exp(-c.f^2)
-// where n = 1.3
-//       c = 3.093 for a 50 cm viewing distance for E(f) to peak at 4 cycles/degree
-//
-// or Solomon et al 2015:
-// E(p) = |n.p^(a1).exp(-a2.p^a3)|^2
-// where a1 = 1.5
-//       a2 = 0.98
-//       a3 = 0.68
-//       n is a normalisation constant to make max E(p) = 1.0
-//       p (rho, really) is angular spatial frequency expressed in cycles per degree
-//
-// p can be calculated from radial spatial frequency using:
-// p = (f.FOV.R.pi) / (D.180)
-// where f is radial spatial frequency
-//       FOV is the reconstructed field of view of the image
-//       R is the viewing distance
-//       D is the display size (assumed to be 30.5 cm in the Solomon paper)
-//       Note to self: is D the physical size of the full image as displayed on the screen?
-//                     If so, can calculate this if know the pixel pitch in mm, the pixel
-//                     dimensions of the image and the zoom factor... this is what ImaQuest asks for
-//
 import ij.IJ;
 import ij.gui.*;
 import ij.plugin.PlugIn;
@@ -32,7 +8,29 @@ import org.apache.commons.math3.util.MathArrays;
 import java.text.DecimalFormat;
 
 /**
+ * ImageJ plugin to calculate eye frequency response using either
+ * Richard and Siewerdsen 2008:
+ * E(f) = f^n.exp(-c.f^2)
+ * where n = 1.3
+ *       c = 3.093 for a 50 cm viewing distance for E(f) to peak at 4 cycles/degree
  *
+ * or Solomon et al 2015:
+ * E(p) = |n.p^(a1).exp(-a2.p^a3)|^2
+ * where a1 = 1.5
+ *       a2 = 0.98
+ *       a3 = 0.68
+ *       n is a normalisation constant to make max E(p) = 1.0
+ *       p (rho, really) is angular spatial frequency expressed in cycles per degree
+ *
+ * p can be calculated from radial spatial frequency using:
+ * p = (f.FOV.R.pi) / (D.180)
+ * where f is radial spatial frequency
+ *       FOV is the reconstructed field of view of the image
+ *       R is the viewing distance
+ *       D is the display size (assumed to be 30.5 cm in the Solomon paper)
+ *       Note to self: is D the physical size of the full image as displayed on the screen?
+ *                     If so, can calculate this if know the pixel pitch in mm, the pixel
+ *                     dimensions of the image and the zoom factor... this is what ImaQuest asks for
  */
 public class EyeModel_ implements PlugIn {
 
@@ -60,62 +58,67 @@ public class EyeModel_ implements PlugIn {
     private static int RICHARD_AND_SIEWERDSEN = 1;
     private int model_choice = SOLOMON_ET_AL;
 
-    /**
+
+    /** Method to obtain the eye filter results
      *
-     * @return
+     * @return An object of type Eye_result containing the eye filter results. The <i>freq</i> and <i>val</i> properties
+     * each contain an array of double-precision values.
      */
-    // Defined to enable other plugins to access the results
     Eye_result getEyeResult() {
         return eye_result;
     }
 
-    /**
+
+    /** Method to set the image reconstruction field of view
      *
-     * @param new_recon_fov
+     * @param new_recon_fov The value of the image reconstruction field of view in mm.
      */
     void setReconFOV(double new_recon_fov) {
         this.recon_fov = new_recon_fov;
         this.f_to_rho = calc_f_to_rho_factor();
-    };
+    }
 
-    /**
+
+    /** Method to set the pixel pitch of the display monitor being used to view the image
      *
-     * @param new_display_pixel_pitch
+     * @param new_display_pixel_pitch The physical size of single pixel of the display monitor in mm
      */
     void setDisplayPixelPitch(double new_display_pixel_pitch) {
         this.display_pixel_pitch = new_display_pixel_pitch;
         this.display_size = calc_displayed_image_size();
         this.f_to_rho = calc_f_to_rho_factor();
-    };
+    }
 
-    /**
+
+    /** Method to set the image pixel size
      *
-     * @param new_image_pixel_width
+     * @param new_image_pixel_width The size of an image pixel (usually defined in the DICOM tags) n mm
      */
     void setImagePixelWidth(double new_image_pixel_width) {
         this.image_pixel_width = new_image_pixel_width;
         this.display_size = calc_displayed_image_size();
         this.f_to_rho = calc_f_to_rho_factor();
-    };
+    }
 
-    /**
+
+    /** Method to set the zoom factor that is used to display the image on the display monitor
      *
-     * @param new_display_zoom_factor
+     * @param new_display_zoom_factor The zoom factor of the image on the display monitor
      */
     void setDisplayZoomFactor(double new_display_zoom_factor) {
         this.display_zoom_factor = new_display_zoom_factor;
         this.display_size = calc_displayed_image_size();
         this.f_to_rho = calc_f_to_rho_factor();
-    };
+    }
 
 
-    /**
+    /** Method to set up the eye filter according to the user's requirements
      *
-     * @param arg
-     * @param model_type
-     * @return
+     * @param arg If present, assumed to contain the frequency cut off as a String
+     * @param model_type If present used to determine the eye model type to use
+     * @return 0 if all is well, 1 if the routine is cancelled
      */
-    public int setup(String arg, int model_type) {
+    int setup(String arg, int model_type) {
         if (model_type == SOLOMON_ET_AL) {
             IJ.log("Using Solomon et al model");
             this.model_choice = SOLOMON_ET_AL;
@@ -135,18 +138,6 @@ public class EyeModel_ implements PlugIn {
             this.model_choice = gd.getNextChoiceIndex();
         }
 
-        if ((arg != null) && (arg.length() > 0)) {
-            if (arg.equals("defaults")) {
-                // Use defaults
-                IJ.log("Eye model using " + this.three_dp.format(this.cutoff_f) + " mm^-1 cutoff  frequency");
-            }
-            else {
-                // Assume the argument contains the frequency cutoff.
-                this.cutoff_f = Float.parseFloat(arg);
-                IJ.log("Eye model using " + this.three_dp.format(this.cutoff_f) + " mm^-1 cutoff  frequency");
-            }
-        }
-
         int result;
         if (this.model_choice == SOLOMON_ET_AL) {
             result = SolomonEtAlSetup(arg);
@@ -161,9 +152,9 @@ public class EyeModel_ implements PlugIn {
     }
 
 
-    /**
+    /** Method to calculate the selected eye model with the set parameters
      *
-     * @param arg
+     * @param arg If present then create the model; if missing then call the setup method then run
      */
     public void run(String arg) {
         if ((arg != null) && (arg.length() > 0)) {
@@ -182,10 +173,10 @@ public class EyeModel_ implements PlugIn {
     }
 
 
-    /**
+    /** Method to setup the  Richard and Siewerdsen model
      *
-     * @param arg
-     * @return
+     * @param arg Not currently used
+     * @return 0 if all is well; 1 if the routine is cancelled
      */
     private int RichardAndSiewerdsenSetup(String arg) {
 /*
@@ -223,7 +214,7 @@ public class EyeModel_ implements PlugIn {
     }
 
 
-    /**
+    /** Method to calculate the eye model using Richard and Siewerdsen
      *
      */
     private void RichardAndSiewerdsen() {
@@ -252,12 +243,12 @@ public class EyeModel_ implements PlugIn {
     }
 
 
-    /**
+    /** Method to setup the Solomon et al eye model
      *
-     * @param arg
-     * @return
+     * @param arg Not currently used
+     * @return 0 if all is well; 1 if the routine was cancelled
      */
-    public int SolomonEtAlSetup(String arg) {
+    private int SolomonEtAlSetup(String arg) {
         // Entirely ignoring arg at the moment and showing the dialogue
         GenericDialog gd = new GenericDialog("Solomon et al eye model options");
         gd.addNumericField("Frequency cutoff (mm^-1)", this.cutoff_f, 2);
@@ -290,10 +281,10 @@ public class EyeModel_ implements PlugIn {
     }
 
 
-    /**
+    /** Method to calculate the eye model using Solomon et al
      *
      */
-    public void SolomonEtAl() {
+    private void SolomonEtAl() {
         double a1 = 1.5;
         double a2 = 0.98;
         double a3 = 0.68;
@@ -333,12 +324,13 @@ public class EyeModel_ implements PlugIn {
     }
 
 
-    /**
+    /** Method to write the eye model results to the ImageJ log
      *
-     * @param E
-     * @param label
+     * @param E The eye model
+     * @param label The label for the eye model values
      */
     private void logResults(Eye_result E, String label) {
+        IJ.log("Eye model using " + this.three_dp.format(this.cutoff_f) + " mm^-1 cutoff  frequency");
         IJ.log("Freq (mm^-1)," + label);
 
         for (int i=0; i<E.freq.length; i++) {
@@ -347,27 +339,24 @@ public class EyeModel_ implements PlugIn {
     }
 
 
-    /**
+    /** Method to calculate the conversion from radial frequency (per mm) to angular frequency (cycles per degree)
      *
-     * @return
+     * @return The conversion factor
      */
     private double calc_f_to_rho_factor() {
         return (this.recon_fov * this.viewing_dist * Math.PI) / (this.display_size * 180.0);
     }
 
 
-    /**
+    /** Method to calculate the displayed image size
      *
-     * @return
+     * @return The conversion factor
      */
     private double calc_displayed_image_size() {
         return this.display_pixel_pitch * this.image_pixel_width * this.display_zoom_factor;
     }
 
 
-    /**
-     *
-     */
     static class Eye_result {
         double[] freq;
         double[] val;
