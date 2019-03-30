@@ -76,11 +76,11 @@ public class TaskTransferFunction_ implements PlugInFilter {
         }
 
         // Remove any overlays that are present
-        imp.setOverlay(null);
+        this.imp.setOverlay(null);
 
         // If there is no ROI set then exit
-        main_roi = imp.getRoi();
-        if(main_roi == null) {
+        this.main_roi = imp.getRoi();
+        if(this.main_roi == null) {
             IJ.error("Please draw an ROI around an object");
             return(0);
         }
@@ -88,34 +88,34 @@ public class TaskTransferFunction_ implements PlugInFilter {
         if ((arg != null) && (arg.length() > 0)) {
             if (arg.equals("defaults")) {
                 // Use defaults
-                IJ.log("TaskTransferFunction using " + obj_dia_mm + " mm object diameter");
+                IJ.log("TaskTransferFunction using " + this.obj_dia_mm + " mm object diameter");
             }
             else {
                 // Assume the argument contains the diameter of the TTF object.
-                obj_dia_mm = Float.parseFloat(arg);
-                IJ.log("TaskTransferFunction using " + obj_dia_mm + " mm object diameter");
+                this.obj_dia_mm = Float.parseFloat(arg);
+                IJ.log("TaskTransferFunction using " + this.obj_dia_mm + " mm object diameter");
             }
         }
         else {
             GenericDialog gd = new GenericDialog("Processing options");
-            gd.addNumericField("Object diameter (mm)", obj_dia_mm, 0);
-            gd.addNumericField("Pixel reduction factor", pixel_reduction_factor, 0);
-            gd.addNumericField("LOESS bandwidth", loess_bandwidth, 2);
-            gd.addNumericField("LOESS robustness", loess_robustness, 0);
-            gd.addNumericField("Frequency rebin increment (mm^-1)", rebin_f_inc, 2);
-            gd.addCheckbox("Find centre of mass", find_com);
+            gd.addNumericField("Object diameter (mm)", this.obj_dia_mm, 0);
+            gd.addNumericField("Pixel reduction factor", this.pixel_reduction_factor, 0);
+            gd.addNumericField("LOESS bandwidth", this.loess_bandwidth, 2);
+            gd.addNumericField("LOESS robustness", this.loess_robustness, 0);
+            gd.addNumericField("Frequency rebin increment (mm^-1)", this.rebin_f_inc, 2);
+            gd.addCheckbox("Find centre of mass", this.find_com);
 
             gd.showDialog();
             if(gd.wasCanceled()) {
                 return(0);
             }
 
-            obj_dia_mm = gd.getNextNumber();
-            pixel_reduction_factor = gd.getNextNumber();
-            loess_bandwidth = gd.getNextNumber();
-            loess_robustness = (int) gd.getNextNumber();
-            rebin_f_inc = gd.getNextNumber();
-            find_com = gd.getNextBoolean();
+            this.obj_dia_mm = gd.getNextNumber();
+            this.pixel_reduction_factor = gd.getNextNumber();
+            this.loess_bandwidth = gd.getNextNumber();
+            this.loess_robustness = (int) gd.getNextNumber();
+            this.rebin_f_inc = gd.getNextNumber();
+            this.find_com = gd.getNextBoolean();
         }
         return DOES_ALL;
     }
@@ -128,9 +128,9 @@ public class TaskTransferFunction_ implements PlugInFilter {
         //---------------------------------------------------------------------
         // Obtain the pixel size of the image. This will return 1.0 if ImageJ
         // isn't able to read the pixel size from the DICOM tags.
-        Calibration cal = imp.getCalibration();
+        Calibration cal = this.imp.getCalibration();
         double pixel_size_in_mm = cal.pixelWidth;
-        double obj_dia_pix = obj_dia_mm/pixel_size_in_mm;
+        double obj_dia_pix = this.obj_dia_mm/pixel_size_in_mm;
         //---------------------------------------------------------------------
 
 
@@ -138,20 +138,20 @@ public class TaskTransferFunction_ implements PlugInFilter {
         // Determine the centre of mass (Com). Initialise the CoM to the centre
         // of the main_roi.
         double[] com = new double[2];
-        com[0] = cal.getX(main_roi.getXBase() + (main_roi.getFloatWidth()/2.0));
-        com[1] = cal.getY(main_roi.getYBase() + (main_roi.getFloatHeight()/2.0));
+        com[0] = cal.getX(this.main_roi.getXBase() + (this.main_roi.getFloatWidth()/2.0));
+        com[1] = cal.getY(this.main_roi.getYBase() + (this.main_roi.getFloatHeight()/2.0));
 
         double inner_dia = obj_dia_pix + (10.0 / pixel_size_in_mm);
         Roi inner_roi = new OvalRoi(cal.getRawX(com[0]) - inner_dia / 2.0, cal.getRawY(com[1]) - inner_dia / 2.0, inner_dia, inner_dia);
         Roi outer_roi = new OvalRoi(cal.getRawX(com[0]) - obj_dia_pix, cal.getRawY(com[1]) - obj_dia_pix, obj_dia_pix * 2.0, obj_dia_pix * 2.0);
         Roi annular_roi = new ShapeRoi(outer_roi).xor(new ShapeRoi(inner_roi));
 
-        if (find_com) {
+        if (this.find_com) {
             //---------------------------------------------------------------------
             // Obtain the centre of mass of the ROI set by the user.
-            imp.setRoi(main_roi);
-            com = centreOfMass(ip, main_roi, cal, 0.0);
-            IJ.log("Initial CoM: " + three_dp.format(com[0]) + ", " + three_dp.format(com[1]));
+            this.imp.setRoi(this.main_roi);
+            com = centreOfMass(ip, this.main_roi, cal, 0.0);
+            IJ.log("Initial CoM: " + this.three_dp.format(com[0]) + ", " + this.three_dp.format(com[1]));
             //---------------------------------------------------------------------
 
 
@@ -166,38 +166,38 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
 
             // Obtain the mean pixel value of the annular ROI
-            imp.setRoi(annular_roi);
-            ImageStatistics annular_stats = imp.getAllStatistics();
+            this.imp.setRoi(annular_roi);
+            ImageStatistics annular_stats = this.imp.getAllStatistics();
             double bgd_mean = annular_stats.mean;
 
             // Recalculate the CoM with background subtracted
-            imp.setRoi(outer_roi);
+            this.imp.setRoi(outer_roi);
             com = centreOfMass(ip, outer_roi, cal, -bgd_mean);
-            IJ.log("Adjusted CoM: " + three_dp.format(com[0]) + ", " + three_dp.format(com[1]));
+            IJ.log("Adjusted CoM: " + this.three_dp.format(com[0]) + ", " + this.three_dp.format(com[1]));
 
             // Recentre the annualar roi on the new CoM and recalculate CoM  for a final time
             annular_roi.setLocation(cal.getRawX(com[0]) - obj_dia_pix, cal.getRawY(com[1]) - obj_dia_pix);
-            imp.setRoi(annular_roi);
-            annular_stats = imp.getAllStatistics();
+            this.imp.setRoi(annular_roi);
+            annular_stats = this.imp.getAllStatistics();
             bgd_mean = annular_stats.mean;
-            imp.setRoi(outer_roi);
+            this.imp.setRoi(outer_roi);
             com = centreOfMass(ip, outer_roi, cal, -bgd_mean);
         }
 
-        IJ.log("Final CoM: " + three_dp.format(com[0]) + ", " + three_dp.format(com[1]));
+        IJ.log("Final CoM: " + this.three_dp.format(com[0]) + ", " + this.three_dp.format(com[1]));
 
         // Add a marker to the image showing the location of the CoM
         Roi com_marker = new PointRoi(cal.getRawX(com[0]), cal.getRawY(com[1]));
         Overlay com_overlay = new Overlay(com_marker);
         com_overlay.setStrokeColor(Color.red);
-        imp.setOverlay(com_overlay);
+        this.imp.setOverlay(com_overlay);
 
         // Recentre the outer_roi using the centre of mass.
         outer_roi.setLocation(cal.getRawX(com[0])-obj_dia_pix, cal.getRawY(com[1])-obj_dia_pix);
 
         // Create an overlay to display the annular ROI and CoM on the image.
         Overlay overlay = new Overlay();
-        imp.setOverlay(overlay);
+        this.imp.setOverlay(overlay);
         overlay.add(annular_roi);
         overlay.add(com_marker);
         //---------------------------------------------------------------------
@@ -207,11 +207,11 @@ public class TaskTransferFunction_ implements PlugInFilter {
         // Calculate the CNR of the object
         double obj_roi_dia = obj_dia_pix - (3.0 / pixel_size_in_mm);
         Roi obj_roi = new OvalRoi(cal.getRawX(com[0])-obj_roi_dia/2.0, cal.getRawY(com[1])-obj_roi_dia/2.0, obj_roi_dia, obj_roi_dia);
-        CNR_result cnr_results = contrastToNoiseRatio(imp, obj_roi, annular_roi);
+        CNR_result cnr_results = contrastToNoiseRatio(this.imp, obj_roi, annular_roi);
 
-        IJ.log("CNR is: " + three_dp.format(cnr_results.cnr));
-        IJ.log("Contrast is: " + three_dp.format(cnr_results.contrast));
-        IJ.log("Noise is: " + three_dp.format(cnr_results.noise));
+        IJ.log("CNR is: " + this.three_dp.format(cnr_results.cnr));
+        IJ.log("Contrast is: " + this.three_dp.format(cnr_results.contrast));
+        IJ.log("Noise is: " + this.three_dp.format(cnr_results.noise));
 
         overlay.add(obj_roi);
         overlay.setStrokeColor(Color.green);
@@ -282,7 +282,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
         // and https://en.wikipedia.org/wiki/Local_regression
 
         // Work out the distance scale increment.
-        double rebinned_sample_inc = pixel_size_in_mm / pixel_reduction_factor;
+        double rebinned_sample_inc = pixel_size_in_mm / this.pixel_reduction_factor;
 
         // Define the starting position of the resampled ESF, with an offset of
         // one sample increment, and work out the number of samples.
@@ -302,8 +302,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
         // Apache Commons Math 3.6 API. See:
         // http://commons.apache.org/proper/commons-math/javadocs/api-3.6/org/apache/commons/math3/analysis/interpolation/LoessInterpolator.html
         // and https://en.wikipedia.org/wiki/Local_regression
-        UnivariateInterpolator loess_interpolator = new LoessInterpolator(loess_bandwidth, loess_robustness);
-        double[] smoothed_esf = new LoessInterpolator(loess_bandwidth, loess_robustness).smooth(raw_esf_pos, raw_esf_val);
+        UnivariateInterpolator loess_interpolator = new LoessInterpolator(this.loess_bandwidth, this.loess_robustness);
+        double[] smoothed_esf = new LoessInterpolator(this.loess_bandwidth, this.loess_robustness).smooth(raw_esf_pos, raw_esf_val);
         UnivariateFunction loess_function = loess_interpolator.interpolate(raw_esf_pos, smoothed_esf);
         double[] esf_rebinned_val = new double[esf_rebinned_pos.length];
         for (i=0; i<esf_rebinned_val.length; i++) {
@@ -542,10 +542,10 @@ public class TaskTransferFunction_ implements PlugInFilter {
         double ttf_50_mono = freqAtSpecificTTF(ttf_data_monotonic, 0.5);
         double ttf_10_mono = freqAtSpecificTTF(ttf_data_monotonic, 0.1);
 
-        IJ.log("MTF 50 and 10 are: " + three_dp.format(ttf_50) + ", " + three_dp.format(ttf_10));
+        IJ.log("MTF 50 and 10 are: " + this.three_dp.format(ttf_50) + ", " + this.three_dp.format(ttf_10));
         //IJ.log("MTF linear 50 and 10 are: " + three_dp.format(ttf_50_linear) + ", " + three_dp.format(ttf_10_linear));
         //IJ.log("MTF Gaussian 50 and 10 are: " + three_dp.format(ttf_50_gaussian) + ", " + three_dp.format(ttf_10_gaussian));
-        IJ.log("MTF mono 50 and 10 are: " + three_dp.format(ttf_50_mono) + ", " + three_dp.format(ttf_10_mono));
+        IJ.log("MTF mono 50 and 10 are: " + this.three_dp.format(ttf_50_mono) + ", " + this.three_dp.format(ttf_10_mono));
         //---------------------------------------------------------------------
 
 
@@ -569,7 +569,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
         //---------------------------------------------------------------------
         // Remove the current ROI
-        imp.deleteRoi();
+        this.imp.deleteRoi();
         //---------------------------------------------------------------------
 
 
@@ -787,7 +787,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
         IJ.log("Freq (mm^-1)," + ttf_label);
 
         for (int i=0; i<ttf.freq.length; i++) {
-            IJ.log("" + two_dp.format(ttf.freq[i]) + ", " + three_dp.format(ttf.val[i]));
+            IJ.log("" + this.two_dp.format(ttf.freq[i]) + ", " + this.three_dp.format(ttf.val[i]));
         }
     }
 

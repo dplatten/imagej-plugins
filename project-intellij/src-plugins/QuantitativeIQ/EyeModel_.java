@@ -56,8 +56,8 @@ public class EyeModel_ implements PlugIn {
 
     private DecimalFormat three_dp = new DecimalFormat("0.000");
 
-    static int SOLOMON_ET_AL = 0;
-    static int RICHARD_AND_SIEWERDSEN = 1;
+    private static int SOLOMON_ET_AL = 0;
+    private static int RICHARD_AND_SIEWERDSEN = 1;
     private int model_choice = SOLOMON_ET_AL;
 
     /**
@@ -74,8 +74,8 @@ public class EyeModel_ implements PlugIn {
      * @param new_recon_fov
      */
     void setReconFOV(double new_recon_fov) {
-        recon_fov = new_recon_fov;
-        f_to_rho = calc_f_to_rho_factor();
+        this.recon_fov = new_recon_fov;
+        this.f_to_rho = calc_f_to_rho_factor();
     };
 
     /**
@@ -83,9 +83,9 @@ public class EyeModel_ implements PlugIn {
      * @param new_display_pixel_pitch
      */
     void setDisplayPixelPitch(double new_display_pixel_pitch) {
-        display_pixel_pitch = new_display_pixel_pitch;
-        display_size = calc_displayed_image_size();
-        f_to_rho = calc_f_to_rho_factor();
+        this.display_pixel_pitch = new_display_pixel_pitch;
+        this.display_size = calc_displayed_image_size();
+        this.f_to_rho = calc_f_to_rho_factor();
     };
 
     /**
@@ -93,9 +93,9 @@ public class EyeModel_ implements PlugIn {
      * @param new_image_pixel_width
      */
     void setImagePixelWidth(double new_image_pixel_width) {
-        image_pixel_width = new_image_pixel_width;
-        display_size = calc_displayed_image_size();
-        f_to_rho = calc_f_to_rho_factor();
+        this.image_pixel_width = new_image_pixel_width;
+        this.display_size = calc_displayed_image_size();
+        this.f_to_rho = calc_f_to_rho_factor();
     };
 
     /**
@@ -103,9 +103,9 @@ public class EyeModel_ implements PlugIn {
      * @param new_display_zoom_factor
      */
     void setDisplayZoomFactor(double new_display_zoom_factor) {
-        display_zoom_factor = new_display_zoom_factor;
-        display_size = calc_displayed_image_size();
-        f_to_rho = calc_f_to_rho_factor();
+        this.display_zoom_factor = new_display_zoom_factor;
+        this.display_size = calc_displayed_image_size();
+        this.f_to_rho = calc_f_to_rho_factor();
     };
 
 
@@ -118,11 +118,11 @@ public class EyeModel_ implements PlugIn {
     public int setup(String arg, int model_type) {
         if (model_type == SOLOMON_ET_AL) {
             IJ.log("Using Solomon et al model");
-            model_choice = SOLOMON_ET_AL;
+            this.model_choice = SOLOMON_ET_AL;
         }
         else if (model_type == RICHARD_AND_SIEWERDSEN) {
             IJ.log("Using Richard and Siewerdsen model");
-            model_choice = RICHARD_AND_SIEWERDSEN;
+            this.model_choice = RICHARD_AND_SIEWERDSEN;
         }
         else {
             GenericDialog gd = new GenericDialog("Choose which eye model to use");
@@ -132,23 +132,23 @@ public class EyeModel_ implements PlugIn {
             if(gd.wasCanceled()) {
                 return(1); // Return to the calling method with a non-zero result
             }
-            model_choice = gd.getNextChoiceIndex();
+            this.model_choice = gd.getNextChoiceIndex();
         }
 
         if ((arg != null) && (arg.length() > 0)) {
             if (arg.equals("defaults")) {
                 // Use defaults
-                IJ.log("Eye model using " + three_dp.format(cutoff_f) + " mm^-1 cutoff  frequency");
+                IJ.log("Eye model using " + this.three_dp.format(this.cutoff_f) + " mm^-1 cutoff  frequency");
             }
             else {
                 // Assume the argument contains the frequency cutoff.
-                cutoff_f = Float.parseFloat(arg);
-                IJ.log("Eye model using " + three_dp.format(cutoff_f) + " mm^-1 cutoff  frequency");
+                this.cutoff_f = Float.parseFloat(arg);
+                IJ.log("Eye model using " + this.three_dp.format(this.cutoff_f) + " mm^-1 cutoff  frequency");
             }
         }
 
-        int result = 0;
-        if (model_choice == SOLOMON_ET_AL) {
+        int result;
+        if (this.model_choice == SOLOMON_ET_AL) {
             result = SolomonEtAlSetup(arg);
         }
         else {
@@ -167,21 +167,18 @@ public class EyeModel_ implements PlugIn {
      */
     public void run(String arg) {
         if ((arg != null) && (arg.length() > 0)) {
-            if (model_choice == SOLOMON_ET_AL) {
+            if (this.model_choice == SOLOMON_ET_AL) {
                 SolomonEtAl();
-            } else if (model_choice == RICHARD_AND_SIEWERDSEN) {
+            } else if (this.model_choice == RICHARD_AND_SIEWERDSEN) {
                 RichardAndSiewerdsen();
             } else {
                 IJ.error("Unrecognised value passed to run");
-                return;
             }
         }
         else {
             int result  = setup("2.0", 999);
-            if (result == 0) run(String.valueOf(model_choice));
+            if (result == 0) run(String.valueOf(this.model_choice));
         }
-
-        return;
     }
 
 
@@ -205,22 +202,22 @@ public class EyeModel_ implements PlugIn {
         }
         else {
 */
-            GenericDialog gd = new GenericDialog("Richard and Siewerdsen eye model options");
-            gd.addMessage("This assumes a 500 mm viewing distance");
-            gd.addNumericField("Frequency cutoff (mm^-1)", cutoff_f, 1);
-            gd.addNumericField("Frequency increment (mm^-1)", f_inc, 2);
-            gd.addNumericField("n", n, 3);
-            gd.addNumericField("c", c, 3);
+        GenericDialog gd = new GenericDialog("Richard and Siewerdsen eye model options");
+        gd.addMessage("This assumes a 500 mm viewing distance");
+        gd.addNumericField("Frequency cutoff (mm^-1)", this.cutoff_f, 1);
+        gd.addNumericField("Frequency increment (mm^-1)", this.f_inc, 2);
+        gd.addNumericField("n", n, 3);
+        gd.addNumericField("c", c, 3);
 
-            gd.showDialog();
-            if(gd.wasCanceled()) {
-                return(1); // Return to the calling method with a non-zero result
-            }
+        gd.showDialog();
+        if(gd.wasCanceled()) {
+            return(1); // Return to the calling method with a non-zero result
+        }
 
-            cutoff_f = gd.getNextNumber();
-            f_inc = gd.getNextNumber();
-            n = gd.getNextNumber();
-            c = gd.getNextNumber();
+        this.cutoff_f = gd.getNextNumber();
+        this.f_inc = gd.getNextNumber();
+        this.n = gd.getNextNumber();
+        this.c = gd.getNextNumber();
         //}
         return(0);
     }
@@ -231,14 +228,14 @@ public class EyeModel_ implements PlugIn {
      */
     private void RichardAndSiewerdsen() {
 
-        int num_elements = (int) Math.ceil(cutoff_f / f_inc) + 1;
+        int num_elements = (int) Math.ceil(this.cutoff_f / this.f_inc) + 1;
 
         Eye_result E = new Eye_result();
         E.freq = new double[num_elements];
         E.val = new double[num_elements];
 
         for (int i=0; i<num_elements; i++) {
-            E.freq[i] = f_inc * i;
+            E.freq[i] = this.f_inc * i;
             E.val[i] = Math.pow(E.freq[i], n) * Math.exp(-1.0 * c * E.freq[i] * E.freq[i]);
         }
 
@@ -263,31 +260,31 @@ public class EyeModel_ implements PlugIn {
     public int SolomonEtAlSetup(String arg) {
         // Entirely ignoring arg at the moment and showing the dialogue
         GenericDialog gd = new GenericDialog("Solomon et al eye model options");
-        gd.addNumericField("Frequency cutoff (mm^-1)", cutoff_f, 2);
-        gd.addNumericField("Frequency increment (mm^-1)", f_inc, 2);
-        gd.addNumericField("Viewing distance (mm)", viewing_dist, 0);
-        gd.addNumericField("Image reconstructed field of view (mm)", recon_fov, 0);
+        gd.addNumericField("Frequency cutoff (mm^-1)", this.cutoff_f, 2);
+        gd.addNumericField("Frequency increment (mm^-1)", this.f_inc, 2);
+        gd.addNumericField("Viewing distance (mm)", this.viewing_dist, 0);
+        gd.addNumericField("Image reconstructed field of view (mm)", this.recon_fov, 0);
         gd.addMessage("Physical image size on the display monitor:");
-        gd.addNumericField("Display pixel pitch (mm)", display_pixel_pitch, 2);
-        gd.addNumericField("Display zoom factor", display_zoom_factor, 1);
-        gd.addNumericField("Image pixel width", image_pixel_width, 0);
+        gd.addNumericField("Display pixel pitch (mm)", this.display_pixel_pitch, 2);
+        gd.addNumericField("Display zoom factor", this.display_zoom_factor, 1);
+        gd.addNumericField("Image pixel width", this.image_pixel_width, 0);
 
         gd.showDialog();
         if(gd.wasCanceled()) {
             return(1);  // Return to the calling method with a non-zero result
         }
 
-        cutoff_f = gd.getNextNumber();
-        f_inc = gd.getNextNumber();
-        viewing_dist = gd.getNextNumber();
-        display_pixel_pitch = gd.getNextNumber();
-        display_zoom_factor = gd.getNextNumber();
-        image_pixel_width = gd.getNextNumber();
-        recon_fov = gd.getNextNumber();
+        this.cutoff_f = gd.getNextNumber();
+        this.f_inc = gd.getNextNumber();
+        this.viewing_dist = gd.getNextNumber();
+        this.display_pixel_pitch = gd.getNextNumber();
+        this.display_zoom_factor = gd.getNextNumber();
+        this.image_pixel_width = gd.getNextNumber();
+        this.recon_fov = gd.getNextNumber();
 
         // Recalculate the conversion from radial frequency to angular frequency
-        display_size = calc_displayed_image_size();
-        f_to_rho = calc_f_to_rho_factor();
+        this.display_size = calc_displayed_image_size();
+        this.f_to_rho = calc_f_to_rho_factor();
 
         return(0);
     }
@@ -301,7 +298,7 @@ public class EyeModel_ implements PlugIn {
         double a2 = 0.98;
         double a3 = 0.68;
 
-        int num_elements = (int) Math.ceil(cutoff_f / f_inc) + 1;
+        int num_elements = (int) Math.ceil(this.cutoff_f / this.f_inc) + 1;
 
         Eye_result E = new Eye_result();
         E.freq = new double[num_elements];
@@ -310,8 +307,8 @@ public class EyeModel_ implements PlugIn {
         double[] ang_freq = new double[num_elements];
 
         for (int i=0; i<num_elements; i++) {
-            E.freq[i] = f_inc * i; // The radial frequency
-            ang_freq[i] = E.freq[i] * f_to_rho; // The angular frequency
+            E.freq[i] = this.f_inc * i; // The radial frequency
+            ang_freq[i] = E.freq[i] * this.f_to_rho; // The angular frequency
             // E, pre-normalisation and squaring
             E.val[i] = Math.pow(ang_freq[i], a1) * Math.exp(-1.0 * a2 * Math.pow(ang_freq[i], a3));
         }
@@ -345,7 +342,7 @@ public class EyeModel_ implements PlugIn {
         IJ.log("Freq (mm^-1)," + label);
 
         for (int i=0; i<E.freq.length; i++) {
-            IJ.log("" + three_dp.format(E.freq[i]) + ", " + three_dp.format(E.val[i]));
+            IJ.log("" + this.three_dp.format(E.freq[i]) + ", " + this.three_dp.format(E.val[i]));
         }
     }
 
@@ -355,7 +352,7 @@ public class EyeModel_ implements PlugIn {
      * @return
      */
     private double calc_f_to_rho_factor() {
-        return (recon_fov * viewing_dist * Math.PI) / (display_size * 180.0);
+        return (this.recon_fov * this.viewing_dist * Math.PI) / (this.display_size * 180.0);
     }
 
 
@@ -364,7 +361,7 @@ public class EyeModel_ implements PlugIn {
      * @return
      */
     private double calc_displayed_image_size() {
-        return display_pixel_pitch * image_pixel_width * display_zoom_factor;
+        return this.display_pixel_pitch * this.image_pixel_width * this.display_zoom_factor;
     }
 
 

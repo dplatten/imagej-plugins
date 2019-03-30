@@ -63,7 +63,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
         // First run the TTF analysis using default settings
         TaskTransferFunction_ TTF = new TaskTransferFunction_();
-        int result = TTF.setup("defaults", imp);
+        int result = TTF.setup("defaults", this.imp);
         if (result == 0) {
             IJ.error("There was a problem setting up the TTF routine");
             return;
@@ -75,7 +75,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
         // Then run the NPS on the same image using default settings
         NoisePowerSpectrum_ NPS = new NoisePowerSpectrum_();
-        result = NPS.setup("defaults", imp);
+        result = NPS.setup("defaults", this.imp);
         if (result == 0) {
             IJ.error("There was a problem setting up the NPS routine");
             return;
@@ -85,15 +85,15 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
 
         // Obtain the Nyquist frequency of the image
-        Calibration cal = imp.getCalibration();
+        Calibration cal = this.imp.getCalibration();
         double nyquist = 1.0 / (2.0 * cal.pixelWidth);
 
 
         // Obtain the eye model data
         EyeModel_ eye_model = new EyeModel_();
-        eye_model.setup(two_dp.format(nyquist), 999);
-        eye_model.setReconFOV(cal.pixelWidth * imp.getWidth());
-        eye_model.setImagePixelWidth(imp.getWidth());
+        eye_model.setup(this.two_dp.format(nyquist), 999);
+        eye_model.setReconFOV(cal.pixelWidth * this.imp.getWidth());
+        eye_model.setImagePixelWidth(this.imp.getWidth());
         eye_model.setDisplayZoomFactor(3.0);
         eye_model.setDisplayPixelPitch(0.02);
         eye_model.run("normal");
@@ -189,7 +189,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
         IJ.log("Freq (mm^-1),TTF,NPS,Eye,Task");
         double f = 0.0;
         while (f <= nyquist) {
-            IJ.log( three_dp.format(f) + "," + TTF_fn.value(f) + "," + NPS_fn.value(f) + "," + E_fn.value(f) + "," + W_fn.value(f));
+            IJ.log( this.three_dp.format(f) + "," + TTF_fn.value(f) + "," + NPS_fn.value(f) + "," + E_fn.value(f) + "," + W_fn.value(f));
             f += 0.01;
         }
     }

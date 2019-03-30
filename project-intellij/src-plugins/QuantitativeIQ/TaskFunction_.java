@@ -36,7 +36,7 @@ public class TaskFunction_ implements PlugIn {
      */
     // Defined to enable other plugins to access the task function
     UnivariateFunction getTaskFunction() {
-        return task_function;
+        return this.task_function;
     }
 
     /**
@@ -45,7 +45,7 @@ public class TaskFunction_ implements PlugIn {
      */
     // Defined to enable other plugins to access the task function TTF
     UnivariateFunction getTaskFunctionTTF() {
-        return task_function_fft;
+        return this.task_function_fft;
     }
 
     /**
@@ -54,44 +54,44 @@ public class TaskFunction_ implements PlugIn {
      */
     // Defined to enable other plugins to access the task function TTF
     UnivariateFunction getTaskFunctionSinc() {
-        return task_function_sinc;
+        return this.task_function_sinc;
     }
 
     /**
      *
      * @param new_radius
      */
-    void setTaskRadius(double new_radius) { task_radius = new_radius; }
+    void setTaskRadius(double new_radius) { this.task_radius = new_radius; }
 
     /**
      *
      * @return
      */
-    double getTaskRadius() { return task_radius; }
+    double getTaskRadius() { return this.task_radius; }
 
     /**
      *
      * @param new_contrast
      */
-    void setTaskContrast(double new_contrast) { task_contrast = new_contrast; }
+    void setTaskContrast(double new_contrast) { this.task_contrast = new_contrast; }
 
     /**
      *
      * @return
      */
-    double getTaskContrast() { return task_contrast; }
+    double getTaskContrast() { return this.task_contrast; }
 
     /**
      *
      * @param new_f_res
      */
-    void setFreqRes(double new_f_res) { f_res = new_f_res; }
+    void setFreqRes(double new_f_res) { this.f_res = new_f_res; }
 
     /**
      *
      * @return
      */
-    double getFreqRes() { return f_res; }
+    double getFreqRes() { return this.f_res; }
 
 
     /**
@@ -103,8 +103,8 @@ public class TaskFunction_ implements PlugIn {
         double pixel_size = 0.5;
 
         GenericDialog gd = new GenericDialog("Task function options");
-        gd.addNumericField("Task radius (mm)", task_radius, 2);
-        gd.addNumericField("Task contrast (HU)", task_contrast, 1);
+        gd.addNumericField("Task radius (mm)", this.task_radius, 2);
+        gd.addNumericField("Task contrast (HU)", this.task_contrast, 1);
         gd.addNumericField("Image pixel size (mm)", pixel_size, 3);
 
         gd.showDialog();
@@ -112,8 +112,8 @@ public class TaskFunction_ implements PlugIn {
             return;
         }
 
-        task_radius = gd.getNextNumber();
-        task_contrast = gd.getNextNumber();
+        this.task_radius = gd.getNextNumber();
+        this.task_contrast = gd.getNextNumber();
         pixel_size = gd.getNextNumber();
 
         double nyquist = 1.0 / (2.0*pixel_size);
@@ -124,8 +124,8 @@ public class TaskFunction_ implements PlugIn {
 
         // Plot the task function
         double task_x_inc = 0.01;
-        double x_min = -2.0 * task_radius;
-        double x_max = 2.0 * task_radius;
+        double x_min = -2.0 * this.task_radius;
+        double x_max = 2.0 * this.task_radius;
         int n_elements = (int) ((x_max - x_min) / task_x_inc) + 1;
 
         double[] x_pos = new double[n_elements];
@@ -133,7 +133,7 @@ public class TaskFunction_ implements PlugIn {
 
         for (int i=0; i<n_elements; i++) {
             x_pos[i] = x_min + i*task_x_inc;
-            y_val[i] = task_function.value(x_pos[i]);
+            y_val[i] = this.task_function.value(x_pos[i]);
         }
         Plot plot_task = new Plot("Task function", "Distance (mm)", "Pixel value");
         plot_task.add("line", x_pos, y_val);
@@ -143,15 +143,15 @@ public class TaskFunction_ implements PlugIn {
 
 
         // Plot the FFT and sinc of the task function
-        int n_felements = (int) Math.ceil(nyquist / f_res) + 1;
+        int n_felements = (int) Math.ceil(nyquist / this.f_res) + 1;
 
         double[] f_pos = new double[n_felements];
         double[] fft_val = new double[n_felements];
         double[] sinc_val = new double[n_felements];
         for (int i=0; i<n_felements; i++) {
-            f_pos[i] = i*f_res;
-            fft_val[i] = task_function_fft.value(f_pos[i]);
-            sinc_val[i] = task_function_sinc.value(f_pos[i]);
+            f_pos[i] = i*this.f_res;
+            fft_val[i] = this.task_function_fft.value(f_pos[i]);
+            sinc_val[i] = this.task_function_sinc.value(f_pos[i]);
         }
         Plot plot_task_fft = new Plot("Task function fft", "Frequency (mm^-1)", "Value");
         plot_task_fft.add("line", f_pos, fft_val);
@@ -168,7 +168,7 @@ public class TaskFunction_ implements PlugIn {
      *
      */
     public void disc_function() {
-        task_function = new UnivariateFunction() {
+        this.task_function = new UnivariateFunction() {
             @Override
             public double value(double x) {
                 double y = 0.0;
@@ -183,7 +183,7 @@ public class TaskFunction_ implements PlugIn {
      *
      */
     public void disc_function_fft() {
-        double pos_range = 1.0 / f_res;
+        double pos_range = 1.0 / this.f_res;
         double min_x = -1.0 * pos_range/2.0;
 
         int n_elements = 4096;
@@ -195,7 +195,7 @@ public class TaskFunction_ implements PlugIn {
 
         for (int i=0; i<n_elements; i++) {
             x_pos[i] = min_x + i*x_inc;
-            y_val[i] = task_function.value(x_pos[i]);
+            y_val[i] = this.task_function.value(x_pos[i]);
         }
 
         FastFourierTransformer fourier_transformer = new FastFourierTransformer(DftNormalization.STANDARD);
@@ -204,12 +204,12 @@ public class TaskFunction_ implements PlugIn {
         double[] freq_scale = new double[n_elements];
         double[] abs_fft = new double[n_elements];
         for (int i=0; i<n_elements; i++) {
-            freq_scale[i] = i * f_res;
+            freq_scale[i] = i * this.f_res;
             abs_fft[i] = fft[i].abs() * pos_range / n_elements; // Scaling the result to length / N. See https://dsp.stackexchange.com/questions/31984/matlab-tt-fft-and-tt-ifft-scaling
         }
 
         UnivariateInterpolator linear_interpoloator = new LinearInterpolator();
-        task_function_fft = linear_interpoloator.interpolate(freq_scale, abs_fft);
+        this.task_function_fft = linear_interpoloator.interpolate(freq_scale, abs_fft);
     }
 
 
@@ -230,16 +230,16 @@ public class TaskFunction_ implements PlugIn {
 
         abs_sinc[0] = 1.0; // Manually set zero frequency value to avoid divide by zero error in loop
         for (int i=1; i<n_elements; i++) {
-            freq_scale[i] = i * f_res;
-            double x = freq_scale[i] * Math.PI * 2.0*task_radius;
+            freq_scale[i] = i * this.f_res;
+            double x = freq_scale[i] * Math.PI * 2.0*this.task_radius;
             abs_sinc[i] = Math.abs(Math.sin(x) / x);
         }
 
         // Scale the height of the sinc function by the height * width of the
         // rectangular function.
-        MathArrays.scaleInPlace(2.0*task_radius * task_contrast, abs_sinc);
+        MathArrays.scaleInPlace(2.0*this.task_radius * this.task_contrast, abs_sinc);
 
-        UnivariateInterpolator linear_interpoloator = new LinearInterpolator();
-        task_function_sinc = linear_interpoloator.interpolate(freq_scale, abs_sinc);
+        UnivariateInterpolator linear_interpolator = new LinearInterpolator();
+        this.task_function_sinc = linear_interpolator.interpolate(freq_scale, abs_sinc);
     }
 }

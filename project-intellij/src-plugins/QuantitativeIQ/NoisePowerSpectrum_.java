@@ -66,29 +66,29 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
         imp.setOverlay(null);
 
         // If there is no ROI set then use the whole image
-        main_roi = imp.getRoi();
-        if(main_roi == null) {
+        this.main_roi = imp.getRoi();
+        if(this.main_roi == null) {
             imp.setRoi(0, 0, imp.getWidth(), imp.getHeight());
-            main_roi = imp.getRoi();
+            this.main_roi = imp.getRoi();
         }
 
         if ((arg != null) && (arg.length() > 0)) {
             if (arg.equals("defaults")) {
                 // Use defaults
-                IJ.log("NoisePowerSpectrum using ROIs " + record_radius + " mm from centre");
+                IJ.log("NoisePowerSpectrum using ROIs " + this.record_radius + " mm from centre");
             }
             else {
                 // Assume the argument contains the distance from ROI centre to record in mm.
-                record_radius = Float.parseFloat(arg);
-                IJ.log("NoisePowerSpectrum using ROIs " + record_radius + " mm from centre");
+                this.record_radius = Float.parseFloat(arg);
+                IJ.log("NoisePowerSpectrum using ROIs " + this.record_radius + " mm from centre");
             }
         }
         else {
             GenericDialog gd = new GenericDialog("Processing options");
-            gd.addNumericField("Distance from centre to records (mm)", record_radius, 0);
-            gd.addNumericField("Number of records", num_records, 0);
-            gd.addNumericField("Record size (pixels), must be a power of 2", record_size, 0);
-            gd.addNumericField("Frequency rebin increment (mm^-1)", rebin_f_inc, 2);
+            gd.addNumericField("Distance from centre to records (mm)", this.record_radius, 0);
+            gd.addNumericField("Number of records", this.num_records, 0);
+            gd.addNumericField("Record size (pixels), must be a power of 2", this.record_size, 0);
+            gd.addNumericField("Frequency rebin increment (mm^-1)", this.rebin_f_inc, 2);
 
             gd.showDialog();
             if(gd.wasCanceled()) {
@@ -96,10 +96,10 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
                 return(0);
             }
 
-            record_radius = gd.getNextNumber();
-            num_records = (int) gd.getNextNumber();
-            record_size = (int) gd.getNextNumber();
-            rebin_f_inc = gd.getNextNumber();
+            this.record_radius = gd.getNextNumber();
+            this.num_records = (int) gd.getNextNumber();
+            this.record_size = (int) gd.getNextNumber();
+            this.rebin_f_inc = gd.getNextNumber();
         }
         return DOES_ALL;
     }
@@ -112,55 +112,55 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
         //---------------------------------------------------------------------
         // Obtain the pixel size of the image. This will return 1.0 if ImageJ
         // isn't able to read the pixel size from the DICOM tags.
-        Calibration cal = imp.getCalibration();
+        Calibration cal = this.imp.getCalibration();
         double pixel_size_in_mm = cal.pixelWidth;
-        double record_radius_px = record_radius/pixel_size_in_mm;
+        double record_radius_px = this.record_radius/pixel_size_in_mm;
         //---------------------------------------------------------------------
 
 
-        double[][] ensemble_nps = new double[record_size][record_size];
+        double[][] ensemble_nps = new double[this.record_size][this.record_size];
 
 
         //---------------------------------------------------------------------
         // Determine the centre of the main_roi and use this as the centre of
         // the region for which we're measuring the NPS.
         double[] centre = new double[2];
-        centre[0] = cal.getX(main_roi.getXBase() + (main_roi.getFloatWidth()/2.0));
-        centre[1] = cal.getY(main_roi.getYBase() + (main_roi.getFloatHeight()/2.0));
+        centre[0] = cal.getX(this.main_roi.getXBase() + (this.main_roi.getFloatWidth()/2.0));
+        centre[1] = cal.getY(this.main_roi.getYBase() + (this.main_roi.getFloatHeight()/2.0));
 
         // Add a marker to the image showing the location of the centre
         Roi com_marker = new PointRoi(cal.getRawX(centre[0]), cal.getRawY(centre[1]));
         Overlay com_overlay = new Overlay(com_marker);
         com_overlay.setStrokeColor(Color.red);
-        imp.setOverlay(com_overlay);
+        this.imp.setOverlay(com_overlay);
 
         // Create an overlay to display the record ROIs on the image.
         Overlay overlay = new Overlay();
-        imp.setOverlay(overlay);
+        this.imp.setOverlay(overlay);
         overlay.add(com_marker);
         //---------------------------------------------------------------------
 
 
         //---------------------------------------------------------------------
         // Calculate the NPS of each record
-        for (int m=0; m<num_records; m++) {
-            double current_angle = (2.0 * Math.PI) / num_records * m;
+        for (int m=0; m<this.num_records; m++) {
+            double current_angle = (2.0 * Math.PI) / this.num_records * m;
 
             double x_pos = record_radius_px * Math.cos(current_angle);
             double y_pos = record_radius_px * Math.sin(current_angle);
 
-            Roi record_roi = new Roi(cal.getRawX(centre[0]) + x_pos - (record_size/2.0), cal.getRawY(centre[1]) + y_pos - (record_size/2.0), record_size, record_size);
+            Roi record_roi = new Roi(cal.getRawX(centre[0]) + x_pos - (this.record_size/2.0), cal.getRawY(centre[1]) + y_pos - (this.record_size/2.0), this.record_size, this.record_size);
 
             overlay.add(record_roi);
             overlay.setStrokeColor(Color.green);
 
             // Set the roi on the main image
-            imp.setRoi(record_roi);
+            this.imp.setRoi(record_roi);
 
             // Carry out a 2d second-order polynomial fit on a new ImagePlus
             // that just contains the current record pixels. The Fit Polynomial
             // command subtracts the fit from the original data.
-            ImagePlus record = imp.crop();
+            ImagePlus record = this.imp.crop();
             IJ.run(record, "Fit Polynomial", "x=2 y=2 mixed=0");
             record.setRoi(0, 0, record.getWidth(), record.getHeight());
             Roi whole_record_roi = record.getRoi();
@@ -182,14 +182,14 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
         //---------------------------------------------------------------------
         // Multiply the ensemble by dx, dy and divide by M, Nx and Ny
-        double multiplication_factor = pixel_size_in_mm * pixel_size_in_mm / num_records / record_size / record_size;
+        double multiplication_factor = pixel_size_in_mm * pixel_size_in_mm / this.num_records / this.record_size / this.record_size;
         ensemble_nps = multiply2dDoubleArray(ensemble_nps, multiplication_factor);
         // ---------------------------------------------------------------------
 
 
         // ---------------------------------------------------------------------
         // Display the resulting 2d NPS
-        ImagePlus nps_2d = NewImage.createFloatImage("2d NPS", record_size, record_size, 1, NewImage.FILL_BLACK);
+        ImagePlus nps_2d = NewImage.createFloatImage("2d NPS", this.record_size, this.record_size, 1, NewImage.FILL_BLACK);
         nps_2d.getProcessor().setFloatArray(convertDoubleToFloat(ensemble_nps));
         IJ.run(nps_2d, "Swap Quadrants", "");
         nps_2d.show();
@@ -207,15 +207,15 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
         // Negative frequencies are stored in the reverse order of positive frequencies, ranging
         // from the highest to lowest negative frequencies.
         // Only need to use the top half of the FFT, as it is symmetrical
-        double[] radial_nps = new double[(int)(record_size * record_size / 2.0)];
+        double[] radial_nps = new double[(int)(this.record_size * this.record_size / 2.0)];
 
-        double[] radial_freq = new double[(int)(record_size * record_size / 2.0)];
-        double freq_inc = 1.0 / (record_size * pixel_size_in_mm);
+        double[] radial_freq = new double[(int)(this.record_size * this.record_size / 2.0)];
+        double freq_inc = 1.0 / (this.record_size * pixel_size_in_mm);
         int current_point = 0;
 
         // First the +i and +j quadrant
-        for(int i=0; i<record_size/2.0; i++) {
-            for(int j=0; j<record_size/2.0; j++) {
+        for(int i=0; i<this.record_size/2.0; i++) {
+            for(int j=0; j<this.record_size/2.0; j++) {
                 radial_nps[current_point] = ensemble_nps[i][j];
                 double dist = calculateDistanceBetweenPoints(0,0, i, j);
                 radial_freq[current_point] = dist * freq_inc;
@@ -224,11 +224,11 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
         }
 
         // Next the -i and +j quadrant
-        int i_start = (int) (record_size/2.0);
-        for(int i=i_start; i<record_size; i++) {
-            for(int j=0; j<record_size/2.0; j++) {
+        int i_start = (int) (this.record_size/2.0);
+        for(int i=i_start; i<this.record_size; i++) {
+            for(int j=0; j<this.record_size/2.0; j++) {
                 radial_nps[current_point] = ensemble_nps[i][j];
-                double dist = calculateDistanceBetweenPoints(record_size, 0, i, j);
+                double dist = calculateDistanceBetweenPoints(this.record_size, 0, i, j);
                 radial_freq[current_point] = dist * freq_inc;
                 current_point++;
             }
@@ -445,7 +445,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
         IJ.log("Freq (mm^-1)," + nps_label);
 
         for (int i=0; i<nps.freq.length; i++) {
-            IJ.log("" + two_dp.format(nps.freq[i]) + ", " + three_dp.format(nps.val[i]));
+            IJ.log("" + this.two_dp.format(nps.freq[i]) + ", " + this.three_dp.format(nps.val[i]));
         }
     }
 
