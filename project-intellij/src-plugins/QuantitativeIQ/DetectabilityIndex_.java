@@ -27,6 +27,9 @@ import ij.gui.Plot;
 public class DetectabilityIndex_ implements PlugInFilter {
     private ImagePlus imp;
 
+    private double task_radius = 1.5; // mm
+    private double task_contrast = 1.0; // In HU
+
     private DecimalFormat two_dp = new DecimalFormat("0.00");
     private DecimalFormat three_dp = new DecimalFormat("0.000");
 
@@ -101,30 +104,29 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
 
         // Obtain the task function
-        double task_radius = 1.5; // mm
-        double task_contrast = cnr_result.contrast; // HU
+        this.task_contrast = cnr_result.contrast; // HU
         double task_x_inc = 0.01; // mm
 
         // Ask the user what task settings they want to use
         GenericDialog gd = new GenericDialog("Task function settings");
-        gd.addNumericField("Task radius (mm)", task_radius, 2);
-        gd.addNumericField("Task contrast (HU)", task_contrast, 1);
+        gd.addNumericField("Task radius (mm)", this.task_radius, 2);
+        gd.addNumericField("Task contrast (HU)", this.task_contrast, 1);
         gd.showDialog();
         if (! gd.wasCanceled()) { // if the dialogue was not cancelled
-            task_radius = gd.getNextNumber();
-            task_contrast = gd.getNextNumber();
+            this.task_radius = gd.getNextNumber();
+            this.task_contrast = gd.getNextNumber();
         }
 
         TaskFunction_ task_function = new TaskFunction_();
-        task_function.setTaskRadius(task_radius);
-        task_function.setTaskContrast(task_contrast);
+        task_function.setTaskRadius(this.task_radius);
+        task_function.setTaskContrast(this.task_contrast);
         task_function.disc_function();
 
         UnivariateFunction task_fn = task_function.getTaskFunction();
 
         // Plot the task function
-        double x_min = -2.0 * task_radius;
-        double x_max = 2.0 * task_radius;
+        double x_min = -2.0 * this.task_radius;
+        double x_max = 2.0 * this.task_radius;
         int n_elements = (int) ((x_max - x_min) / task_x_inc) + 1;
 
         double[] x_pos = new double[n_elements];
