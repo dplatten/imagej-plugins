@@ -166,15 +166,14 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
             Roi whole_record_roi = record.getRoi();
             double[][] record_vals = getCalibratedPixelValues(record.getProcessor(), whole_record_roi);
 
-            // Fourier transform the record
-            Complex[][] record_vals_complex = convertDoubleToComplex(record_vals);
-            FastFourierTransformer fourier_transformer = new FastFourierTransformer(DftNormalization.STANDARD);
-            Complex[][] nps = (Complex[][]) fourier_transformer.mdfft(record_vals_complex, TransformType.FORWARD);
+            // Fourier transform the result
+            TwoDFFT twod_transformer = new TwoDFFT();
+            Complex[][] nps = twod_transformer.transform(record_vals, DftNormalization.STANDARD);
 
-            // Calculate magnitude and square it
+            // Calculate the magnitude and square it
             double[][] nps_abs_sqrd = absSqrdOfComplex2dArray(nps);
 
-            // Add the current nps_abs_sqrd to the ensemble
+            // Add the current nps_abs_squared to the ensemble
             ensemble_nps = add2dArrays(ensemble_nps, nps_abs_sqrd);
         }
         //---------------------------------------------------------------------
