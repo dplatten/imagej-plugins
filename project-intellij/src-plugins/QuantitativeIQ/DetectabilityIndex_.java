@@ -76,14 +76,13 @@ public class DetectabilityIndex_ implements PlugInFilter {
             return;
         }
 
-        TTF.setAverageStack(true); // Use the average stack to calculate the TTF
-
         TTF.run(ip);
         TTF_result ttf_result = TTF.getTTFResult();
         CNR_result cnr_result = TTF.getCNRResult(); // We're going to use the cnr_result.contrast when creating the task function
 
 
         // Then run the NPS on the same image using default settings
+        this.imp.deleteRoi(); // Remove any currently set ROI
         NoisePowerSpectrum_ NPS = new NoisePowerSpectrum_();
         NPS.setLogging(false); // Switch off writing to the ImageJ log
         result = NPS.setup("defaults", this.imp);

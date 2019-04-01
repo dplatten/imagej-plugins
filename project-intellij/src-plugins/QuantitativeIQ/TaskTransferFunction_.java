@@ -128,6 +128,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
             return(0);
         }
 
+/*
         if ((arg != null) && (arg.length() > 0)) {
             if (arg.equals("defaults")) {
                 // Use defaults
@@ -140,11 +141,12 @@ public class TaskTransferFunction_ implements PlugInFilter {
             }
         }
         else {
-            GenericDialog gd = new GenericDialog("Processing options");
+*/
+            GenericDialog gd = new GenericDialog("Task transfer function options");
             gd.addNumericField("Object diameter (mm)", this.obj_dia_mm, 0);
             gd.addNumericField("Pixel reduction factor", this.pixel_reduction_factor, 0);
-            gd.addNumericField("LOESS bandwidth", this.loess_bandwidth, 2);
-            gd.addNumericField("LOESS robustness", this.loess_robustness, 0);
+            gd.addNumericField("ESF local regression bandwidth", this.loess_bandwidth, 2);
+            gd.addNumericField("ESF local regression robustness", this.loess_robustness, 0);
             gd.addNumericField("Frequency rebin increment (mm^-1)", this.rebin_f_inc, 2);
             gd.addCheckbox("Run on the average stack", this.use_average_stack);
             gd.addCheckbox("Find centre of mass", this.find_com);
@@ -166,7 +168,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
                 ZProjector z_projector = new ZProjector();
                 this.imp = z_projector.run(this.imp, "avg");
             }
-        }
+//        }
         return DOES_ALL;
     }
 
