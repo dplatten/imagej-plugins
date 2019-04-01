@@ -30,6 +30,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
     private double task_radius = 1.5; // mm
     private double task_contrast = 1.0; // In HU
 
+    private DecimalFormat one_dp = new DecimalFormat("0.0");
     private DecimalFormat two_dp = new DecimalFormat("0.00");
     private DecimalFormat three_dp = new DecimalFormat("0.000");
 
@@ -66,6 +67,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
         // First run the TTF analysis using default settings
         TaskTransferFunction_ TTF = new TaskTransferFunction_();
+        TTF.setLogging(false); // Switch off writing to the ImageJ log
         int result = TTF.setup("defaults", this.imp);
         if (result == 0) {
             IJ.error("There was a problem setting up the TTF routine");
@@ -78,6 +80,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
         // Then run the NPS on the same image using default settings
         NoisePowerSpectrum_ NPS = new NoisePowerSpectrum_();
+        NPS.setLogging(false); // Switch off writing to the ImageJ log
         result = NPS.setup("defaults", this.imp);
         if (result == 0) {
             IJ.error("There was a problem setting up the NPS routine");
@@ -94,11 +97,13 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
         // Obtain the eye model data
         EyeModel_ eye_model = new EyeModel_();
-        eye_model.setup(this.two_dp.format(nyquist), 999);
+        eye_model.setLogging(false); // Switch off writing to the ImageJ log
+        eye_model.setFreqCutoff(nyquist);
+        eye_model.setup(EyeModel_.SOLOMON_ET_AL);
         eye_model.setReconFOV(cal.pixelWidth * this.imp.getWidth());
         eye_model.setImagePixelWidth(this.imp.getWidth());
         eye_model.setDisplayZoomFactor(3.0);
-        eye_model.setDisplayPixelPitch(0.02);
+        eye_model.setDisplayPixelPitch(0.2);
         eye_model.run("normal");
         Eye_result E = eye_model.getEyeResult();
 
@@ -180,18 +185,41 @@ public class DetectabilityIndex_ implements PlugInFilter {
         UnivariateIntegrator simpson_integrator = new SimpsonIntegrator();
         double numerator_int = simpson_integrator.integrate(100000, numerator, 0, nyquist);
         double denominator_int = simpson_integrator.integrate(100000, denominator, 0, nyquist);
-
         double detectability = Math.sqrt( Math.pow(numerator_int, 2.0) / denominator_int );
 
-        IJ.log("Detectability is: " + detectability);
-        IJ.log("Numerator is: " + numerator_int);
-        IJ.log("Denominator is: " + denominator_int);
 
-        // Log TTF, NPS, Eye, Task, eye noise
-        IJ.log("Freq (mm^-1),TTF,NPS,Eye,Task");
+        // Log the results
+        IJ.log("Detectability results" +
+                "\nDetectability,"    + this.two_dp.format(detectability) +
+                "\nTask radius (mm)," + this.two_dp.format(this.task_radius) +
+                "\nContrast (HU),"    + this.two_dp.format(cnr_result.contrast) +
+                "\nCNR,"              + this.two_dp.format(cnr_result.cnr)+
+                "\nNoise (HU),"       + this.two_dp.format(cnr_result.noise)
+        );
+
+        IJ.log("\nEye model settings used" +
+                "\nEye model,"                        + EyeModel_.model_names[EyeModel_.SOLOMON_ET_AL] +
+                "\nViewing distance (mm),"            + this.one_dp.format(eye_model.getViewingDistance()) +
+                "\nRecon field of view (mm),"         + this.two_dp.format(eye_model.getReconFOV()) +
+                "\nImage pixel width,"                + this.three_dp.format(eye_model.getImagePixelWidth()) +
+                "\nDisplay monitor pixel pitch (mm)," + this.three_dp.format(eye_model.getDisplayPixelPitch()) +
+                "\nDisplay zoom factor,"              + this.one_dp.format(eye_model.getDisplayZoomFactor()) +
+                "\nSize of displayed image (mm),"     + this.two_dp.format(eye_model.getDisplayedImageSize()) +
+                "\nRadial (1/mm) to angular frequency (c/deg) factor," + this.three_dp.format(eye_model.getFreqToAngFreqFactor())
+        );
+
+        // Log the TTF, NPS, Eye, and Task values
+        IJ.log("\nDetectability components" +
+                "\nFreq (mm^-1),TTF,NPS,Eye,Task"
+        );
         double f = 0.0;
         while (f <= nyquist) {
-            IJ.log( this.three_dp.format(f) + "," + TTF_fn.value(f) + "," + NPS_fn.value(f) + "," + E_fn.value(f) + "," + W_fn.value(f));
+            IJ.log( this.three_dp.format(f) + "," +
+                    this.three_dp.format(TTF_fn.value(f)) + "," +
+                    this.three_dp.format(NPS_fn.value(f)) + "," +
+                    this.three_dp.format(E_fn.value(f))   + "," +
+                    this.three_dp.format(W_fn.value(f))
+            );
             f += 0.01;
         }
     }

@@ -14,8 +14,6 @@ import org.apache.commons.math3.complex.Complex;
 import org.apache.commons.math3.complex.ComplexUtils;
 import org.apache.commons.math3.stat.StatUtils;
 import org.apache.commons.math3.transform.DftNormalization;
-import org.apache.commons.math3.transform.FastFourierTransformer;
-import org.apache.commons.math3.transform.TransformType;
 import org.apache.commons.math3.util.MathArrays;
 
 import java.awt.*;
@@ -36,17 +34,31 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
     private static NPS_result nps_result;
 
+    private boolean log_results = true;
+
     private DecimalFormat two_dp = new DecimalFormat("0.00");
     private DecimalFormat three_dp = new DecimalFormat("0.000");
 
-    /**
+
+    /** Method to enable or disable writing to the ImageJ log
      *
-     * @return
+     * @param log_contition Boolean value to set logging on or off
      */
-    // Defined to enable other plugins to access the TTF results
+    void setLogging(boolean log_contition) {
+        this.log_results = log_contition;
+    }
+
+
+    /** Method to obtain the NPS results
+     *
+     * @return An object of type NPS_result containing the NPS results. The .freq property contains
+     * an array of frequency values; the .val property contains the NPS values at the corresponding
+     * frequency.
+     */
     NPS_result getNPSResult() {
         return nps_result;
     }
+
 
     /**
      *
@@ -58,7 +70,6 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
         this.imp = imp;
 
         if(this.imp == null) {
-            IJ.error("Please open an image");
             return(0);
         }
 
@@ -75,12 +86,12 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
         if ((arg != null) && (arg.length() > 0)) {
             if (arg.equals("defaults")) {
                 // Use defaults
-                IJ.log("NoisePowerSpectrum using ROIs " + this.record_radius + " mm from centre");
+                if (this.log_results) IJ.log("NoisePowerSpectrum using ROIs " + this.record_radius + " mm from centre");
             }
             else {
                 // Assume the argument contains the distance from ROI centre to record in mm.
                 this.record_radius = Float.parseFloat(arg);
-                IJ.log("NoisePowerSpectrum using ROIs " + this.record_radius + " mm from centre");
+                if (this.log_results) IJ.log("NoisePowerSpectrum using ROIs " + this.record_radius + " mm from centre");
             }
         }
         else {
@@ -92,7 +103,6 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
             gd.showDialog();
             if(gd.wasCanceled()) {
-                IJ.error("Plugin cancelled");
                 return(0);
             }
 
@@ -200,12 +210,30 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
         // ---------------------------------------------------------------------
         // Work out the radial NPS
-        // The results of the Fourier transform are arranged a bit strangely.
-        // Element 0 is the zero frequency component.
-        // Element 1 is the smallest non-zero positive frequency, 1/(record_size * pixel_size_in_mm)
-        // Negative frequencies are stored in the reverse order of positive frequencies, ranging
-        // from the highest to lowest negative frequencies.
-        // Only need to use the top half of the FFT, as it is symmetrical
+        //
+        // The frequency increment between values in the i or j direction is calculated as:
+        //     1/(record_size * pixel_size_in_mm)
+        //
+        // The top-left quadrant of the nps ensemble contains frequencies:
+        //     0 ≤ i ≤ i_max
+        //     0 ≤ j ≤ j_max
+        //
+        // The top-right:
+        //     -i_max ≤ i < 0
+        //     0 ≤ j ≤ j_max
+        //
+        // The bottom-left:
+        //     0 ≤ i ≤ i_max
+        //     -j_max ≥ j > 0
+        //
+        // The bottom-right:
+        //     -i_max ≤ i < 0
+        //     -j_max ≥ j > 0
+        //
+        // In our use-case we only need to use the top half of the FFT as there is symmetry
+        // between the top and bottom halves because our image data has a zero imaginary
+        // component.
+        //
         double[] radial_nps = new double[(int)(this.record_size * this.record_size / 2.0)];
 
         double[] radial_freq = new double[(int)(this.record_size * this.record_size / 2.0)];
@@ -233,8 +261,10 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
             }
         }
 
+        // Sort the radial array data into ascending order of frequency
         MathArrays.sortInPlace(radial_freq, radial_nps);
 
+        // Plot the radial frequency
         Plot plot_nps = new Plot("Noise power spectrum", "Frequency (mm^-1)", "Noise power (HU^2.mm^2)");
         plot_nps.setAxisYLog(true);
         plot_nps.add("dot", radial_freq, radial_nps);
@@ -248,7 +278,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
 
         // Write the results to the ImageJ log
-        logNPS(rebinned_NPS, "NPS (HU^2.mm^2)");
+        if (this.log_results) logNPS(rebinned_NPS, "NPS (HU^2.mm^2)");
 
         nps_result = rebinned_NPS;
     }

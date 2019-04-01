@@ -42,24 +42,42 @@ public class TaskTransferFunction_ implements PlugInFilter {
     private static TTF_result ttf_result;
     private static CNR_result cnr_result;
 
+    private boolean log_results = true;
+
     private DecimalFormat two_dp = new DecimalFormat("0.00");
     private DecimalFormat three_dp = new DecimalFormat("0.000");
+
+
+    /** Method to enable or disable writing to the ImageJ log
+     *
+     * @param log_contition Boolean value to set logging on or off
+     */
+    void setLogging(boolean log_contition) {
+        this.log_results = log_contition;
+    }
+
+
 
     // Defined to enable other plugins to access the TTF results
     TTF_result getTTFResult() {
         return ttf_result;
     }
 
+
     // Defined to enable other plugins to access the CNR results
     CNR_result getCNRResult() {
         return cnr_result;
     }
 
+
     /**
      *
      * @return
      */
-    double getFreqBinInc() { return rebin_f_inc; }
+    double getFreqBinInc() {
+        return rebin_f_inc;
+    }
+
 
     /**
      *
@@ -71,7 +89,6 @@ public class TaskTransferFunction_ implements PlugInFilter {
         this.imp = imp;
 
         if(this.imp == null) {
-            IJ.error("Please open an image");
             return(0);
         }
 
@@ -88,12 +105,12 @@ public class TaskTransferFunction_ implements PlugInFilter {
         if ((arg != null) && (arg.length() > 0)) {
             if (arg.equals("defaults")) {
                 // Use defaults
-                IJ.log("TaskTransferFunction using " + this.obj_dia_mm + " mm object diameter");
+                if (this.log_results) IJ.log("TaskTransferFunction using " + this.obj_dia_mm + " mm object diameter");
             }
             else {
                 // Assume the argument contains the diameter of the TTF object.
                 this.obj_dia_mm = Float.parseFloat(arg);
-                IJ.log("TaskTransferFunction using " + this.obj_dia_mm + " mm object diameter");
+                if (this.log_results) IJ.log("TaskTransferFunction using " + this.obj_dia_mm + " mm object diameter");
             }
         }
         else {
@@ -151,7 +168,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
             // Obtain the centre of mass of the ROI set by the user.
             this.imp.setRoi(this.main_roi);
             com = centreOfMass(ip, this.main_roi, cal, 0.0);
-            IJ.log("Initial CoM: " + this.three_dp.format(com[0]) + ", " + this.three_dp.format(com[1]));
+            if (this.log_results) IJ.log("Initial CoM: " + this.three_dp.format(com[0]) + ", " + this.three_dp.format(com[1]));
             //---------------------------------------------------------------------
 
 
@@ -173,7 +190,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
             // Recalculate the CoM with background subtracted
             this.imp.setRoi(outer_roi);
             com = centreOfMass(ip, outer_roi, cal, -bgd_mean);
-            IJ.log("Adjusted CoM: " + this.three_dp.format(com[0]) + ", " + this.three_dp.format(com[1]));
+            if (this.log_results) IJ.log("Adjusted CoM: " + this.three_dp.format(com[0]) + ", " + this.three_dp.format(com[1]));
 
             // Recentre the annualar roi on the new CoM and recalculate CoM  for a final time
             annular_roi.setLocation(cal.getRawX(com[0]) - obj_dia_pix, cal.getRawY(com[1]) - obj_dia_pix);
@@ -184,7 +201,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
             com = centreOfMass(ip, outer_roi, cal, -bgd_mean);
         }
 
-        IJ.log("Final CoM: " + this.three_dp.format(com[0]) + ", " + this.three_dp.format(com[1]));
+        if (this.log_results) IJ.log("Final CoM: " + this.three_dp.format(com[0]) + ", " + this.three_dp.format(com[1]));
 
         // Add a marker to the image showing the location of the CoM
         Roi com_marker = new PointRoi(cal.getRawX(com[0]), cal.getRawY(com[1]));
@@ -209,9 +226,9 @@ public class TaskTransferFunction_ implements PlugInFilter {
         Roi obj_roi = new OvalRoi(cal.getRawX(com[0])-obj_roi_dia/2.0, cal.getRawY(com[1])-obj_roi_dia/2.0, obj_roi_dia, obj_roi_dia);
         CNR_result cnr_results = contrastToNoiseRatio(this.imp, obj_roi, annular_roi);
 
-        IJ.log("CNR is: " + this.three_dp.format(cnr_results.cnr));
-        IJ.log("Contrast is: " + this.three_dp.format(cnr_results.contrast));
-        IJ.log("Noise is: " + this.three_dp.format(cnr_results.noise));
+        if (this.log_results) IJ.log("CNR is: " + this.three_dp.format(cnr_results.cnr));
+        if (this.log_results) IJ.log("Contrast is: " + this.three_dp.format(cnr_results.contrast));
+        if (this.log_results) IJ.log("Noise is: " + this.three_dp.format(cnr_results.noise));
 
         overlay.add(obj_roi);
         overlay.setStrokeColor(Color.green);
@@ -542,10 +559,10 @@ public class TaskTransferFunction_ implements PlugInFilter {
         double ttf_50_mono = freqAtSpecificTTF(ttf_data_monotonic, 0.5);
         double ttf_10_mono = freqAtSpecificTTF(ttf_data_monotonic, 0.1);
 
-        IJ.log("MTF 50 and 10 are: " + this.three_dp.format(ttf_50) + ", " + this.three_dp.format(ttf_10));
-        //IJ.log("MTF linear 50 and 10 are: " + three_dp.format(ttf_50_linear) + ", " + three_dp.format(ttf_10_linear));
-        //IJ.log("MTF Gaussian 50 and 10 are: " + three_dp.format(ttf_50_gaussian) + ", " + three_dp.format(ttf_10_gaussian));
-        IJ.log("MTF mono 50 and 10 are: " + this.three_dp.format(ttf_50_mono) + ", " + this.three_dp.format(ttf_10_mono));
+        if (this.log_results) IJ.log("MTF 50 and 10 are: " + this.three_dp.format(ttf_50) + ", " + this.three_dp.format(ttf_10));
+        //if (this.log_results) IJ.log("MTF linear 50 and 10 are: " + three_dp.format(ttf_50_linear) + ", " + three_dp.format(ttf_10_linear));
+        //if (this.log_results) IJ.log("MTF Gaussian 50 and 10 are: " + three_dp.format(ttf_50_gaussian) + ", " + three_dp.format(ttf_10_gaussian));
+        if (this.log_results) IJ.log("MTF mono 50 and 10 are: " + this.three_dp.format(ttf_50_mono) + ", " + this.three_dp.format(ttf_10_mono));
         //---------------------------------------------------------------------
 
 
@@ -560,10 +577,10 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
         //---------------------------------------------------------------------
         // Write the resampled TTF data to the ImageJ log
-        logTTF(resampled_ttf, "TTF (local regression ESF)");
-        //logTTF(resampled_ttf_linear, "TTF (linear ESF)");
-        //logTTF(resampled_ttf_gaussian, "TTF (Gaussian fit to LSF)");
-        logTTF(resampled_ttf_mono, "TTF (monotonic ESF)");
+        if (this.log_results) logTTF(resampled_ttf, "TTF (local regression ESF)");
+        //if (this.log_results) logTTF(resampled_ttf_linear, "TTF (linear ESF)");
+        //if (this.log_results) logTTF(resampled_ttf_gaussian, "TTF (Gaussian fit to LSF)");
+        if (this.log_results) logTTF(resampled_ttf_mono, "TTF (monotonic ESF)");
         //---------------------------------------------------------------------
 
 

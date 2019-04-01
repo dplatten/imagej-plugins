@@ -4,17 +4,18 @@ import ij.gui.*;
 import ij.plugin.PlugIn;
 import org.apache.commons.math3.stat.StatUtils;
 import org.apache.commons.math3.util.MathArrays;
+import org.apache.commons.math3.util.MathUtils;
 
 import java.text.DecimalFormat;
 
 /**
  * ImageJ plugin to calculate eye frequency response using either
- * Richard and Siewerdsen 2008:
+ * Richard and Siewerdsen 2008, http://dx.doi.org/10.1118/1.2988161:
  * E(f) = f^n.exp(-c.f^2)
  * where n = 1.3
  *       c = 3.093 for a 50 cm viewing distance for E(f) to peak at 4 cycles/degree
  *
- * or Solomon et al 2015:
+ * or Solomon et al 2015, http://dx.doi.org/10.1118/1.4923172:
  * E(p) = |n.p^(a1).exp(-a2.p^a3)|^2
  * where a1 = 1.5
  *       a2 = 0.98
@@ -34,17 +35,17 @@ import java.text.DecimalFormat;
  */
 public class EyeModel_ implements PlugIn {
 
-    // Richard and Siewerdsen 2008, assuming a 50 cm viewing distance
+    // Richard and Siewerdsen 2008, http://dx.doi.org/10.1118/1.2988161, assuming a 50 cm viewing distance
     private double n = 1.3;
     private double c = 3.093; // So that E(f) peaks at 4 c/deg at 50 cm viewing distance
 
-    // Solomon et al 2015
+    // Solomon et al 2015, http://dx.doi.org/10.1118/1.4923172
     private double recon_fov = 400.0; // Reconstructed field of view of image (mm)
     private double viewing_dist = 500.0; // The viewing distance (mm)
     private double display_pixel_pitch = 0.2; // The size of a pixel on the display (mm)
     private double image_pixel_width = 512; // The number of pixels in the image width
     private double display_zoom_factor = 3.0; // The zoom applied to the image on the display
-    private double display_size = calc_displayed_image_size(); // The display size (mm)
+    private double display_size = calc_displayed_image_size(); // The size of the image on the display (mm)
     private double f_to_rho = calc_f_to_rho_factor(); // Conversion from radial freq to cycles per degree
 
     private double cutoff_f = 2.0; // Maximum frequency for which to calculate E(f)
@@ -52,11 +53,23 @@ public class EyeModel_ implements PlugIn {
 
     private static Eye_result eye_result;
 
+    private boolean log_results = true;
+
     private DecimalFormat three_dp = new DecimalFormat("0.000");
 
-    private static int SOLOMON_ET_AL = 0;
-    private static int RICHARD_AND_SIEWERDSEN = 1;
+    static int SOLOMON_ET_AL = 0;
+    static int RICHARD_AND_SIEWERDSEN = 1;
     private int model_choice = SOLOMON_ET_AL;
+
+    static String[] model_names = {"Solomon et al 2015 (http://dx.doi.org/10.1118/1.4923172)", "Richard and Siewerdsen 2008 (http://dx.doi.org/10.1118/1.2988161)"};
+
+    /** Method to enable or disable writing to the ImageJ log
+     *
+     * @param log_contition Boolean value to set logging on or off
+     */
+    void setLogging(boolean log_contition) {
+        this.log_results = log_contition;
+    }
 
 
     /** Method to obtain the eye filter results
@@ -69,13 +82,40 @@ public class EyeModel_ implements PlugIn {
     }
 
 
+    /** Method to obtain the viewing distance
+     *
+     * @return The viewing distance.
+     */
+    double getViewingDistance() {
+        return this.viewing_dist;
+    }
+
+
+    /** Method to set the frequency cut off
+     *
+     * @param new_freq The new frequency cut off (per mm)
+     */
+    void setFreqCutoff(double new_freq) {
+        this.cutoff_f = new_freq;
+    }
+
+
     /** Method to set the image reconstruction field of view
      *
      * @param new_recon_fov The value of the image reconstruction field of view in mm.
      */
     void setReconFOV(double new_recon_fov) {
         this.recon_fov = new_recon_fov;
-        this.f_to_rho = calc_f_to_rho_factor();
+        this.f_to_rho = this.calc_f_to_rho_factor();
+    }
+
+
+    /** Method to get the image reconstruction field of view
+     *
+         * @return Returns the image reconstruction field of view.
+     */
+    double getReconFOV() {
+        return this.recon_fov;
     }
 
 
@@ -85,19 +125,55 @@ public class EyeModel_ implements PlugIn {
      */
     void setDisplayPixelPitch(double new_display_pixel_pitch) {
         this.display_pixel_pitch = new_display_pixel_pitch;
-        this.display_size = calc_displayed_image_size();
-        this.f_to_rho = calc_f_to_rho_factor();
+        this.display_size = this.calc_displayed_image_size();
+        this.f_to_rho = this.calc_f_to_rho_factor();
     }
 
 
-    /** Method to set the image pixel size
+    /** Method to get the pixel pitch of the display monitor being used to view the image
      *
-     * @param new_image_pixel_width The size of an image pixel (usually defined in the DICOM tags) n mm
+     * @return Returns the physical size of single pixel of the display monitor in mm
+     */
+    double getDisplayPixelPitch() {
+        return this.display_pixel_pitch;
+    }
+
+
+    /** Method to get the physical size of the image on the display screen
+     *
+     * @return Returns the physical size of the image on the display screen
+     */
+    double getDisplayedImageSize() {
+        return this.display_size;
+    }
+
+
+    /** Method to get the conversion factor from radial frequency to angular frequency.
+     *
+     * @return Returns the conversion factor to go from radial (1/mm) to angular frequency (cycles/degree)
+     */
+    double getFreqToAngFreqFactor() {
+        return this.f_to_rho;
+    }
+
+
+    /** Method to set the number of pixels in the image width
+     *
+     * @param new_image_pixel_width The number of pixels in the image width
      */
     void setImagePixelWidth(double new_image_pixel_width) {
         this.image_pixel_width = new_image_pixel_width;
-        this.display_size = calc_displayed_image_size();
-        this.f_to_rho = calc_f_to_rho_factor();
+        this.display_size = this.calc_displayed_image_size();
+        this.f_to_rho = this.calc_f_to_rho_factor();
+    }
+
+
+    /** Method to set the number of pixels in the image width
+     *
+     * @return The number of pixels in the image width
+     */
+    double getImagePixelWidth() {
+        return this.image_pixel_width;
     }
 
 
@@ -107,24 +183,32 @@ public class EyeModel_ implements PlugIn {
      */
     void setDisplayZoomFactor(double new_display_zoom_factor) {
         this.display_zoom_factor = new_display_zoom_factor;
-        this.display_size = calc_displayed_image_size();
-        this.f_to_rho = calc_f_to_rho_factor();
+        this.display_size = this.calc_displayed_image_size();
+        this.f_to_rho = this.calc_f_to_rho_factor();
+    }
+
+
+    /** Method to get the zoom factor that is used to display the image on the display monitor
+     *
+     * @return Returns the zoom factor of the image on the display monitor
+     */
+    double getDisplayZoomFactor() {
+        return this.display_zoom_factor;
     }
 
 
     /** Method to set up the eye filter according to the user's requirements
      *
-     * @param arg If present, assumed to contain the frequency cut off as a String
      * @param model_type If present used to determine the eye model type to use
      * @return 0 if all is well, 1 if the routine is cancelled
      */
-    int setup(String arg, int model_type) {
+    int setup(int model_type) {
         if (model_type == SOLOMON_ET_AL) {
-            IJ.log("Using Solomon et al model");
+            if (this.log_results) IJ.log("Using Solomon et al model");
             this.model_choice = SOLOMON_ET_AL;
         }
         else if (model_type == RICHARD_AND_SIEWERDSEN) {
-            IJ.log("Using Richard and Siewerdsen model");
+            if (this.log_results) IJ.log("Using Richard and Siewerdsen model");
             this.model_choice = RICHARD_AND_SIEWERDSEN;
         }
         else {
@@ -140,10 +224,10 @@ public class EyeModel_ implements PlugIn {
 
         int result;
         if (this.model_choice == SOLOMON_ET_AL) {
-            result = SolomonEtAlSetup(arg);
+            result = this.SolomonEtAlSetup();
         }
         else {
-            result = RichardAndSiewerdsenSetup(arg);
+            result = this.RichardAndSiewerdsenSetup();
         }
         if (result != 0) {
             return(1); // Return to the calling method with a non-zero result
@@ -159,36 +243,35 @@ public class EyeModel_ implements PlugIn {
     public void run(String arg) {
         if ((arg != null) && (arg.length() > 0)) {
             if (this.model_choice == SOLOMON_ET_AL) {
-                SolomonEtAl();
+                this.SolomonEtAl();
             } else if (this.model_choice == RICHARD_AND_SIEWERDSEN) {
-                RichardAndSiewerdsen();
+                this.RichardAndSiewerdsen();
             } else {
                 IJ.error("Unrecognised value passed to run");
             }
         }
         else {
-            int result  = setup("2.0", 999);
-            if (result == 0) run(String.valueOf(this.model_choice));
+            int result  = this.setup(999);
+            if (result == 0) this.run(String.valueOf(this.model_choice));
         }
     }
 
 
     /** Method to setup the  Richard and Siewerdsen model
      *
-     * @param arg Not currently used
      * @return 0 if all is well; 1 if the routine is cancelled
      */
-    private int RichardAndSiewerdsenSetup(String arg) {
+    private int RichardAndSiewerdsenSetup() {
 /*
         if ((arg != null) && (arg.length() > 0)) {
             if (arg.equals("defaults")) {
                 // Use defaults
-                IJ.log("Eye model using " + three_dp.format(cutoff_f) + " mm^-1 cutoff  frequency");
+                if (this.log_results) IJ.log("Eye model using " + three_dp.format(cutoff_f) + " mm^-1 cutoff  frequency");
             }
             else {
                 // Assume the argument contains the frequency cutoff.
                 cutoff_f = Float.parseFloat(arg);
-                IJ.log("Eye model using " + three_dp.format(cutoff_f) + " mm^-1 cutoff  frequency");
+                if (this.log_results) IJ.log("Eye model using " + three_dp.format(cutoff_f) + " mm^-1 cutoff  frequency");
             }
         }
         else {
@@ -237,7 +320,7 @@ public class EyeModel_ implements PlugIn {
         plot_eye.show();
 
         // Write the results to the ImageJ log
-        logResults(E, "Richard and Siewerdsen eye response");
+        if (this.log_results) logResults(E, "Richard and Siewerdsen eye response");
 
         eye_result = E;
     }
@@ -245,10 +328,9 @@ public class EyeModel_ implements PlugIn {
 
     /** Method to setup the Solomon et al eye model
      *
-     * @param arg Not currently used
      * @return 0 if all is well; 1 if the routine was cancelled
      */
-    private int SolomonEtAlSetup(String arg) {
+    private int SolomonEtAlSetup() {
         // Entirely ignoring arg at the moment and showing the dialogue
         GenericDialog gd = new GenericDialog("Solomon et al eye model options");
         gd.addNumericField("Frequency cutoff (mm^-1)", this.cutoff_f, 2);
@@ -274,15 +356,15 @@ public class EyeModel_ implements PlugIn {
         this.recon_fov = gd.getNextNumber();
 
         // Recalculate the conversion from radial frequency to angular frequency
-        this.display_size = calc_displayed_image_size();
-        this.f_to_rho = calc_f_to_rho_factor();
+        this.display_size = this.calc_displayed_image_size();
+        this.f_to_rho = this.calc_f_to_rho_factor();
 
         return(0);
     }
 
 
-    /** Method to calculate the eye model using Solomon et al
-     *
+    /** Method to calculate the eye model using Solomon et al 2015 (http://dx.doi.org/10.1118/1.4923172). This
+     * method implements equation 3 in the Solomon et al 2015 work.
      */
     private void SolomonEtAl() {
         double a1 = 1.5;
@@ -298,17 +380,20 @@ public class EyeModel_ implements PlugIn {
         double[] ang_freq = new double[num_elements];
 
         for (int i=0; i<num_elements; i++) {
-            E.freq[i] = this.f_inc * i; // The radial frequency
-            ang_freq[i] = E.freq[i] * this.f_to_rho; // The angular frequency
-            // E, pre-normalisation and squaring
+            E.freq[i] = this.f_inc * i;              // The radial frequency
+            ang_freq[i] = E.freq[i] * this.f_to_rho; // Convert to angular frequency
+
+            // Calculate the inner part of Solomon et al 2015 equation 3, except for normalisation
             E.val[i] = Math.pow(ang_freq[i], a1) * Math.exp(-1.0 * a2 * Math.pow(ang_freq[i], a3));
         }
 
-        // Determine the maximum value of E.val and then use this to normalise the result
+        // Determine the maximum value of E.val and then use this to normalise the result. This
+        // completes the inner part of Solomon et al 2015 equation 3
         double max_val = StatUtils.max(E.val);
         MathArrays.scaleInPlace(1.0/max_val, E.val);
 
-        // Square the normalised values to give us E
+        // Square the normalised values to give us E. I don't see any point in taking the absolute
+        // value first, as the squaring will render any negative values positive anyway.
         E.val = MathArrays.ebeMultiply(E.val, E.val);
 
         Plot plot_eye = new Plot("Solomon et al eye response", "Frequency (mm^-1)", "Eye response");
@@ -318,7 +403,7 @@ public class EyeModel_ implements PlugIn {
         plot_eye.show();
 
         // Write the results to the ImageJ log
-        logResults(E, "Solomon et al eye response");
+        if (this.log_results) logResults(E, "Solomon et al eye response");
 
         eye_result = E;
     }
@@ -339,7 +424,19 @@ public class EyeModel_ implements PlugIn {
     }
 
 
-    /** Method to calculate the conversion from radial frequency (per mm) to angular frequency (cycles per degree)
+    /** Method to calculate the conversion from radial frequency (per mm) to angular frequency (cycles per degree).
+     * This method uses equation 4 in http://dx.doi.org/10.1118/1.4923172 to calculate this factor:
+     *     rho = r.FOV.R.pi / (D.180)
+     *
+     * where:
+     *     rho is angular spatial frequency
+     *     r   is radial spatial frequency
+     *     FOV is the reconstructed field of view of the image
+     *     R   is the viewing distance
+     *     D   is the display size (I'm assuming this is the physical size of the image on the display)
+     *
+     * This method calculates FOV.R.pi / (D.180), so that values of radial frequency can be multiplied by this
+     * factor to obtain values of angular spatial frequency.
      *
      * @return The conversion factor
      */
@@ -348,7 +445,8 @@ public class EyeModel_ implements PlugIn {
     }
 
 
-    /** Method to calculate the displayed image size
+    /** Method to calculate the displayed image size from the display pixel pitch, the pixel
+     * width of the image and the display zoom factor.
      *
      * @return The conversion factor
      */

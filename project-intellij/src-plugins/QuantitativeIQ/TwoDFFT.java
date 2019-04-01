@@ -7,6 +7,18 @@ import org.apache.commons.math3.transform.TransformType;
 
 public class TwoDFFT {
 
+    /** A method to carry out a two-dimensional forward Fourier transform.
+     *  The frequency scale of the resulting transform can be calculated using:
+     *  freq_inc_i [per mm] = 1.0 / (total width of input array [mm]);
+     *  freq_inc_j [per mm] = 1.0 / (total height of input array [mm]);
+     *
+     * @param input_array A two-dimensional array of double-precision values. The length
+     *                    of each array dimension must be a power of two
+     * @param norm_type The type of normalisation to carry out. Can be DftNormalization.STANDARD
+     *                  or DftNormalization.UNITARY.
+     * @return A two-dimensional array of complex numbers containing the result of the forward
+     *         Fourier transform. The return array has the same dimensions as the input array.
+     */
     Complex[][] transform(double[][] input_array, DftNormalization norm_type) {
 
         Complex[][] two_d_fft = new Complex[input_array.length][input_array[0].length];
@@ -22,7 +34,7 @@ public class TwoDFFT {
 
         // Fourier transform each row of the initial result
         // Mirror the initial results along the diagonal so rows become columns
-        two_d_fft = mirrorOnDiagonal(two_d_fft);
+        two_d_fft = transpose(two_d_fft);
 
         // Fourier transform each column of the initial result
         for (int col=0; col<two_d_fft.length; col++) {
@@ -30,13 +42,22 @@ public class TwoDFFT {
         }
 
         // Mirror the results back to their original orientation
-        two_d_fft = mirrorOnDiagonal(two_d_fft);
+        two_d_fft = transpose(two_d_fft);
 
         return two_d_fft;
     }
 
 
-    private Complex[][] mirrorOnDiagonal(Complex[][] input) {
+    /** Method to transpose a 2d array of complex numbers: the row and column indices are swapped.
+     *   1   2   3   4                 1   5   9  13
+     *   5   6   7   8    Transpose    2   6  10  14
+     *   9  10  11  12  <----------->  3   7  11  15
+     *  13  14  15  16                 4   8  12  16
+     *
+     * @param input A two-dimensional array of complex numbers
+     * @return The transpose of the input, also a two-dimensional array of complex numbers
+     */
+    private Complex[][] transpose(Complex[][] input) {
         Complex[][] output = new Complex[input[0].length][input.length];
 
         for (int i=0; i<input.length; i++) {
