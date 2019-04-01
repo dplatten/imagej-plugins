@@ -414,7 +414,7 @@ public class EyeModel_ implements PlugIn {
      * @param label The label for the eye model values
      */
     private void logResults(Eye_result E, String label) {
-        IJ.log("Eye model using " + this.three_dp.format(cutoff_f) + " mm^-1 cutoff  frequency");
+        IJ.log("Eye model using " + this.three_dp.format(this.cutoff_f) + " mm^-1 cutoff  frequency");
         IJ.log("Freq (mm^-1)," + label);
 
         for (int i=0; i<E.freq.length; i++) {
