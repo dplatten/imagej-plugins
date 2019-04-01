@@ -7,6 +7,7 @@ package QuantitativeIQ;// ImageJ plugin to calculate the task transfer function 
 import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.*;
+import ij.plugin.ZProjector;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
 import ij.measure.Calibration;
@@ -45,10 +46,21 @@ public class TaskTransferFunction_ implements PlugInFilter {
     private double ttf_50;
     private double ttf_10;
 
+    private boolean use_average_stack = true;
+
     private boolean log_results = true;
 
     private DecimalFormat two_dp = new DecimalFormat("0.00");
     private DecimalFormat three_dp = new DecimalFormat("0.000");
+
+
+    /** Method to enable or disable using an average stack rather than a single image
+     *
+     * @param average_stack boolean value to set whether to use the stack average or not
+     */
+    void setAverageStack(boolean average_stack) {
+        this.use_average_stack = average_stack;
+    }
 
 
     /** Method to enable or disable writing to the ImageJ log
@@ -134,6 +146,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
             gd.addNumericField("LOESS bandwidth", this.loess_bandwidth, 2);
             gd.addNumericField("LOESS robustness", this.loess_robustness, 0);
             gd.addNumericField("Frequency rebin increment (mm^-1)", this.rebin_f_inc, 2);
+            gd.addCheckbox("Run on the average stack", this.use_average_stack);
             gd.addCheckbox("Find centre of mass", this.find_com);
 
             gd.showDialog();
@@ -146,7 +159,13 @@ public class TaskTransferFunction_ implements PlugInFilter {
             this.loess_bandwidth = gd.getNextNumber();
             this.loess_robustness = (int) gd.getNextNumber();
             this.rebin_f_inc = gd.getNextNumber();
+            this.use_average_stack = gd.getNextBoolean();
             this.find_com = gd.getNextBoolean();
+
+            if (this.use_average_stack) {
+                ZProjector z_projector = new ZProjector();
+                this.imp = z_projector.run(this.imp, "avg");
+            }
         }
         return DOES_ALL;
     }

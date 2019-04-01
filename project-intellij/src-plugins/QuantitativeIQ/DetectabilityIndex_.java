@@ -9,7 +9,9 @@ import QuantitativeIQ.EyeModel_.Eye_result;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.GenericDialog;
+import ij.gui.Roi;
 import ij.measure.Calibration;
+import ij.plugin.ZProjector;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
 import org.apache.commons.math3.analysis.FunctionUtils;
@@ -73,6 +75,9 @@ public class DetectabilityIndex_ implements PlugInFilter {
             IJ.error("There was a problem setting up the TTF routine");
             return;
         }
+
+        TTF.setAverageStack(true); // Use the average stack to calculate the TTF
+
         TTF.run(ip);
         TTF_result ttf_result = TTF.getTTFResult();
         CNR_result cnr_result = TTF.getCNRResult(); // We're going to use the cnr_result.contrast when creating the task function
