@@ -99,11 +99,11 @@ public class DetectabilityIndex_ implements PlugInFilter {
         EyeModel_ eye_model = new EyeModel_();
         eye_model.setLogging(false); // Switch off writing to the ImageJ log
         eye_model.setFreqCutoff(nyquist);
-        eye_model.setup(EyeModel_.SOLOMON_ET_AL);
-        eye_model.setReconFOV(cal.pixelWidth * this.imp.getWidth());
-        eye_model.setImagePixelWidth(this.imp.getWidth());
+        eye_model.setReconFOV(cal.pixelWidth * imp.getWidth());
+        eye_model.setImagePixelWidth(imp.getWidth());
         eye_model.setDisplayZoomFactor(3.0);
         eye_model.setDisplayPixelPitch(0.2);
+        eye_model.setup(EyeModel_.SOLOMON_ET_AL);
         eye_model.run("normal");
         Eye_result E = eye_model.getEyeResult();
 
@@ -193,12 +193,13 @@ public class DetectabilityIndex_ implements PlugInFilter {
                 "\nDetectability,"    + this.two_dp.format(detectability) +
                 "\nTask radius (mm)," + this.two_dp.format(this.task_radius) +
                 "\nContrast (HU),"    + this.two_dp.format(cnr_result.contrast) +
-                "\nCNR,"              + this.two_dp.format(cnr_result.cnr)+
-                "\nNoise (HU),"       + this.two_dp.format(cnr_result.noise)
+                "\nCNR,"              + this.two_dp.format(cnr_result.cnr) +
+                "\nNoise (HU),"       + this.two_dp.format(cnr_result.noise) +
+                "\nTTF 50 (1/mm),"    + this.two_dp.format(TTF.getTTF50()) +
+                "\nTTF 10 (1/mm),"    + this.two_dp.format(TTF.getTTF10())
         );
 
         IJ.log("\nEye model settings used" +
-                "\nEye model,"                        + EyeModel_.model_names[EyeModel_.SOLOMON_ET_AL] +
                 "\nViewing distance (mm),"            + this.one_dp.format(eye_model.getViewingDistance()) +
                 "\nRecon field of view (mm),"         + this.two_dp.format(eye_model.getReconFOV()) +
                 "\nImage pixel width,"                + this.three_dp.format(eye_model.getImagePixelWidth()) +
@@ -222,5 +223,6 @@ public class DetectabilityIndex_ implements PlugInFilter {
             );
             f += 0.01;
         }
+        IJ.log("\n");
     }
 }

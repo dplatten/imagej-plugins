@@ -4,7 +4,6 @@ import ij.gui.*;
 import ij.plugin.PlugIn;
 import org.apache.commons.math3.stat.StatUtils;
 import org.apache.commons.math3.util.MathArrays;
-import org.apache.commons.math3.util.MathUtils;
 
 import java.text.DecimalFormat;
 
@@ -45,8 +44,9 @@ public class EyeModel_ implements PlugIn {
     private double display_pixel_pitch = 0.2; // The size of a pixel on the display (mm)
     private double image_pixel_width = 512; // The number of pixels in the image width
     private double display_zoom_factor = 3.0; // The zoom applied to the image on the display
-    private double display_size = calc_displayed_image_size(); // The size of the image on the display (mm)
-    private double f_to_rho = calc_f_to_rho_factor(); // Conversion from radial freq to cycles per degree
+
+    private double display_size = this.calc_displayed_image_size(); // The size of the image on the display (mm)
+    private double f_to_rho = this.calc_f_to_rho_factor(); // Conversion from radial freq to cycles per degree
 
     private double cutoff_f = 2.0; // Maximum frequency for which to calculate E(f)
     private double f_inc = 0.01; // Frequency increment in mm^-1
@@ -61,7 +61,6 @@ public class EyeModel_ implements PlugIn {
     static int RICHARD_AND_SIEWERDSEN = 1;
     private int model_choice = SOLOMON_ET_AL;
 
-    static String[] model_names = {"Solomon et al 2015 (http://dx.doi.org/10.1118/1.4923172)", "Richard and Siewerdsen 2008 (http://dx.doi.org/10.1118/1.2988161)"};
 
     /** Method to enable or disable writing to the ImageJ log
      *
@@ -78,7 +77,7 @@ public class EyeModel_ implements PlugIn {
      * each contain an array of double-precision values.
      */
     Eye_result getEyeResult() {
-        return eye_result;
+        return this.eye_result;
     }
 
 
@@ -251,7 +250,7 @@ public class EyeModel_ implements PlugIn {
             }
         }
         else {
-            int result  = this.setup(999);
+            int result = this.setup(999);
             if (result == 0) this.run(String.valueOf(this.model_choice));
         }
     }
@@ -350,10 +349,10 @@ public class EyeModel_ implements PlugIn {
         this.cutoff_f = gd.getNextNumber();
         this.f_inc = gd.getNextNumber();
         this.viewing_dist = gd.getNextNumber();
+        this.recon_fov = gd.getNextNumber();
         this.display_pixel_pitch = gd.getNextNumber();
         this.display_zoom_factor = gd.getNextNumber();
         this.image_pixel_width = gd.getNextNumber();
-        this.recon_fov = gd.getNextNumber();
 
         // Recalculate the conversion from radial frequency to angular frequency
         this.display_size = this.calc_displayed_image_size();
@@ -415,7 +414,7 @@ public class EyeModel_ implements PlugIn {
      * @param label The label for the eye model values
      */
     private void logResults(Eye_result E, String label) {
-        IJ.log("Eye model using " + this.three_dp.format(this.cutoff_f) + " mm^-1 cutoff  frequency");
+        IJ.log("Eye model using " + this.three_dp.format(cutoff_f) + " mm^-1 cutoff  frequency");
         IJ.log("Freq (mm^-1)," + label);
 
         for (int i=0; i<E.freq.length; i++) {

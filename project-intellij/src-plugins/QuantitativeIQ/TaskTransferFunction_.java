@@ -39,8 +39,11 @@ public class TaskTransferFunction_ implements PlugInFilter {
     private Roi main_roi;
     private Boolean find_com = Boolean.TRUE;
 
-    private static TTF_result ttf_result;
-    private static CNR_result cnr_result;
+    private TTF_result ttf_result;
+    private CNR_result cnr_result;
+
+    private double ttf_50;
+    private double ttf_10;
 
     private boolean log_results = true;
 
@@ -57,10 +60,21 @@ public class TaskTransferFunction_ implements PlugInFilter {
     }
 
 
-
     // Defined to enable other plugins to access the TTF results
     TTF_result getTTFResult() {
         return ttf_result;
+    }
+
+
+    // Defined to enable other plugins to access the TTF results
+    double getTTF50() {
+        return this.ttf_50;
+    }
+
+
+    // Defined to enable other plugins to access the TTF results
+    double getTTF10() {
+        return this.ttf_10;
     }
 
 
@@ -592,7 +606,9 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
         //---------------------------------------------------------------------
         // Set the final_results property so it can be obtained for further use
-        ttf_result = ttf_data_monotonic;
+        this.ttf_result = ttf_data_monotonic;
+        this.ttf_50 = ttf_50_mono;
+        this.ttf_10 = ttf_10_mono;
         //---------------------------------------------------------------------
     }
 
