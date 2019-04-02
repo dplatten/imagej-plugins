@@ -37,7 +37,9 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
     private boolean log_results = true;
 
-    private boolean use_average_stack = true;
+    private boolean use_average_stack = false;
+    private int min_stack_index;
+    private int max_stack_index;
 
     private DecimalFormat two_dp = new DecimalFormat("0.00");
     private DecimalFormat three_dp = new DecimalFormat("0.000");
@@ -103,8 +105,11 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
             gd.addNumericField("Number of records", this.num_records, 0);
             gd.addNumericField("Record size (pixels), must be a power of 2", this.record_size, 0);
             gd.addNumericField("Frequency rebin increment (mm^-1)", this.rebin_f_inc, 2);
-            gd.addCheckbox("Run on the average stack", this.use_average_stack);
-
+            if (this.imp.isStack()) {
+                gd.addCheckbox("Run on the average stack", this.use_average_stack);
+                gd.addNumericField("Min slice index", 1, 0);
+                gd.addNumericField("to max slice index", this.imp.getImageStackSize(), 0);
+            }
             gd.showDialog();
             if(gd.wasCanceled()) {
                 return(1);
@@ -114,7 +119,11 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
             this.num_records = (int) gd.getNextNumber();
             this.record_size = (int) gd.getNextNumber();
             this.rebin_f_inc = gd.getNextNumber();
-            this.use_average_stack = gd.getNextBoolean();
+            if (this.imp.isStack()) {
+                this.use_average_stack = gd.getNextBoolean();
+                this.min_stack_index = (int) gd.getNextNumber();
+                this.max_stack_index = (int) gd.getNextNumber();
+            }
         }
         return DOES_ALL;
     }
@@ -161,7 +170,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
         if (this.use_average_stack) {
             if (this.imp.isStack()) {
                 ImageStack stack = this.imp.getStack();
-                for (int i=1; i<=this.imp.getImageStackSize(); i++) {
+                for (int i=this.min_stack_index; i<=this.max_stack_index; i++) {
                     ImageProcessor im_proc = stack.getProcessor(i);
                     ensemble_nps = add2dArrays(ensemble_nps, ensembleNPS(im_proc, record_radius_px, cal, centre, overlay));
                 }

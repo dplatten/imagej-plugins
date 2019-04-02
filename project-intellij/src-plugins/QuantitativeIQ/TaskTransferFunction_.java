@@ -56,7 +56,9 @@ public class TaskTransferFunction_ implements PlugInFilter {
     private double ttf_50;
     private double ttf_10;
 
-    private boolean use_average_stack = true;
+    private boolean use_average_stack = false;
+    private int min_stack_index;
+    private int max_stack_index;
 
     private boolean log_results = true;
 
@@ -145,13 +147,16 @@ public class TaskTransferFunction_ implements PlugInFilter {
         gd.addNumericField("Object diameter (mm)", this.obj_dia_mm, 0);
         gd.addNumericField("Pixel reduction factor", this.pixel_reduction_factor, 0);
         gd.addNumericField("Frequency rebin increment (mm^-1)", this.rebin_f_inc, 2);
-        gd.addCheckbox("Run on the average stack", this.use_average_stack);
         gd.addCheckbox("Find centre of mass", this.find_com);
         gd.addRadioButtonGroup("ESF processing to use", this.esf_proc_choices, 3, 1, this.esf_proc_choices[this.esf_proc_choice_idx]);
         gd.addMessage("Local regression options");
         gd.addNumericField("Bandwidth", this.loess_bandwidth, 2);
         gd.addNumericField("Robustness", this.loess_robustness, 0);
-
+        if (this.imp.isStack()) {
+            gd.addCheckbox("Run on the average stack", this.use_average_stack);
+            gd.addNumericField("Min slice index", 1, 0);
+            gd.addNumericField("to max slice index", this.imp.getImageStackSize(), 0);
+        }
         gd.showDialog();
         if(gd.wasCanceled()) {
             return(0);
@@ -160,27 +165,27 @@ public class TaskTransferFunction_ implements PlugInFilter {
         this.obj_dia_mm = gd.getNextNumber();
         this.pixel_reduction_factor = gd.getNextNumber();
         this.rebin_f_inc = gd.getNextNumber();
-        this.use_average_stack = gd.getNextBoolean();
         this.find_com = gd.getNextBoolean();
         this.esf_proc_choice = gd.getNextRadioButton();
         this.esf_proc_choice_idx = indexOf(this.esf_proc_choices, this.esf_proc_choice);
         this.loess_bandwidth = gd.getNextNumber();
         this.loess_robustness = (int) gd.getNextNumber();
+        if (this.imp.isStack()) {
+            this.use_average_stack = gd.getNextBoolean();
+            this.min_stack_index = (int) gd.getNextNumber();
+            this.max_stack_index = (int) gd.getNextNumber();
+        }
 
         if (this.use_average_stack) {
-            if (this.imp.isStack()) {
-                ZProjector z_projector = new ZProjector(this.imp);
-                z_projector.setMethod(ZProjector.AVG_METHOD);
-                z_projector.doProjection();
-                this.imp = z_projector.getProjection();
-                this.imp.setCalibration(this.cal);
-                this.imp.show();
-                this.imp.setRoi(this.main_roi);
-            }
-            else {
-                IJ.error("A stack is required if you choose the stack option." +
-                        "\nRunning on the single image instead.");
-            }
+            ZProjector z_projector = new ZProjector(this.imp);
+            z_projector.setMethod(ZProjector.AVG_METHOD);
+            z_projector.setStartSlice(240);
+            z_projector.setStopSlice(273);
+            z_projector.doProjection();
+            this.imp = z_projector.getProjection();
+            this.imp.setCalibration(this.cal);
+            this.imp.show();
+            this.imp.setRoi(this.main_roi);
         }
 
         return DOES_ALL;
@@ -221,7 +226,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
             //---------------------------------------------------------------------
             // Obtain the centre of mass of the ROI set by the user.
             this.imp.setRoi(this.main_roi);
-            com = centreOfMass(ip, this.main_roi, cal, 0.0);
+            com = centreOfMass(ip, this.main_roi, this.cal, 0.0);
             if (this.log_results) IJ.log("Initial CoM: " + this.three_dp.format(com[0]) + ", " + this.three_dp.format(com[1]));
             //---------------------------------------------------------------------
 
@@ -243,7 +248,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
             // Recalculate the CoM with background subtracted
             this.imp.setRoi(outer_roi);
-            com = centreOfMass(ip, outer_roi, cal, -bgd_mean);
+            com = centreOfMass(ip, outer_roi, this.cal, -bgd_mean);
             if (this.log_results) IJ.log("Adjusted CoM: " + this.three_dp.format(com[0]) + ", " + this.three_dp.format(com[1]));
 
             // Recentre the annualar roi on the new CoM and recalculate CoM  for a final time
