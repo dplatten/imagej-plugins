@@ -32,6 +32,8 @@ import java.util.ArrayList;
  */
 public class TaskTransferFunction_ implements PlugInFilter {
     private ImagePlus imp;
+    private Calibration cal;
+
     private double obj_dia_mm = 25.0;
     private double pixel_reduction_factor = 5.0;
     private double rebin_f_inc = 0.05; // in mm^-1
@@ -118,6 +120,9 @@ public class TaskTransferFunction_ implements PlugInFilter {
             return(0);
         }
 
+        // Obtain the calibration for the ImagePlus, as this is lost if we use a z-projection of a stack
+        this.cal = this.imp.getCalibration();
+
         // Remove any overlays that are present
         this.imp.setOverlay(null);
 
@@ -128,47 +133,37 @@ public class TaskTransferFunction_ implements PlugInFilter {
             return(0);
         }
 
-/*
-        if ((arg != null) && (arg.length() > 0)) {
-            if (arg.equals("defaults")) {
-                // Use defaults
-                if (this.log_results) IJ.log("TaskTransferFunction using " + this.obj_dia_mm + " mm object diameter");
-            }
-            else {
-                // Assume the argument contains the diameter of the TTF object.
-                this.obj_dia_mm = Float.parseFloat(arg);
-                if (this.log_results) IJ.log("TaskTransferFunction using " + this.obj_dia_mm + " mm object diameter");
-            }
+        GenericDialog gd = new GenericDialog("Task transfer function options");
+        gd.addNumericField("Object diameter (mm)", this.obj_dia_mm, 0);
+        gd.addNumericField("Pixel reduction factor", this.pixel_reduction_factor, 0);
+        gd.addNumericField("ESF local regression bandwidth", this.loess_bandwidth, 2);
+        gd.addNumericField("ESF local regression robustness", this.loess_robustness, 0);
+        gd.addNumericField("Frequency rebin increment (mm^-1)", this.rebin_f_inc, 2);
+        gd.addCheckbox("Run on the average stack", this.use_average_stack);
+        gd.addCheckbox("Find centre of mass", this.find_com);
+
+        gd.showDialog();
+        if(gd.wasCanceled()) {
+            return(0);
         }
-        else {
-*/
-            GenericDialog gd = new GenericDialog("Task transfer function options");
-            gd.addNumericField("Object diameter (mm)", this.obj_dia_mm, 0);
-            gd.addNumericField("Pixel reduction factor", this.pixel_reduction_factor, 0);
-            gd.addNumericField("ESF local regression bandwidth", this.loess_bandwidth, 2);
-            gd.addNumericField("ESF local regression robustness", this.loess_robustness, 0);
-            gd.addNumericField("Frequency rebin increment (mm^-1)", this.rebin_f_inc, 2);
-            gd.addCheckbox("Run on the average stack", this.use_average_stack);
-            gd.addCheckbox("Find centre of mass", this.find_com);
 
-            gd.showDialog();
-            if(gd.wasCanceled()) {
-                return(0);
-            }
+        this.obj_dia_mm = gd.getNextNumber();
+        this.pixel_reduction_factor = gd.getNextNumber();
+        this.loess_bandwidth = gd.getNextNumber();
+        this.loess_robustness = (int) gd.getNextNumber();
+        this.rebin_f_inc = gd.getNextNumber();
+        this.use_average_stack = gd.getNextBoolean();
+        this.find_com = gd.getNextBoolean();
 
-            this.obj_dia_mm = gd.getNextNumber();
-            this.pixel_reduction_factor = gd.getNextNumber();
-            this.loess_bandwidth = gd.getNextNumber();
-            this.loess_robustness = (int) gd.getNextNumber();
-            this.rebin_f_inc = gd.getNextNumber();
-            this.use_average_stack = gd.getNextBoolean();
-            this.find_com = gd.getNextBoolean();
+        if (this.use_average_stack) {
+            ZProjector z_projector = new ZProjector(this.imp);
+            z_projector.run("avg");
+            this.imp = z_projector.getProjection();
+            this.imp.setCalibration(this.cal);
+            this.imp.show();
+            this.imp.setRoi(this.main_roi);
+        }
 
-            if (this.use_average_stack) {
-                ZProjector z_projector = new ZProjector();
-                this.imp = z_projector.run(this.imp, "avg");
-            }
-//        }
         return DOES_ALL;
     }
 
@@ -177,11 +172,16 @@ public class TaskTransferFunction_ implements PlugInFilter {
      * @param ip
      */
     public void run(ImageProcessor ip) {
+        if (this.use_average_stack) {
+            ip = this.imp.getProcessor();
+        }
+
+
         //---------------------------------------------------------------------
         // Obtain the pixel size of the image. This will return 1.0 if ImageJ
         // isn't able to read the pixel size from the DICOM tags.
-        Calibration cal = this.imp.getCalibration();
-        double pixel_size_in_mm = cal.pixelWidth;
+        //Calibration cal = this.imp.getCalibration();
+        double pixel_size_in_mm = this.cal.pixelWidth;
         double obj_dia_pix = this.obj_dia_mm/pixel_size_in_mm;
         //---------------------------------------------------------------------
 
@@ -190,12 +190,12 @@ public class TaskTransferFunction_ implements PlugInFilter {
         // Determine the centre of mass (Com). Initialise the CoM to the centre
         // of the main_roi.
         double[] com = new double[2];
-        com[0] = cal.getX(this.main_roi.getXBase() + (this.main_roi.getFloatWidth()/2.0));
-        com[1] = cal.getY(this.main_roi.getYBase() + (this.main_roi.getFloatHeight()/2.0));
+        com[0] = this.cal.getX(this.main_roi.getXBase() + (this.main_roi.getFloatWidth()/2.0));
+        com[1] = this.cal.getY(this.main_roi.getYBase() + (this.main_roi.getFloatHeight()/2.0));
 
         double inner_dia = obj_dia_pix + (10.0 / pixel_size_in_mm);
-        Roi inner_roi = new OvalRoi(cal.getRawX(com[0]) - inner_dia / 2.0, cal.getRawY(com[1]) - inner_dia / 2.0, inner_dia, inner_dia);
-        Roi outer_roi = new OvalRoi(cal.getRawX(com[0]) - obj_dia_pix, cal.getRawY(com[1]) - obj_dia_pix, obj_dia_pix * 2.0, obj_dia_pix * 2.0);
+        Roi inner_roi = new OvalRoi(this.cal.getRawX(com[0]) - inner_dia / 2.0, this.cal.getRawY(com[1]) - inner_dia / 2.0, inner_dia, inner_dia);
+        Roi outer_roi = new OvalRoi(this.cal.getRawX(com[0]) - obj_dia_pix, this.cal.getRawY(com[1]) - obj_dia_pix, obj_dia_pix * 2.0, obj_dia_pix * 2.0);
         Roi annular_roi = new ShapeRoi(outer_roi).xor(new ShapeRoi(inner_roi));
 
         if (this.find_com) {
@@ -212,8 +212,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
             // annular region of interest centred on the centre of mass that has an
             // internal diameter of object diameter + 10 mm and an external
             // diameter of 2 x object diameter.
-            inner_roi = new OvalRoi(cal.getRawX(com[0]) - inner_dia / 2.0, cal.getRawY(com[1]) - inner_dia / 2.0, inner_dia, inner_dia);
-            outer_roi = new OvalRoi(cal.getRawX(com[0]) - obj_dia_pix, cal.getRawY(com[1]) - obj_dia_pix, obj_dia_pix * 2.0, obj_dia_pix * 2.0);
+            inner_roi = new OvalRoi(this.cal.getRawX(com[0]) - inner_dia / 2.0, this.cal.getRawY(com[1]) - inner_dia / 2.0, inner_dia, inner_dia);
+            outer_roi = new OvalRoi(this.cal.getRawX(com[0]) - obj_dia_pix, this.cal.getRawY(com[1]) - obj_dia_pix, obj_dia_pix * 2.0, obj_dia_pix * 2.0);
             annular_roi = new ShapeRoi(outer_roi).xor(new ShapeRoi(inner_roi));
 
 
@@ -228,7 +228,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
             if (this.log_results) IJ.log("Adjusted CoM: " + this.three_dp.format(com[0]) + ", " + this.three_dp.format(com[1]));
 
             // Recentre the annualar roi on the new CoM and recalculate CoM  for a final time
-            annular_roi.setLocation(cal.getRawX(com[0]) - obj_dia_pix, cal.getRawY(com[1]) - obj_dia_pix);
+            annular_roi.setLocation(this.cal.getRawX(com[0]) - obj_dia_pix, this.cal.getRawY(com[1]) - obj_dia_pix);
             this.imp.setRoi(annular_roi);
             annular_stats = this.imp.getAllStatistics();
             bgd_mean = annular_stats.mean;
@@ -239,13 +239,13 @@ public class TaskTransferFunction_ implements PlugInFilter {
         if (this.log_results) IJ.log("Final CoM: " + this.three_dp.format(com[0]) + ", " + this.three_dp.format(com[1]));
 
         // Add a marker to the image showing the location of the CoM
-        Roi com_marker = new PointRoi(cal.getRawX(com[0]), cal.getRawY(com[1]));
+        Roi com_marker = new PointRoi(this.cal.getRawX(com[0]), this.cal.getRawY(com[1]));
         Overlay com_overlay = new Overlay(com_marker);
         com_overlay.setStrokeColor(Color.red);
         this.imp.setOverlay(com_overlay);
 
         // Recentre the outer_roi using the centre of mass.
-        outer_roi.setLocation(cal.getRawX(com[0])-obj_dia_pix, cal.getRawY(com[1])-obj_dia_pix);
+        outer_roi.setLocation(this.cal.getRawX(com[0])-obj_dia_pix, this.cal.getRawY(com[1])-obj_dia_pix);
 
         // Create an overlay to display the annular ROI and CoM on the image.
         Overlay overlay = new Overlay();
@@ -258,7 +258,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
         //---------------------------------------------------------------------
         // Calculate the CNR of the object
         double obj_roi_dia = obj_dia_pix - (3.0 / pixel_size_in_mm);
-        Roi obj_roi = new OvalRoi(cal.getRawX(com[0])-obj_roi_dia/2.0, cal.getRawY(com[1])-obj_roi_dia/2.0, obj_roi_dia, obj_roi_dia);
+        Roi obj_roi = new OvalRoi(this.cal.getRawX(com[0])-obj_roi_dia/2.0, this.cal.getRawY(com[1])-obj_roi_dia/2.0, obj_roi_dia, obj_roi_dia);
         CNR_result cnr_results = contrastToNoiseRatio(this.imp, obj_roi, annular_roi);
 
         if (this.log_results) IJ.log("CNR is: " + this.three_dp.format(cnr_results.cnr));
@@ -279,7 +279,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
         double[] raw_esf_pos = new double[num_points];
         double[] raw_esf_val = new double[num_points];
         for (Point p : outer_roi.getContainedPoints()) {
-            raw_esf_pos[i] = calculateDistanceBetweenPoints(com[0], com[1], cal.getX(p.x), cal.getY(p.y));
+            raw_esf_pos[i] = calculateDistanceBetweenPoints(com[0], com[1], this.cal.getX(p.x), this.cal.getY(p.y));
             raw_esf_val[i] = ip.getPixelValue(p.x, p.y); // getPixelValue includes calibration
             i++;
         }
