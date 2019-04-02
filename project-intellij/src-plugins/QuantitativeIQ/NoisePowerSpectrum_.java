@@ -65,9 +65,9 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
     /**
      *
-     * @param arg
-     * @param imp
-     * @return
+     * @param arg Setup argument; not in current use.
+     * @param imp The image
+     * @return 0 if successful; 1 if not
      */
     public int setup(String arg, ImagePlus imp) {
         this.imp = imp;
@@ -107,7 +107,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
             gd.showDialog();
             if(gd.wasCanceled()) {
-                return(0);
+                return(1);
             }
 
             this.record_radius = gd.getNextNumber();
@@ -121,7 +121,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
     /**
      *
-     * @param ip
+     * @param ip The ImageProcessor that is passed to this method
      */
     public void run(ImageProcessor ip) {
         //---------------------------------------------------------------------
@@ -157,6 +157,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
 
         //---------------------------------------------------------------------
+        // Calculate the NPS ensemble
         if (this.use_average_stack) {
             if (this.imp.isStack()) {
                 ImageStack stack = this.imp.getStack();
@@ -174,42 +175,6 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
             ImageProcessor im_proc = this.imp.getProcessor();
             ensemble_nps = ensembleNPS(im_proc, record_radius_px, cal, centre, overlay);
         }
-/*
-        // Calculate the NPS of each record
-        for (int m=0; m<this.num_records; m++) {
-            double current_angle = (2.0 * Math.PI) / this.num_records * m;
-
-            double x_pos = record_radius_px * Math.cos(current_angle);
-            double y_pos = record_radius_px * Math.sin(current_angle);
-
-            Roi record_roi = new Roi(cal.getRawX(centre[0]) + x_pos - (this.record_size/2.0), cal.getRawY(centre[1]) + y_pos - (this.record_size/2.0), this.record_size, this.record_size);
-
-            overlay.add(record_roi);
-            overlay.setStrokeColor(Color.green);
-
-            // Set the roi on the main image
-            this.imp.setRoi(record_roi);
-
-            // Carry out a 2d second-order polynomial fit on a new ImagePlus
-            // that just contains the current record pixels. The Fit Polynomial
-            // command subtracts the fit from the original data.
-            ImagePlus record = this.imp.crop();
-            IJ.run(record, "Fit Polynomial", "x=2 y=2 mixed=0");
-            record.setRoi(0, 0, record.getWidth(), record.getHeight());
-            Roi whole_record_roi = record.getRoi();
-            double[][] record_vals = getCalibratedPixelValues(record.getProcessor(), whole_record_roi);
-
-            // Fourier transform the result
-            TwoDFFT twod_transformer = new TwoDFFT();
-            Complex[][] nps = twod_transformer.transform(record_vals, DftNormalization.STANDARD);
-
-            // Calculate the magnitude and square it
-            double[][] nps_abs_sqrd = absSqrdOfComplex2dArray(nps);
-
-            // Add the current nps_abs_squared to the ensemble
-            ensemble_nps = add2dArrays(ensemble_nps, nps_abs_sqrd);
-        }
-*/
         //---------------------------------------------------------------------
 
 
@@ -360,9 +325,9 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
     /**
      *
-     * @param values
-     * @param mult_val
-     * @return
+     * @param values Two-dimensional array whose elements are to be changed
+     * @param mult_val The factor to change the array values by
+     * @return Two-dimensional array of the same dimensions as the input
      */
     private static double[][] multiply2dDoubleArray(final double[][] values, final double mult_val) {
         int width = values[0].length;
@@ -381,8 +346,8 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
     /**
      *
-     * @param values
-     * @return
+     * @param values Two-dimensional array of Double values
+     * @return Two-dimensional array of Float values
      */
     private static float[][] convertDoubleToFloat(final double[][] values) {
         int width = values[0].length;
@@ -401,8 +366,8 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
     /**
      *
-     * @param values
-     * @return
+     * @param values Two-dimensional array of Double values
+     * @return Two-dimensional array of Complex values
      */
     private static Complex[][] convertDoubleToComplex(final double[][] values) {
         int width = values[0].length;
@@ -419,9 +384,9 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
     /**
      *
-     * @param ip
-     * @param roi
-     * @return
+     * @param ip The ImageProcessor from which to get the values from
+     * @param roi The Roi to use to obtain the values - assumed to be rectangular
+     * @return Two-dimensional array containing the calibrated pixel values of the Roi
      */
     private static double[][] getCalibratedPixelValues(ImageProcessor ip, Roi roi) {
         int width = (int) roi.getFloatWidth();
@@ -445,8 +410,8 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
     /**
      *
-     * @param values
-     * @return
+     * @param values Two-dimensional Complex array to be worked ou
+     * @return Two-dimensional Double array with the resulting values
      */
     private static double[][] absSqrdOfComplex2dArray(final Complex[][] values) {
         int width = values[0].length;
@@ -465,9 +430,9 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
     /**
      *
-     * @param arr1
-     * @param arr2
-     * @return
+     * @param arr1 Two-dimensional array
+     * @param arr2 Two-dimensional array to be added to arr1. Must be same dimensions as arr1.
+     * @return Two-dimensional array which is the sum of corresponding elements in arr1 + arr2.
      */
     private static double[][] add2dArrays(final double[][] arr1, final double[][] arr2) {
         int width = arr1[0].length;
@@ -486,11 +451,11 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
     /**
      *
-     * @param x1
-     * @param y1
-     * @param x2
-     * @param y2
-     * @return
+     * @param x1 X location of point 1
+     * @param y1 Y location of point 2
+     * @param x2 X location of point 1
+     * @param y2 y location of point 2
+     * @return The straight-line distance between point 1 and 2
      */
     private double calculateDistanceBetweenPoints(double x1, double y1, double x2,double y2) {
         // Calculate the distance between two points in cartesian space.
@@ -500,11 +465,11 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
     /**
      *
-     * @param freq
-     * @param val
-     * @param f_inc
-     * @param f_bin
-     * @return
+     * @param freq The raw frequency data
+     * @param val The raw value data
+     * @param f_inc The frequency increments of the rebinned NPS
+     * @param f_bin The width of the frequency bin to use to find values to average at each binned frequency
+     * @return The rebinned array results
      */
     private NPS_result rebinNPS(double[] freq, double[] val, double f_inc, double f_bin) {
 
@@ -541,8 +506,8 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
     /**
      *
-     * @param nps
-     * @param nps_label
+     * @param nps The NPS data to be written to the log
+     * @param nps_label The label to use for the NPS value column
      */
     private void logNPS(NPS_result nps, String nps_label) {
         IJ.log("Freq (mm^-1)," + nps_label);
