@@ -6,6 +6,7 @@ package QuantitativeIQ;
 //
 import ij.IJ;
 import ij.ImagePlus;
+import ij.ImageStack;
 import ij.gui.*;
 import ij.measure.Calibration;
 import ij.plugin.filter.PlugInFilter;
@@ -26,7 +27,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
     private ImagePlus imp;
     private Roi main_roi;
 
-    private int num_records = 8;
+    private int num_records = 16;
     private int record_size = 64;
     private double record_radius = 100.0; // in mm
 
@@ -35,6 +36,8 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
     private static NPS_result nps_result;
 
     private boolean log_results = true;
+
+    private boolean use_average_stack = true;
 
     private DecimalFormat two_dp = new DecimalFormat("0.00");
     private DecimalFormat three_dp = new DecimalFormat("0.000");
@@ -95,11 +98,12 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
             }
         }
         else {
-            GenericDialog gd = new GenericDialog("Processing options");
+            GenericDialog gd = new GenericDialog("Noise power options");
             gd.addNumericField("Distance from centre to records (mm)", this.record_radius, 0);
             gd.addNumericField("Number of records", this.num_records, 0);
             gd.addNumericField("Record size (pixels), must be a power of 2", this.record_size, 0);
             gd.addNumericField("Frequency rebin increment (mm^-1)", this.rebin_f_inc, 2);
+            gd.addCheckbox("Run on the average stack", this.use_average_stack);
 
             gd.showDialog();
             if(gd.wasCanceled()) {
@@ -110,6 +114,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
             this.num_records = (int) gd.getNextNumber();
             this.record_size = (int) gd.getNextNumber();
             this.rebin_f_inc = gd.getNextNumber();
+            this.use_average_stack = gd.getNextBoolean();
         }
         return DOES_ALL;
     }
@@ -152,6 +157,24 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
 
         //---------------------------------------------------------------------
+        if (this.use_average_stack) {
+            if (this.imp.isStack()) {
+                ImageStack stack = this.imp.getStack();
+                for (int i=1; i<=this.imp.getImageStackSize(); i++) {
+                    ImageProcessor im_proc = stack.getProcessor(i);
+                    ensemble_nps = add2dArrays(ensemble_nps, ensembleNPS(im_proc, record_radius_px, cal, centre, overlay));
+                }
+            }
+            else {
+                ImageProcessor im_proc = this.imp.getProcessor();
+                ensemble_nps = ensembleNPS(im_proc, record_radius_px, cal, centre, overlay);
+            }
+        }
+        else {
+            ImageProcessor im_proc = this.imp.getProcessor();
+            ensemble_nps = ensembleNPS(im_proc, record_radius_px, cal, centre, overlay);
+        }
+/*
         // Calculate the NPS of each record
         for (int m=0; m<this.num_records; m++) {
             double current_angle = (2.0 * Math.PI) / this.num_records * m;
@@ -186,12 +209,17 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
             // Add the current nps_abs_squared to the ensemble
             ensemble_nps = add2dArrays(ensemble_nps, nps_abs_sqrd);
         }
+*/
         //---------------------------------------------------------------------
 
 
         //---------------------------------------------------------------------
         // Multiply the ensemble by dx, dy and divide by M, Nx and Ny
         double multiplication_factor = pixel_size_in_mm * pixel_size_in_mm / this.num_records / this.record_size / this.record_size;
+
+        // Include provision for the number of images in the stack, if this was used
+        if (this.use_average_stack) multiplication_factor /= this.imp.getImageStackSize();
+
         ensemble_nps = multiply2dDoubleArray(ensemble_nps, multiplication_factor);
         // ---------------------------------------------------------------------
 
@@ -281,6 +309,52 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
         if (this.log_results) logNPS(rebinned_NPS, "NPS (HU^2.mm^2)");
 
         nps_result = rebinned_NPS;
+    }
+
+
+    private double[][] ensembleNPS(ImageProcessor im_proc, double radius_px, Calibration cal, double[] centre, Overlay overlay) {
+
+        ImagePlus imp = new ImagePlus();
+        imp.setProcessor(im_proc);
+        imp.setCalibration(cal);
+
+        double[][] ensemble_nps = new double[this.record_size][this.record_size];
+
+        for (int m = 0; m < this.num_records; m++) {
+            double current_angle = (2.0 * Math.PI) / this.num_records * m;
+
+            double x_pos = radius_px * Math.cos(current_angle);
+            double y_pos = radius_px * Math.sin(current_angle);
+
+            Roi record_roi = new Roi(cal.getRawX(centre[0]) + x_pos - (this.record_size / 2.0), cal.getRawY(centre[1]) + y_pos - (this.record_size / 2.0), this.record_size, this.record_size);
+
+            overlay.add(record_roi);
+            overlay.setStrokeColor(Color.green);
+
+            // Set the roi on the main image
+            imp.setRoi(record_roi);
+
+            // Carry out a 2d second-order polynomial fit on a new ImagePlus
+            // that just contains the current record pixels. The Fit Polynomial
+            // command subtracts the fit from the original data.
+            ImagePlus record = imp.crop();
+
+            IJ.run(record, "Fit Polynomial", "x=2 y=2 mixed=0");
+            record.setRoi(0, 0, record.getWidth(), record.getHeight());
+            Roi whole_record_roi = record.getRoi();
+            double[][] record_vals = getCalibratedPixelValues(record.getProcessor(), whole_record_roi);
+
+            // Fourier transform the result
+            TwoDFFT twod_transformer = new TwoDFFT();
+            Complex[][] nps = twod_transformer.transform(record_vals, DftNormalization.STANDARD);
+
+            // Calculate the magnitude and square it
+            double[][] nps_abs_sqrd = absSqrdOfComplex2dArray(nps);
+
+            // Add the current nps_abs_squared to the ensemble
+            ensemble_nps = add2dArrays(ensemble_nps, nps_abs_sqrd);
+        }
+        return ensemble_nps;
     }
 
 

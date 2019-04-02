@@ -67,7 +67,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
         // First run the TTF analysis using default settings
         TaskTransferFunction_ TTF = new TaskTransferFunction_();
         TTF.setLogging(false); // Switch off writing to the ImageJ log
-        int result = TTF.setup("defaults", this.imp);
+        int result = TTF.setup("", this.imp);
         if (result == 0) {
             IJ.error("There was a problem setting up the TTF routine");
             return;
@@ -82,7 +82,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
         this.imp.deleteRoi(); // Remove any currently set ROI
         NoisePowerSpectrum_ NPS = new NoisePowerSpectrum_();
         NPS.setLogging(false); // Switch off writing to the ImageJ log
-        result = NPS.setup("defaults", this.imp);
+        result = NPS.setup("", this.imp);
         if (result == 0) {
             IJ.error("There was a problem setting up the NPS routine");
             return;
