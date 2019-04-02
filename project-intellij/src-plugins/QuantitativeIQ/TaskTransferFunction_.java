@@ -1,5 +1,5 @@
-package QuantitativeIQ;// ImageJ plugin to calculate the task transfer function of a circular object
-// present in an image.
+package QuantitativeIQ;
+// ImageJ plugin to calculate the task transfer function of a circular object present in an image.
 //
 // The routine will run on a user-selected oval region of interest (ROI). If no
 // ROI is selected then the routine exits.
@@ -26,6 +26,7 @@ import org.apache.commons.math3.complex.Complex;
 import java.awt.*;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 /**
  *
@@ -41,6 +42,13 @@ public class TaskTransferFunction_ implements PlugInFilter {
     private int loess_robustness = 10;
     private Roi main_roi;
     private Boolean find_com = Boolean.TRUE;
+
+    private String[] esf_proc_choices = {"Linear regression", "Local regression", "Local regression (monotonic)"};
+    private static int LINEAR_REGRESSION = 0;
+    private static int LOCAL_REGRESSION = 1;
+    private static int MONOTONIC_LOCAL_REGRESSION = 2;
+    private int esf_proc_choice_idx = MONOTONIC_LOCAL_REGRESSION;
+    private String esf_proc_choice = esf_proc_choices[esf_proc_choice_idx];
 
     private TTF_result ttf_result;
     private CNR_result cnr_result;
@@ -136,11 +144,13 @@ public class TaskTransferFunction_ implements PlugInFilter {
         GenericDialog gd = new GenericDialog("Task transfer function options");
         gd.addNumericField("Object diameter (mm)", this.obj_dia_mm, 0);
         gd.addNumericField("Pixel reduction factor", this.pixel_reduction_factor, 0);
-        gd.addNumericField("ESF local regression bandwidth", this.loess_bandwidth, 2);
-        gd.addNumericField("ESF local regression robustness", this.loess_robustness, 0);
         gd.addNumericField("Frequency rebin increment (mm^-1)", this.rebin_f_inc, 2);
         gd.addCheckbox("Run on the average stack", this.use_average_stack);
         gd.addCheckbox("Find centre of mass", this.find_com);
+        gd.addRadioButtonGroup("ESF processing to use", this.esf_proc_choices, 3, 1, this.esf_proc_choices[this.esf_proc_choice_idx]);
+        gd.addMessage("Local regression options");
+        gd.addNumericField("Bandwidth", this.loess_bandwidth, 2);
+        gd.addNumericField("Robustness", this.loess_robustness, 0);
 
         gd.showDialog();
         if(gd.wasCanceled()) {
@@ -149,19 +159,28 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
         this.obj_dia_mm = gd.getNextNumber();
         this.pixel_reduction_factor = gd.getNextNumber();
-        this.loess_bandwidth = gd.getNextNumber();
-        this.loess_robustness = (int) gd.getNextNumber();
         this.rebin_f_inc = gd.getNextNumber();
         this.use_average_stack = gd.getNextBoolean();
         this.find_com = gd.getNextBoolean();
+        this.esf_proc_choice = gd.getNextRadioButton();
+        this.esf_proc_choice_idx = indexOf(this.esf_proc_choices, this.esf_proc_choice);
+        this.loess_bandwidth = gd.getNextNumber();
+        this.loess_robustness = (int) gd.getNextNumber();
 
         if (this.use_average_stack) {
-            ZProjector z_projector = new ZProjector(this.imp);
-            z_projector.run("avg");
-            this.imp = z_projector.getProjection();
-            this.imp.setCalibration(this.cal);
-            this.imp.show();
-            this.imp.setRoi(this.main_roi);
+            if (this.imp.isStack()) {
+                ZProjector z_projector = new ZProjector(this.imp);
+                z_projector.setMethod(ZProjector.AVG_METHOD);
+                z_projector.doProjection();
+                this.imp = z_projector.getProjection();
+                this.imp.setCalibration(this.cal);
+                this.imp.show();
+                this.imp.setRoi(this.main_roi);
+            }
+            else {
+                IJ.error("A stack is required if you choose the stack option." +
+                        "\nRunning on the single image instead.");
+            }
         }
 
         return DOES_ALL;
@@ -284,10 +303,9 @@ public class TaskTransferFunction_ implements PlugInFilter {
             i++;
         }
 
-        // There's a chance that two or more elements are at exactly the same
-        // position. This violates the monotonic requirement of the
-        // interpolator used later on. So find duplicate position entries and
-        // replace with the mean value at that position.
+        // There's a chance that two or more elements are at exactly the same position. This violates the monotonic
+        // requirement of the interpolator used later on. So find duplicate position entries and replace with the mean
+        // value at that position.
         // http://commons.apache.org/proper/commons-math/javadocs/api-3.6/org/apache/commons/math3/util/MathArrays.html#unique(double[])
         double[] unique_pos = MathArrays.unique(raw_esf_pos);
 
@@ -314,8 +332,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
             raw_esf_val = unique_pos_vals;
         }
 
-        // Sort the raw ESF arrays into ascending position order using Apache
-        // Commons Math 3.6 API. See:
+        // Sort the raw ESF arrays into ascending position order using Apache Commons Math 3.6 API. See:
         // http://commons.apache.org/proper/commons-math/javadocs/api-3.6/org/apache/commons/math3/util/MathArrays.html#sortInPlace(double[],%20double[]...)
         MathArrays.sortInPlace(raw_esf_pos, raw_esf_val);
 
@@ -328,293 +345,124 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
 
         //---------------------------------------------------------------------
-        // Interpolate the raw ESF to a regularly-spaced array with sub-pixel
-        // sampling using a local regression algorithm.  See:
-        // http://commons.apache.org/proper/commons-math/javadocs/api-3.6/org/apache/commons/math3/analysis/interpolation/LoessInterpolator.html
-        // and https://en.wikipedia.org/wiki/Local_regression
-
-        // Work out the distance scale increment.
+        // Rebin the ESF
         double rebinned_sample_inc = pixel_size_in_mm / this.pixel_reduction_factor;
 
         // Define the starting position of the resampled ESF, with an offset of
         // one sample increment, and work out the number of samples.
         double start_pos = StatUtils.min(raw_esf_pos) + rebinned_sample_inc;
-        double num_samples = Math.floor( (StatUtils.max(raw_esf_pos) - start_pos) / rebinned_sample_inc );
+        double num_samples = Math.floor((StatUtils.max(raw_esf_pos) - start_pos) / rebinned_sample_inc);
 
         // Populate an array containing the regularly-spaced locations for the ESF.
         double current_pos = start_pos;
         double[] esf_rebinned_pos = new double[(int) num_samples];
-        for (i=0; i<esf_rebinned_pos.length; i++) {
+        double[] esf_rebinned_val = new double[(int) num_samples];
+        for (i = 0; i < esf_rebinned_pos.length; i++) {
             esf_rebinned_pos[i] = current_pos;
             current_pos += rebinned_sample_inc;
         }
 
-        //.....................................................................
-        // Calculate resampled ESF values using local regression with the
-        // Apache Commons Math 3.6 API. See:
-        // http://commons.apache.org/proper/commons-math/javadocs/api-3.6/org/apache/commons/math3/analysis/interpolation/LoessInterpolator.html
-        // and https://en.wikipedia.org/wiki/Local_regression
-        UnivariateInterpolator loess_interpolator = new LoessInterpolator(this.loess_bandwidth, this.loess_robustness);
-        double[] smoothed_esf = new LoessInterpolator(this.loess_bandwidth, this.loess_robustness).smooth(raw_esf_pos, raw_esf_val);
-        UnivariateFunction loess_function = loess_interpolator.interpolate(raw_esf_pos, smoothed_esf);
-        double[] esf_rebinned_val = new double[esf_rebinned_pos.length];
-        for (i=0; i<esf_rebinned_val.length; i++) {
-            esf_rebinned_val[i] = loess_function.value(esf_rebinned_pos[i]);
+        UnivariateInterpolator interpolator;
+        UnivariateFunction function;
+
+        if (this.esf_proc_choice_idx == LINEAR_REGRESSION) {
+            // Calculate resampled ESF values using linear interpolation
+            interpolator = new LinearInterpolator();
+            function = interpolator.interpolate(raw_esf_pos, raw_esf_val);
+            //double[] esf_rebinned_val = new double[esf_rebinned_pos.length];
+            for (i = 0; i < esf_rebinned_val.length; i++) {
+                esf_rebinned_val[i] = function.value(esf_rebinned_pos[i]);
+            }
+        }
+        else {
+            // Calculate resampled ESF values using local regression with the Apache Commons Math 3.6 API. See:
+            // http://commons.apache.org/proper/commons-math/javadocs/api-3.6/org/apache/commons/math3/analysis/interpolation/LoessInterpolator.html
+            // and https://en.wikipedia.org/wiki/Local_regression
+            interpolator = new LoessInterpolator(this.loess_bandwidth, this.loess_robustness);
+            double[] smoothed_esf = new LoessInterpolator(this.loess_bandwidth, this.loess_robustness).smooth(raw_esf_pos, raw_esf_val);
+            function = interpolator.interpolate(raw_esf_pos, smoothed_esf);
+
+            for (i = 0; i < esf_rebinned_val.length; i++) {
+                esf_rebinned_val[i] = function.value(esf_rebinned_pos[i]);
+            }
+
+            if (this.esf_proc_choice_idx == MONOTONIC_LOCAL_REGRESSION) {
+                // Create a monotonic ESF from the local regression ESF using brute force.
+
+                // Check to see if ESF starts high and goes low
+                if (esf_rebinned_val[0] > esf_rebinned_val[esf_rebinned_val.length - 1]) {
+                    // Need to reverse the values array
+                    MathArrays.sortInPlace(esf_rebinned_pos, MathArrays.OrderDirection.DECREASING, esf_rebinned_val);
+                }
+
+                for (i = 1; i < esf_rebinned_val.length; i++) {
+                    if (esf_rebinned_val[i] < esf_rebinned_val[i - 1]) {
+                        esf_rebinned_val[i] = esf_rebinned_val[i - 1];
+                    }
+                }
+
+                // Sort the esf_rebinned_pos and associated arrays back to ascending order
+                MathArrays.sortInPlace(esf_rebinned_pos, esf_rebinned_val);
+            }
         }
 
-        // Add the ESF to the existing ESF plot as a red line.
+        // Add the rebinned ESF to the existing ESF plot as a line.
         plot_esf.setColor("Red");
         plot_esf.add("line", esf_rebinned_pos, esf_rebinned_val);
-        esf_labels += "Local regression ESF\t";
-        //.....................................................................
-
-
-        //.....................................................................
-        // Create a monotonic ESF from the local regression ESF using brute
-        // force.
-        double[] monotonic_esf = new double[esf_rebinned_val.length];
-        // Check to see if ESF starts high and goes low
-        if (esf_rebinned_val[0] > esf_rebinned_val[esf_rebinned_val.length-1]) {
-            // Need to reverse the values array
-            MathArrays.sortInPlace(esf_rebinned_pos, MathArrays.OrderDirection.DECREASING, esf_rebinned_val);
-        }
-        monotonic_esf[0] = esf_rebinned_val[0];
-        for (i=1; i<esf_rebinned_val.length; i++) {
-            if (esf_rebinned_val[i] >= monotonic_esf[i-1]) {
-                monotonic_esf[i] = esf_rebinned_val[i];
-            }
-            else {
-                monotonic_esf[i] = monotonic_esf[i-1];
-            }
-        }
-
-        // Sort the esf_rebinned_pos and associated arrays back to ascending order
-        MathArrays.sortInPlace(esf_rebinned_pos, esf_rebinned_val, monotonic_esf);
-
-        // Plot the monotonic ESF
-        plot_esf.setColor("Blue");
-        plot_esf.add("line", esf_rebinned_pos, monotonic_esf);
-        esf_labels += "Monotonic local regression ESF\t";
-        //.....................................................................
-
-
-        //.....................................................................
-        // Calculate resampled ESF values using linear interpolation
-        UnivariateInterpolator linear_interpolator = new LinearInterpolator();
-        UnivariateFunction linear_function = linear_interpolator.interpolate(raw_esf_pos, smoothed_esf);
-        double[] esf_rebinned_val_lin = new double[esf_rebinned_pos.length];
-        for (i=0; i<esf_rebinned_val_lin.length; i++) {
-            esf_rebinned_val_lin[i] = linear_function.value(esf_rebinned_pos[i]);
-        }
-
-        // Add the rebinned linear ESF to the existing ESF plot as a green line.
+        esf_labels += this.esf_proc_choice;
         plot_esf.setColor("Black");
-        plot_esf.add("line", esf_rebinned_pos, esf_rebinned_val_lin);
-        esf_labels += "Linear regression ESF\t";
         plot_esf.addLegend(esf_labels);
-        //.....................................................................
-
-
-/*        // Rebin the ESF using the average values within a bin width
-        ESF_result esf_binned = rebinESF(raw_esf_pos, raw_esf_val, rebinned_sample_inc, pixel_size_in_mm/2.0);
-        plot_esf.setColor("Black");
-        plot_esf.add("line", esf_binned.pos, esf_binned.val);
-        esf_labels += "Rebinned ESF\t";
-        plot_esf.addLegend(esf_labels);*/
-
-
-/*		//---------------------------------------------------------------------
-		// TEST: Rebin the raw ESF into a regularly-spaced array using the
-		// method described by Samei et at here: http://doi.org/10.1118/1.598165
-		start_pos = StatUtils.min(raw_esf_pos);
-		num_samples = Math.floor( (StatUtils.max(raw_esf_pos) - start_pos) / rebinned_sample_inc );
-		double[] esf_binned_pos = new double[(int) num_samples];
-		double[] esf_binned_val = new double[esf_binned_pos.length];
-		current_pos = start_pos;
-		for (i=0; i<esf_binned_pos.length; i++) {
-			int count = 0;
-			double sum = 0.0;
-
-			esf_binned_pos[i] = current_pos;
-
-			for (int j=0; j<raw_esf_pos.length; j++) {
-				if ( (raw_esf_pos[j] >= esf_binned_pos[i] - rebinned_sample_inc/2.0) && (raw_esf_pos[j] <= esf_binned_pos[i] + rebinned_sample_inc/2.0) ) {
-					count ++;
-					sum += raw_esf_val[j];
-				}
-			}
-
-			if (count > 0) {
-				esf_binned_val[i] = sum / count;
-			}
-			else esf_binned_val[i] = esf_binned_val[i-1];
-
-			current_pos += rebinned_sample_inc;
-		}
-
-		//plot_esf.setColor("Blue");
-		//plot_esf.add("line", esf_binned_pos, esf_binned_val);
-		//esf_labels += "Rebinned ESF";
-		//plot_esf.addLegend(esf_labels);
-		// TEST end
-		//---------------------------------------------------------------------*/
-
-        // End of creating ESFs
         //---------------------------------------------------------------------
 
 
         //---------------------------------------------------------------------
-        // Differentiate the ESFs to obtain line spread functions (LSFs)
-
-        //.....................................................................
-        // First using an Apache Commons Math 3.6 API differentiator. See:
-        // http://commons.apache.org/proper/commons-math/javadocs/api-3.6/org/apache/commons/math3/analysis/differentiation/FiniteDifferencesDifferentiator.html
-        // I have configured the FiniteDifferencesDifferentiator to use two
-        // points with a step size of rebinned_sample_inc to provide the
-        // gradient between each pair of points in the rebinned ESF.
-        FiniteDifferencesDifferentiator differentiator = new FiniteDifferencesDifferentiator(2, rebinned_sample_inc);
-        UnivariateDifferentiableFunction completeF = differentiator.differentiate(loess_function);
-        double[] lsf_val = differentiate(esf_rebinned_pos, completeF);
+        // Differentiate the ESF to obtain line spread function (LSF)
+        FiniteDifferencesDifferentiator differentiator = new FiniteDifferencesDifferentiator(2, rebinned_sample_inc);;
+        function = interpolator.interpolate(esf_rebinned_pos, esf_rebinned_val);
+        UnivariateDifferentiableFunction complete_f = differentiator.differentiate(function);;
+        double[] lsf_val = differentiate(esf_rebinned_pos, complete_f);
 
         // Plot the LSF.
         Plot plot_lsf = new Plot("Line spread function", "Distance (mm)", "Value");
         plot_lsf.setColor("Red");
         plot_lsf.add("line", esf_rebinned_pos, lsf_val);
-        String lsf_labels = "LSF from local regression ESF\t";
+        plot_lsf.setColor("Black");
+        plot_lsf.addLegend(this.esf_proc_choice);
         plot_lsf.show();
-        //.....................................................................
-
-
-        //.....................................................................
-        // Differentiate the monotonic ESF to produce a LSF
-        linear_function = linear_interpolator.interpolate(esf_rebinned_pos, monotonic_esf);
-        completeF = differentiator.differentiate(linear_function);
-        double[] lsf_val_monotonic = differentiate(esf_rebinned_pos, completeF);
-
-        // Plot the LSF calculated from the monotonic ESF.
-        plot_lsf.setColor("Blue");
-        plot_lsf.add("line", esf_rebinned_pos, lsf_val_monotonic);
-        lsf_labels += "LSF from monotonic ESF\t";
-        //.....................................................................
-
-
-        //.....................................................................
-        // Differentiate the linear ESF to produce a LSF
-        linear_function = linear_interpolator.interpolate(esf_rebinned_pos, esf_rebinned_val_lin);
-        completeF = differentiator.differentiate(linear_function);
-        double[] lsf_val_linear = differentiate(esf_rebinned_pos, completeF);
-
-        // Plot the LSF calculated from the monotonic ESF.
-        plot_lsf.setColor("Black");
-        plot_lsf.add("line", esf_rebinned_pos, lsf_val_linear);
-        lsf_labels += "LSF from linear ESF\t";
-        plot_lsf.addLegend(lsf_labels);
-        //.....................................................................
-
-
-/*        //.....................................................................
-        // Carry out a Gaussian fit to the linear LSF result
-        CurveFitter gaussian_fitter = new CurveFitter(esf_rebinned_pos, lsf_val_linear);
-        gaussian_fitter.doFit(CurveFitter.GAUSSIAN);
-        double[] p = gaussian_fitter.getParams();
-        double[] lsf_val_gaussian = new double[esf_rebinned_pos.length];
-        for (i=0; i<esf_rebinned_pos.length; i++) {
-            double x = esf_rebinned_pos[i];
-            lsf_val_gaussian[i] = p[0] + (p[1] - p[0]) * Math.exp(-(x - p[2]) * (x - p[2]) / (2.0 * p[3] * p[3]));
-        }
-
-        // Plot the LSF calculated from the Gaussian fit of the linear ESF.
-        plot_lsf.setColor("Orange");
-        plot_lsf.add("line", esf_rebinned_pos, lsf_val_gaussian);
-        lsf_labels += "LSF from Gaussian fit of linear ESF\t";
-        plot_lsf.addLegend(lsf_labels);
-        //.....................................................................*/
-
-
-/*        //.....................................................................
-        // Differentiate the rebinned ESF to produce a LSF
-        linear_function = linear_interpolator.interpolate(esf_binned.pos, esf_binned.val);
-        completeF = differentiator.differentiate(linear_function);
-        double[] lsf_val_binned = differentiate(esf_binned.pos, completeF);
-
-        // Plot the LSF calculated from the rebinned ESF.
-        plot_lsf.setColor("Black");
-        plot_lsf.add("line", esf_binned.pos, lsf_val_binned);
-        lsf_labels += "LSF from binned ESF\t";
-        //.....................................................................*/
-
-
-        // End of LSF calculation
         //---------------------------------------------------------------------
 
 
         //---------------------------------------------------------------------
-        // Fourier transform the LSFs to obtain TTFs
+        // Fourier transform the LSF to obtain TTF
         TTF_result ttf_data = TTF(lsf_val, rebinned_sample_inc, pixel_size_in_mm);
-        TTF_result ttf_data_linear = TTF(lsf_val_linear, rebinned_sample_inc, pixel_size_in_mm);
-        //TTF_result ttf_data_gaussian = TTF(lsf_val_gaussian, rebinned_sample_inc, pixel_size_in_mm);
-        TTF_result ttf_data_monotonic = TTF(lsf_val_monotonic, rebinned_sample_inc, pixel_size_in_mm);
 
         // Plot the nTTFs
         Plot plot_ttf = new Plot("Normalised TTF", "Frequency (per mm)", "nTTF");
-
         plot_ttf.setColor("Red");
         plot_ttf.add("line", ttf_data.freq, ttf_data.val);
-        String ttf_labels = "TTF from local regression ESF\t";
-
-        plot_ttf.setColor("Blue");
-        plot_ttf.add("line", ttf_data_monotonic.freq, ttf_data_monotonic.val);
-        ttf_labels += "TTF from monotonic ESF\t";
-
         plot_ttf.setColor("Black");
-        plot_ttf.add("line", ttf_data_linear.freq, ttf_data_linear.val);
-        ttf_labels += "TTF from linear ESF\t";
-
-/*        plot_ttf.setColor("Orange");
-        plot_ttf.add("line", ttf_data_gaussian.freq, ttf_data_gaussian.val);
-        ttf_labels += "TTF from Gaussian LSF fit\t";*/
-
+        plot_ttf.addLegend(this.esf_proc_choice);
         plot_ttf.show();
-        plot_ttf.addLegend(ttf_labels);
         //---------------------------------------------------------------------
 
 
         //---------------------------------------------------------------------
-        // Work out TTF 50 and TTF 10 for each TTF
+        // Work out TTF 50 and TTF 10
         double ttf_50 = freqAtSpecificTTF(ttf_data, 0.5);
         double ttf_10 = freqAtSpecificTTF(ttf_data, 0.1);
-
-        double ttf_50_linear = freqAtSpecificTTF(ttf_data_linear, 0.5);
-        double ttf_10_linear = freqAtSpecificTTF(ttf_data_linear, 0.1);
-
-        //double ttf_50_gaussian = freqAtSpecificTTF(ttf_data_gaussian, 0.5);
-        //double ttf_10_gaussian = freqAtSpecificTTF(ttf_data_gaussian, 0.1);
-
-        double ttf_50_mono = freqAtSpecificTTF(ttf_data_monotonic, 0.5);
-        double ttf_10_mono = freqAtSpecificTTF(ttf_data_monotonic, 0.1);
-
         if (this.log_results) IJ.log("MTF 50 and 10 are: " + this.three_dp.format(ttf_50) + ", " + this.three_dp.format(ttf_10));
-        if (this.log_results) IJ.log("MTF linear 50 and 10 are: " + three_dp.format(ttf_50_linear) + ", " + three_dp.format(ttf_10_linear));
-        //if (this.log_results) IJ.log("MTF Gaussian 50 and 10 are: " + three_dp.format(ttf_50_gaussian) + ", " + three_dp.format(ttf_10_gaussian));
-        if (this.log_results) IJ.log("MTF mono 50 and 10 are: " + this.three_dp.format(ttf_50_mono) + ", " + this.three_dp.format(ttf_10_mono));
         //---------------------------------------------------------------------
 
 
         //---------------------------------------------------------------------
         // Resample the TTF data
         TTF_result resampled_ttf = resampleTTF(ttf_data, rebin_f_inc);
-        TTF_result resampled_ttf_linear = resampleTTF(ttf_data_linear, rebin_f_inc);
-        //TTF_result resampled_ttf_gaussian = resampleTTF(ttf_data_gaussian, rebin_f_inc);
-        TTF_result resampled_ttf_mono = resampleTTF(ttf_data_monotonic, rebin_f_inc);
         //---------------------------------------------------------------------
 
 
         //---------------------------------------------------------------------
         // Write the resampled TTF data to the ImageJ log
-        if (this.log_results) logTTF(resampled_ttf, "TTF (local regression ESF)");
-        if (this.log_results) logTTF(resampled_ttf_linear, "TTF (linear ESF)");
-        //if (this.log_results) logTTF(resampled_ttf_gaussian, "TTF (Gaussian fit to LSF)");
-        if (this.log_results) logTTF(resampled_ttf_mono, "TTF (monotonic ESF)");
+        if (this.log_results) logTTF(resampled_ttf, "TTF ("+this.esf_proc_choice+")");
         //---------------------------------------------------------------------
 
 
@@ -626,9 +474,9 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
         //---------------------------------------------------------------------
         // Set the final_results property so it can be obtained for further use
-        this.ttf_result = ttf_data_monotonic;
-        this.ttf_50 = ttf_50_mono;
-        this.ttf_10 = ttf_10_mono;
+        this.ttf_result = ttf_data;
+        this.ttf_50 = ttf_50;
+        this.ttf_10 = ttf_10;
         //---------------------------------------------------------------------
     }
 
@@ -1014,5 +862,17 @@ public class TaskTransferFunction_ implements PlugInFilter {
         double cnr;
         double contrast;
         double noise;
+    }
+
+
+    /** Method to obtain the index of element val in array arr
+     *
+     * @param arr
+     * @param val
+     * @param <T>
+     * @return
+     */
+    public static <T> int indexOf(T[] arr, T val) {
+        return Arrays.asList(arr).indexOf(val);
     }
 }

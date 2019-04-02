@@ -1,6 +1,5 @@
 package QuantitativeIQ;
-// ImageJ plugin to calculate the detectability index of a circular object
-// present in an image.
+// ImageJ plugin to calculate the detectability index of a circular object present in an image.
 //
 import QuantitativeIQ.TaskTransferFunction_.TTF_result;
 import QuantitativeIQ.TaskTransferFunction_.CNR_result;
@@ -9,9 +8,7 @@ import QuantitativeIQ.EyeModel_.Eye_result;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.GenericDialog;
-import ij.gui.Roi;
 import ij.measure.Calibration;
-import ij.plugin.ZProjector;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
 import org.apache.commons.math3.analysis.FunctionUtils;
@@ -78,7 +75,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
         TTF.run(ip);
         TTF_result ttf_result = TTF.getTTFResult();
-        CNR_result cnr_result = TTF.getCNRResult(); // We're going to use the cnr_result.contrast when creating the task function
+        CNR_result cnr_result = TTF.getCNRResult();
 
 
         // Then run the NPS on the same image using default settings
@@ -116,12 +113,16 @@ public class DetectabilityIndex_ implements PlugInFilter {
         this.task_contrast = cnr_result.contrast; // HU
         double task_x_inc = 0.01; // mm
 
+
         // Ask the user what task settings they want to use
         GenericDialog gd = new GenericDialog("Task function settings");
         gd.addNumericField("Task radius (mm)", this.task_radius, 2);
         gd.addNumericField("Task contrast (HU)", this.task_contrast, 1);
         gd.showDialog();
-        if (! gd.wasCanceled()) { // if the dialogue was not cancelled
+        if (gd.wasCanceled()) {
+            return;
+        }
+        else {
             this.task_radius = gd.getNextNumber();
             this.task_contrast = gd.getNextNumber();
         }
@@ -132,6 +133,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
         task_function.disc_function();
 
         UnivariateFunction task_fn = task_function.getTaskFunction();
+
 
         // Plot the task function
         double x_min = -2.0 * this.task_radius;
@@ -155,6 +157,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
         // Obtain the FFT of the task function, W_fn
         task_function.disc_function_fft();
         UnivariateFunction W_fn =  task_function.getTaskFunctionTTF();
+
 
         // Plot the FFT of the task function
         double f_inc = task_function.getFreqRes();
@@ -181,9 +184,11 @@ public class DetectabilityIndex_ implements PlugInFilter {
         UnivariateFunction E_fn = linear_interpolator.interpolate(E.freq, E.val);
         UnivariateFunction NPS_fn = linear_interpolator.interpolate(nps_result.freq, nps_result.val);
 
+
         // Using equation 2 in http://dx.doi.org/10.1118/1.4923172
         UnivariateFunction numerator = FunctionUtils.multiply(W_fn, W_fn, TTF_fn, TTF_fn, E_fn, E_fn);
         UnivariateFunction denominator = FunctionUtils.multiply(W_fn, W_fn, TTF_fn, TTF_fn, NPS_fn, E_fn, E_fn, E_fn, E_fn);
+
 
         // Now integrate the numerator and denominator
         UnivariateIntegrator simpson_integrator = new SimpsonIntegrator();
@@ -212,6 +217,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
                 "\nSize of displayed image (mm),"     + this.two_dp.format(eye_model.getDisplayedImageSize()) +
                 "\nRadial (1/mm) to angular frequency (c/deg) factor," + this.three_dp.format(eye_model.getFreqToAngFreqFactor())
         );
+
 
         // Log the TTF, NPS, Eye, and Task values
         IJ.log("\nDetectability components" +
