@@ -48,6 +48,34 @@ public class TwoDFFT {
     }
 
 
+    Complex[][] transform(Complex[][] input_array, DftNormalization norm_type, TransformType trans_type) {
+        Complex[][] two_d_fft = new Complex[input_array.length][input_array[0].length];
+
+        // Need to Fourier transform each column in the input array,
+        // and then Fourier transform each row of the result of that.
+        FastFourierTransformer fourier_transformer = new FastFourierTransformer(norm_type);
+
+        // Fourier transform each column in the input array
+        for (int col=0; col<input_array.length; col++) {
+            two_d_fft[col] = fourier_transformer.transform(input_array[col], trans_type);
+        }
+
+        // Fourier transform each row of the initial result
+        // Mirror the initial results along the diagonal so rows become columns
+        two_d_fft = transpose(two_d_fft);
+
+        // Fourier transform each column of the initial result
+        for (int col=0; col<two_d_fft.length; col++) {
+            two_d_fft[col] = fourier_transformer.transform(two_d_fft[col], trans_type);
+        }
+
+        // Mirror the results back to their original orientation
+        two_d_fft = transpose(two_d_fft);
+
+        return two_d_fft;
+    }
+
+
     /** Method to transpose a 2d array of complex numbers: the row and column indices are swapped.
      *   1   2   3   4                 1   5   9  13
      *   5   6   7   8    Transpose    2   6  10  14

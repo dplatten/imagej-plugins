@@ -27,6 +27,7 @@ import java.awt.*;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.lang.System;
 
 /**
  *
@@ -143,6 +144,19 @@ public class TaskTransferFunction_ implements PlugInFilter {
             return(0);
         }
 
+        // Make the main_roi square with a side length that is a power of two
+        // Ensure the ROI is square with a side length that is a power of two
+        double N = this.main_roi.getFloatWidth();
+        int M = (int) (Math.log(N) / Math.log(2.0));
+        int N_power_two = (int) Math.pow(2, M);
+        if (N_power_two != N) { // Make the Roi larger using the next power of 2 bigger than the current width
+            N_power_two = (int) Math.pow(2, M+1);
+            Roi new_roi = new Roi(this.main_roi.getXBase(), this.main_roi.getYBase(), N_power_two, N_power_two);
+            this.main_roi = new_roi;
+            this.imp.setRoi(this.main_roi);
+            this.imp.updateAndDraw();
+        }
+
         GenericDialog gd = new GenericDialog("Task transfer function options");
         gd.addNumericField("Object diameter (mm)", this.obj_dia_mm, 0);
         gd.addNumericField("Pixel reduction factor", this.pixel_reduction_factor, 0);
@@ -153,6 +167,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
         gd.addNumericField("Bandwidth", this.loess_bandwidth, 2);
         gd.addNumericField("Robustness", this.loess_robustness, 0);
         if (this.imp.isStack()) {
+            this.use_average_stack = true;
             gd.addCheckbox("Run on the average stack", this.use_average_stack);
             gd.addNumericField("Min slice index", 1, 0);
             gd.addNumericField("to max slice index", this.imp.getImageStackSize(), 0);
@@ -227,7 +242,11 @@ public class TaskTransferFunction_ implements PlugInFilter {
             // Obtain the centre of mass of the ROI set by the user.
             this.imp.setRoi(this.main_roi);
             com = centreOfMass(ip, this.main_roi, this.cal, 0.0);
-            if (this.log_results) IJ.log("Initial CoM: " + this.three_dp.format(com[0]) + ", " + this.three_dp.format(com[1]));
+            if (this.log_results) IJ.log("Initial CoM:," + this.three_dp.format(com[0]) + "," + this.three_dp.format(com[1]));
+
+
+            double[] com_new = centreOfMassLowFreqFilter(ip, this.main_roi, this.cal, this.obj_dia_mm, 0.0);
+            IJ.log("Low pass com is:," + com_new[0] + "," + com_new[1]);
             //---------------------------------------------------------------------
 
 
@@ -249,7 +268,12 @@ public class TaskTransferFunction_ implements PlugInFilter {
             // Recalculate the CoM with background subtracted
             this.imp.setRoi(outer_roi);
             com = centreOfMass(ip, outer_roi, this.cal, -bgd_mean);
-            if (this.log_results) IJ.log("Adjusted CoM: " + this.three_dp.format(com[0]) + ", " + this.three_dp.format(com[1]));
+            if (this.log_results) IJ.log("Adjusted CoM:," + this.three_dp.format(com[0]) + "," + this.three_dp.format(com[1]));
+
+
+            com_new = centreOfMassLowFreqFilter(ip, this.main_roi, this.cal, this.obj_dia_mm, -bgd_mean);
+            IJ.log("Low pass com is:," + com_new[0] + "," + com_new[1]);
+
 
             // Recentre the annualar roi on the new CoM and recalculate CoM  for a final time
             annular_roi.setLocation(this.cal.getRawX(com[0]) - obj_dia_pix, this.cal.getRawY(com[1]) - obj_dia_pix);
@@ -258,9 +282,14 @@ public class TaskTransferFunction_ implements PlugInFilter {
             bgd_mean = annular_stats.mean;
             this.imp.setRoi(outer_roi);
             com = centreOfMass(ip, outer_roi, cal, -bgd_mean);
+
+
+            main_roi.setLocation(this.cal.getRawX(com[0]) - this.main_roi.getFloatWidth()/2.0, this.cal.getRawY(com[1]) - this.main_roi.getFloatWidth()/2.0);
+            com_new = centreOfMassLowFreqFilter(ip, this.main_roi, this.cal, this.obj_dia_mm, -bgd_mean);
+            IJ.log("Low pass com is:," + com_new[0] + "," + com_new[1]);
         }
 
-        if (this.log_results) IJ.log("Final CoM: " + this.three_dp.format(com[0]) + ", " + this.three_dp.format(com[1]));
+        if (this.log_results) IJ.log("Final CoM:," + this.three_dp.format(com[0]) + "," + this.three_dp.format(com[1]));
 
         // Add a marker to the image showing the location of the CoM
         Roi com_marker = new PointRoi(this.cal.getRawX(com[0]), this.cal.getRawY(com[1]));
@@ -524,6 +553,152 @@ public class TaskTransferFunction_ implements PlugInFilter {
         }
         double x_com = x_wt / total_wt;
         double y_com = y_wt / total_wt;
+        return new double[] {x_com, y_com};
+    }
+
+
+    private double[] centreOfMassLowFreqFilter(ImageProcessor ip, Roi roi, Calibration cal, double obj_diam, double pv_offset) {
+        // Should probably just pass this method the roi_ip
+
+        //ip.setRoi(roi);
+        //ImageProcessor roi_ip = ip.crop();
+        double[][] roi_pixels = getCalibratedPixelValues(ip, roi);
+
+        // ---------------------------------------------------------------------
+        // Display the ROI
+        ImagePlus temp = NewImage.createFloatImage("Roi pixels", roi_pixels.length, roi_pixels[0].length, 1, NewImage.FILL_BLACK);
+        temp.getProcessor().setFloatArray(convertDoubleToFloat(roi_pixels));
+        //IJ.run(nps_2d, "Swap Quadrants", "");
+        temp.show();
+        temp.updateAndDraw();
+        IJ.run(temp, "Enhance Contrast", "saturated=0.35");
+        IJ.run("Set... ", "zoom=800");
+        // ---------------------------------------------------------------------
+
+
+        TwoDFFT twod_fourier_transformer = new TwoDFFT();
+        Complex[][] fft = twod_fourier_transformer.transform(roi_pixels, DftNormalization.STANDARD);
+
+        // ---------------------------------------------------------------------
+        // Display the ROI
+        temp = NewImage.createFloatImage("Roi FFT", fft.length, fft[0].length, 1, NewImage.FILL_BLACK);
+        temp.getProcessor().setFloatArray(convertComplexToFloat(fft));
+        //IJ.run(nps_2d, "Swap Quadrants", "");
+        temp.show();
+        temp.updateAndDraw();
+        IJ.run(temp, "Enhance Contrast", "saturated=0.35");
+        IJ.run("Set... ", "zoom=800");
+        // ---------------------------------------------------------------------
+
+
+        double freq_inc = 1.0 / (roi_pixels.length * cal.pixelWidth);
+
+        double low_freq_cut_off = 0.5 / obj_diam;
+        double high_freq_cut_off = 1.0 / obj_diam;
+
+        // Make frequencies higher than freq_cut_off zero in the FFT.
+        Complex complexZero = new Complex(0.0, 0.0);
+
+        // First the top-left quadrant, +ve i and +ve j
+        for(int i=0; i<roi_pixels.length/2.0; i++) {
+            for(int j=0; j<roi_pixels[0].length/2.0; j++) {
+                // Calculate distance from the top-left hand corner (0,0)
+                double dist = calculateDistanceBetweenPoints(0,0, i, j);
+                double radial_freq = dist * freq_inc;
+                //if (radial_freq < low_freq_cut_off || radial_freq > high_freq_cut_off) fft[i][j] = complexZero;
+                if (radial_freq > high_freq_cut_off) fft[i][j] = complexZero;
+            }
+        }
+
+        // Next the -i and +j quadrant
+        int i_start = (int) (roi_pixels.length/2.0);
+        for(int i=i_start; i<roi_pixels.length; i++) {
+            for(int j=0; j<roi_pixels[0].length/2.0; j++) {
+                // Calculate distance from the top-right hand corner (roi_pixels.length, 0)
+                double dist = calculateDistanceBetweenPoints(roi_pixels.length, 0, i, j);
+                double radial_freq = dist * freq_inc;
+                //if (radial_freq < low_freq_cut_off || radial_freq > high_freq_cut_off) fft[i][j] = complexZero;
+                if (radial_freq > high_freq_cut_off) fft[i][j] = complexZero;
+            }
+        }
+
+        // Next the bottom-left quadrant, +ve i and -ve j
+        int j_start = (int) (roi_pixels[0].length/2.0);
+        for(int i=0; i<roi_pixels.length/2.0; i++) {
+            for(int j=j_start; j<roi_pixels[0].length; j++) {
+                // Calculate the distance from the bottom-left hand corner (0, roi_pixels[0].length)
+                double dist = calculateDistanceBetweenPoints(0, roi_pixels[0].length, i, j);
+                double radial_freq = dist * freq_inc;
+                //if (radial_freq < low_freq_cut_off || radial_freq > high_freq_cut_off) fft[i][j] = complexZero;
+                if (radial_freq > high_freq_cut_off) fft[i][j] = complexZero;
+            }
+        }
+
+        // Finally the bottom-right quadrant, -ve i and -ve j
+        i_start = (int) (roi_pixels.length/2.0);
+        j_start = (int) (roi_pixels[0].length/2.0);
+        for(int i=i_start; i<roi_pixels.length; i++) {
+            for(int j=j_start; j<roi_pixels[0].length; j++) {
+                // Calculate the distance from the bottom-right hand corner (roi_pixels.length, roi_pixels[0].length)
+                double dist = calculateDistanceBetweenPoints(roi_pixels.length, roi_pixels[0].length, i, j);
+                double radial_freq = dist * freq_inc;
+                //if (radial_freq < low_freq_cut_off || radial_freq > high_freq_cut_off) fft[i][j] = complexZero;
+                if (radial_freq > high_freq_cut_off) fft[i][j] = complexZero;
+            }
+        }
+
+
+        // Now shift the quadrants so that zero is at the centre
+        Complex[][] shifted_fft = new Complex[fft.length][fft[0].length];
+        System.arraycopy(fft, (int)(fft.length/2.0), shifted_fft, 0, (int)(fft.length/2.0));
+        System.arraycopy(fft, 0, shifted_fft, (int)(fft.length/2.0), (int)(fft.length/2.0));
+
+        fft = transpose(shifted_fft);
+        shifted_fft = transpose(shifted_fft);
+        System.arraycopy(fft, (int)(fft.length/2.0), shifted_fft, 0, (int)(fft.length/2.0));
+        System.arraycopy(fft, 0, shifted_fft, (int)(fft.length/2.0), (int)(fft.length/2.0));
+
+        shifted_fft = transpose(shifted_fft);
+
+        // ---------------------------------------------------------------------
+        temp = NewImage.createFloatImage("Roi shifted FFT", shifted_fft.length, shifted_fft[0].length, 1, NewImage.FILL_BLACK);
+        temp.getProcessor().setFloatArray(convertComplexToFloat(shifted_fft));
+        temp.show();
+        temp.updateAndDraw();
+        IJ.run(temp, "Enhance Contrast", "saturated=0.35");
+        IJ.run("Set... ", "zoom=800");
+        // ---------------------------------------------------------------------
+
+        // Now inverse Fourier transform the fft to obtain image space again
+        fft = twod_fourier_transformer.transform(shifted_fft, DftNormalization.STANDARD, TransformType.INVERSE);
+
+        // ---------------------------------------------------------------------
+        temp = NewImage.createFloatImage("Inverse FFT", fft.length, fft[0].length, 1, NewImage.FILL_BLACK);
+        temp.getProcessor().setFloatArray(convertComplexToFloat(fft));
+        temp.show();
+        temp.updateAndDraw();
+        IJ.run(temp, "Enhance Contrast", "saturated=0.35");
+        IJ.run("Set... ", "zoom=800");
+        // ---------------------------------------------------------------------
+
+        double x_wt=0;
+        double y_wt=0;
+        double total_wt=0;
+        for (int x=0; x<fft.length; x++) {
+            for (int y=0; y<fft.length; y++) {
+                double pixel_val = fft[x][y].abs();
+                pixel_val += pv_offset;
+                x_wt += (x+1) * pixel_val; // Adding one so that we include the zero x position in the weight
+                y_wt += (y+1) * pixel_val; // Adding one so that we include the zero y position in the weight
+                total_wt += pixel_val;
+            }
+        }
+        double x_com = cal.getX(x_wt / total_wt);
+        double y_com = cal.getY(y_wt / total_wt);
+
+        x_com += cal.getX(roi.getXBase());
+        y_com += cal.getY(roi.getYBase());
+
         return new double[] {x_com, y_com};
     }
 
@@ -879,5 +1054,111 @@ public class TaskTransferFunction_ implements PlugInFilter {
      */
     public static <T> int indexOf(T[] arr, T val) {
         return Arrays.asList(arr).indexOf(val);
+    }
+
+
+    /**
+     *
+     * @param values Two-dimensional array of Float values
+     * @return Two-dimensional array of Double values
+     */
+    private static double[][] convertFloatToDouble(final float[][] values) {
+        int width = values[0].length;
+        int height = values.length;
+
+        final double[][] result = new double[width][height];
+
+        for (int i=0; i<width; i++) {
+            for (int j=0; j<width; j++) {
+                result[i][j] = (double) values[i][j];
+            }
+        }
+        return result;
+    }
+
+
+    /** Method to transpose a 2d array of complex numbers: the row and column indices are swapped.
+     *   1   2   3   4                 1   5   9  13
+     *   5   6   7   8    Transpose    2   6  10  14
+     *   9  10  11  12  <----------->  3   7  11  15
+     *  13  14  15  16                 4   8  12  16
+     *
+     * @param input A two-dimensional array of complex numbers
+     * @return The transpose of the input, also a two-dimensional array of complex numbers
+     */
+    private Complex[][] transpose(Complex[][] input) {
+        Complex[][] output = new Complex[input[0].length][input.length];
+
+        for (int i=0; i<input.length; i++) {
+            for (int j=0; j<input[0].length; j++) {
+                output[j][i] = input[i][j];
+            }
+        }
+
+        return output;
+    }
+
+
+    /**
+     *
+     * @param values Two-dimensional array of Double values
+     * @return Two-dimensional array of Float values
+     */
+    private static float[][] convertDoubleToFloat(final double[][] values) {
+        int width = values[0].length;
+        int height = values.length;
+
+        final float[][] result = new float[width][height];
+
+        for (int i=0; i<width; i++) {
+            for (int j=0; j<width; j++) {
+                result[i][j] = (float) values[i][j];
+            }
+        }
+        return result;
+    }
+
+    /**
+     *
+     * @param values Two-dimensional array of Double values
+     * @return Two-dimensional array of Complex values
+     */
+    private static float[][] convertComplexToFloat(final Complex[][] values) {
+        int width = values[0].length;
+        int height = values.length;
+
+        final float[][] result = new float[width][height];
+
+        for (int i=0; i<width; i++) {
+            for (int j=0; j<width; j++) {
+                result[i][j] = (float) values[i][j].abs();
+            }
+        }
+        return result;
+    }
+
+    /**
+     *
+     * @param ip The ImageProcessor from which to get the values from
+     * @param roi The Roi to use to obtain the values - assumed to be rectangular
+     * @return Two-dimensional array containing the calibrated pixel values of the Roi
+     */
+    private static double[][] getCalibratedPixelValues(ImageProcessor ip, Roi roi) {
+        int width = (int) roi.getFloatWidth();
+        int height = (int) roi.getFloatHeight();
+
+        final double[][] result = new double[width][height];
+
+        Point[] p = roi.getContainedPoints();
+
+        int current_point = 0;
+        for (int x=0; x<width; x++) {
+            for (int y=0; y<height; y++) {
+                result[x][y] = ip.getPixelValue(p[current_point].x, p[current_point].y);
+                current_point++;
+            }
+        }
+
+        return result;
     }
 }

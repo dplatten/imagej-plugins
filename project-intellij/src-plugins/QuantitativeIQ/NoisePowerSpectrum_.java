@@ -106,6 +106,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
             gd.addNumericField("Record size (pixels), must be a power of 2", this.record_size, 0);
             gd.addNumericField("Frequency rebin increment (mm^-1)", this.rebin_f_inc, 2);
             if (this.imp.isStack()) {
+                this.use_average_stack = true;
                 gd.addCheckbox("Run on the average stack", this.use_average_stack);
                 gd.addNumericField("Min slice index", 1, 0);
                 gd.addNumericField("to max slice index", this.imp.getImageStackSize(), 0);
