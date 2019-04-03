@@ -235,7 +235,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
         com[0] = this.cal.getX(this.main_roi.getXBase() + (this.main_roi.getFloatWidth()/2.0));
         com[1] = this.cal.getY(this.main_roi.getYBase() + (this.main_roi.getFloatHeight()/2.0));
 
-        double[] com_new = com;
+        //double[] com_new = com;
 
         double inner_dia = obj_dia_pix + (10.0 / pixel_size_in_mm);
         Roi inner_roi = new OvalRoi(this.cal.getRawX(com[0]) - inner_dia / 2.0, this.cal.getRawY(com[1]) - inner_dia / 2.0, inner_dia, inner_dia);
@@ -274,7 +274,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
             // Recentre the annualar roi on the new CoM and recalculate CoM  for a final time
             //annular_roi.setLocation(this.cal.getRawX(com[0]) - obj_dia_pix, this.cal.getRawY(com[1]) - obj_dia_pix);
-            annular_roi.setLocation(this.cal.getRawX(com_new[0]) - obj_dia_pix, this.cal.getRawY(com_new[1]) - obj_dia_pix);
+            annular_roi.setLocation(this.cal.getRawX(com[0]) - obj_dia_pix, this.cal.getRawY(com[1]) - obj_dia_pix);
             this.imp.setRoi(annular_roi);
             annular_stats = this.imp.getAllStatistics();
             bgd_mean = annular_stats.mean;
@@ -283,12 +283,12 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
 
             main_roi.setLocation(this.cal.getRawX(com[0]) - this.main_roi.getFloatWidth()/2.0, this.cal.getRawY(com[1]) - this.main_roi.getFloatWidth()/2.0);
-            com_new = centreOfMassLowFreqFilter(ip, this.main_roi, this.cal, this.obj_dia_mm, -bgd_mean);
-            IJ.log("Low pass com is:," + com_new[0] + "," + com_new[1]);
+            com = centreOfMassLowFreqFilter(ip, this.main_roi, this.cal, this.obj_dia_mm, -bgd_mean);
+            //IJ.log("Low pass com is:," + com_new[0] + "," + com_new[1]);
         }
 
         if (this.log_results) IJ.log("Final CoM:," + this.three_dp.format(com[0]) + "," + this.three_dp.format(com[1]));
-        com = com_new;
+        //com = com_new;
 
         // Add a marker to the image showing the location of the CoM
         Roi com_marker = new PointRoi(this.cal.getRawX(com[0]), this.cal.getRawY(com[1]));
@@ -298,7 +298,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
         // Recentre the outer_roi and annular_roi using the centre of mass.
         outer_roi.setLocation(this.cal.getRawX(com[0])-obj_dia_pix, this.cal.getRawY(com[1])-obj_dia_pix);
-        annular_roi.setLocation(this.cal.getRawX(com_new[0]) - obj_dia_pix, this.cal.getRawY(com_new[1]) - obj_dia_pix);
+        annular_roi.setLocation(this.cal.getRawX(com[0]) - obj_dia_pix, this.cal.getRawY(com[1]) - obj_dia_pix);
 
         // Create an overlay to display the annular ROI and CoM on the image.
         Overlay overlay = new Overlay();
