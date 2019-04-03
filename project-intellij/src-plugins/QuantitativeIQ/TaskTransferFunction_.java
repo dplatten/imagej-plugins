@@ -146,12 +146,15 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
         // Make the main_roi square with a side length that is a power of two
         // Ensure the ROI is square with a side length that is a power of two
+        double roi_x = this.main_roi.getXBase();
+        double roi_y = this.main_roi.getYBase();
+
         double N = this.main_roi.getFloatWidth();
         int M = (int) (Math.log(N) / Math.log(2.0));
         int N_power_two = (int) Math.pow(2, M);
         if (N_power_two != N) { // Make the Roi larger using the next power of 2 bigger than the current width
             N_power_two = (int) Math.pow(2, M+1);
-            Roi new_roi = new Roi(this.main_roi.getXBase(), this.main_roi.getYBase(), N_power_two, N_power_two);
+            Roi new_roi = new Roi(this.main_roi.getXBase() - (N_power_two-N)/2.0, this.main_roi.getYBase() - (N_power_two-N)/2.0, N_power_two, N_power_two);
             this.main_roi = new_roi;
             this.imp.setRoi(this.main_roi);
             this.imp.updateAndDraw();
@@ -232,6 +235,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
         com[0] = this.cal.getX(this.main_roi.getXBase() + (this.main_roi.getFloatWidth()/2.0));
         com[1] = this.cal.getY(this.main_roi.getYBase() + (this.main_roi.getFloatHeight()/2.0));
 
+        double[] com_new = com;
+
         double inner_dia = obj_dia_pix + (10.0 / pixel_size_in_mm);
         Roi inner_roi = new OvalRoi(this.cal.getRawX(com[0]) - inner_dia / 2.0, this.cal.getRawY(com[1]) - inner_dia / 2.0, inner_dia, inner_dia);
         Roi outer_roi = new OvalRoi(this.cal.getRawX(com[0]) - obj_dia_pix, this.cal.getRawY(com[1]) - obj_dia_pix, obj_dia_pix * 2.0, obj_dia_pix * 2.0);
@@ -243,10 +248,6 @@ public class TaskTransferFunction_ implements PlugInFilter {
             this.imp.setRoi(this.main_roi);
             com = centreOfMass(ip, this.main_roi, this.cal, 0.0);
             if (this.log_results) IJ.log("Initial CoM:," + this.three_dp.format(com[0]) + "," + this.three_dp.format(com[1]));
-
-
-            double[] com_new = centreOfMassLowFreqFilter(ip, this.main_roi, this.cal, this.obj_dia_mm, 0.0);
-            IJ.log("Low pass com is:," + com_new[0] + "," + com_new[1]);
             //---------------------------------------------------------------------
 
 
@@ -271,12 +272,9 @@ public class TaskTransferFunction_ implements PlugInFilter {
             if (this.log_results) IJ.log("Adjusted CoM:," + this.three_dp.format(com[0]) + "," + this.three_dp.format(com[1]));
 
 
-            com_new = centreOfMassLowFreqFilter(ip, this.main_roi, this.cal, this.obj_dia_mm, -bgd_mean);
-            IJ.log("Low pass com is:," + com_new[0] + "," + com_new[1]);
-
-
             // Recentre the annualar roi on the new CoM and recalculate CoM  for a final time
-            annular_roi.setLocation(this.cal.getRawX(com[0]) - obj_dia_pix, this.cal.getRawY(com[1]) - obj_dia_pix);
+            //annular_roi.setLocation(this.cal.getRawX(com[0]) - obj_dia_pix, this.cal.getRawY(com[1]) - obj_dia_pix);
+            annular_roi.setLocation(this.cal.getRawX(com_new[0]) - obj_dia_pix, this.cal.getRawY(com_new[1]) - obj_dia_pix);
             this.imp.setRoi(annular_roi);
             annular_stats = this.imp.getAllStatistics();
             bgd_mean = annular_stats.mean;
@@ -290,6 +288,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
         }
 
         if (this.log_results) IJ.log("Final CoM:," + this.three_dp.format(com[0]) + "," + this.three_dp.format(com[1]));
+        com = com_new;
 
         // Add a marker to the image showing the location of the CoM
         Roi com_marker = new PointRoi(this.cal.getRawX(com[0]), this.cal.getRawY(com[1]));
@@ -297,8 +296,9 @@ public class TaskTransferFunction_ implements PlugInFilter {
         com_overlay.setStrokeColor(Color.red);
         this.imp.setOverlay(com_overlay);
 
-        // Recentre the outer_roi using the centre of mass.
+        // Recentre the outer_roi and annular_roi using the centre of mass.
         outer_roi.setLocation(this.cal.getRawX(com[0])-obj_dia_pix, this.cal.getRawY(com[1])-obj_dia_pix);
+        annular_roi.setLocation(this.cal.getRawX(com_new[0]) - obj_dia_pix, this.cal.getRawY(com_new[1]) - obj_dia_pix);
 
         // Create an overlay to display the annular ROI and CoM on the image.
         Overlay overlay = new Overlay();
@@ -558,12 +558,10 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
 
     private double[] centreOfMassLowFreqFilter(ImageProcessor ip, Roi roi, Calibration cal, double obj_diam, double pv_offset) {
-        // Should probably just pass this method the roi_ip
 
-        //ip.setRoi(roi);
-        //ImageProcessor roi_ip = ip.crop();
         double[][] roi_pixels = getCalibratedPixelValues(ip, roi);
 
+/*
         // ---------------------------------------------------------------------
         // Display the ROI
         ImagePlus temp = NewImage.createFloatImage("Roi pixels", roi_pixels.length, roi_pixels[0].length, 1, NewImage.FILL_BLACK);
@@ -574,11 +572,12 @@ public class TaskTransferFunction_ implements PlugInFilter {
         IJ.run(temp, "Enhance Contrast", "saturated=0.35");
         IJ.run("Set... ", "zoom=800");
         // ---------------------------------------------------------------------
-
+*/
 
         TwoDFFT twod_fourier_transformer = new TwoDFFT();
         Complex[][] fft = twod_fourier_transformer.transform(roi_pixels, DftNormalization.STANDARD);
 
+/*
         // ---------------------------------------------------------------------
         // Display the ROI
         temp = NewImage.createFloatImage("Roi FFT", fft.length, fft[0].length, 1, NewImage.FILL_BLACK);
@@ -589,14 +588,16 @@ public class TaskTransferFunction_ implements PlugInFilter {
         IJ.run(temp, "Enhance Contrast", "saturated=0.35");
         IJ.run("Set... ", "zoom=800");
         // ---------------------------------------------------------------------
+*/
 
 
         double freq_inc = 1.0 / (roi_pixels.length * cal.pixelWidth);
 
-        double low_freq_cut_off = 0.5 / obj_diam;
-        double high_freq_cut_off = 1.0 / obj_diam;
 
         // Make frequencies higher than freq_cut_off zero in the FFT.
+        //double low_freq_cut_off = 0.5 / obj_diam;
+        double high_freq_cut_off = 1.0 / obj_diam;
+
         Complex complexZero = new Complex(0.0, 0.0);
 
         // First the top-left quadrant, +ve i and +ve j
@@ -605,7 +606,6 @@ public class TaskTransferFunction_ implements PlugInFilter {
                 // Calculate distance from the top-left hand corner (0,0)
                 double dist = calculateDistanceBetweenPoints(0,0, i, j);
                 double radial_freq = dist * freq_inc;
-                //if (radial_freq < low_freq_cut_off || radial_freq > high_freq_cut_off) fft[i][j] = complexZero;
                 if (radial_freq > high_freq_cut_off) fft[i][j] = complexZero;
             }
         }
@@ -617,7 +617,6 @@ public class TaskTransferFunction_ implements PlugInFilter {
                 // Calculate distance from the top-right hand corner (roi_pixels.length, 0)
                 double dist = calculateDistanceBetweenPoints(roi_pixels.length, 0, i, j);
                 double radial_freq = dist * freq_inc;
-                //if (radial_freq < low_freq_cut_off || radial_freq > high_freq_cut_off) fft[i][j] = complexZero;
                 if (radial_freq > high_freq_cut_off) fft[i][j] = complexZero;
             }
         }
@@ -629,7 +628,6 @@ public class TaskTransferFunction_ implements PlugInFilter {
                 // Calculate the distance from the bottom-left hand corner (0, roi_pixels[0].length)
                 double dist = calculateDistanceBetweenPoints(0, roi_pixels[0].length, i, j);
                 double radial_freq = dist * freq_inc;
-                //if (radial_freq < low_freq_cut_off || radial_freq > high_freq_cut_off) fft[i][j] = complexZero;
                 if (radial_freq > high_freq_cut_off) fft[i][j] = complexZero;
             }
         }
@@ -642,7 +640,6 @@ public class TaskTransferFunction_ implements PlugInFilter {
                 // Calculate the distance from the bottom-right hand corner (roi_pixels.length, roi_pixels[0].length)
                 double dist = calculateDistanceBetweenPoints(roi_pixels.length, roi_pixels[0].length, i, j);
                 double radial_freq = dist * freq_inc;
-                //if (radial_freq < low_freq_cut_off || radial_freq > high_freq_cut_off) fft[i][j] = complexZero;
                 if (radial_freq > high_freq_cut_off) fft[i][j] = complexZero;
             }
         }
@@ -660,6 +657,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
         shifted_fft = transpose(shifted_fft);
 
+/*
         // ---------------------------------------------------------------------
         temp = NewImage.createFloatImage("Roi shifted FFT", shifted_fft.length, shifted_fft[0].length, 1, NewImage.FILL_BLACK);
         temp.getProcessor().setFloatArray(convertComplexToFloat(shifted_fft));
@@ -668,10 +666,12 @@ public class TaskTransferFunction_ implements PlugInFilter {
         IJ.run(temp, "Enhance Contrast", "saturated=0.35");
         IJ.run("Set... ", "zoom=800");
         // ---------------------------------------------------------------------
+*/
 
         // Now inverse Fourier transform the fft to obtain image space again
         fft = twod_fourier_transformer.transform(shifted_fft, DftNormalization.STANDARD, TransformType.INVERSE);
 
+/*
         // ---------------------------------------------------------------------
         temp = NewImage.createFloatImage("Inverse FFT", fft.length, fft[0].length, 1, NewImage.FILL_BLACK);
         temp.getProcessor().setFloatArray(convertComplexToFloat(fft));
@@ -680,24 +680,25 @@ public class TaskTransferFunction_ implements PlugInFilter {
         IJ.run(temp, "Enhance Contrast", "saturated=0.35");
         IJ.run("Set... ", "zoom=800");
         // ---------------------------------------------------------------------
+*/
 
+        // Now find the centre of mass of the filtered image
         double x_wt=0;
         double y_wt=0;
         double total_wt=0;
+        double roi_x_base = roi.getXBase();
+        double roi_y_base = roi.getYBase();
         for (int x=0; x<fft.length; x++) {
             for (int y=0; y<fft.length; y++) {
                 double pixel_val = fft[x][y].abs();
                 pixel_val += pv_offset;
-                x_wt += (x+1) * pixel_val; // Adding one so that we include the zero x position in the weight
-                y_wt += (y+1) * pixel_val; // Adding one so that we include the zero y position in the weight
+                x_wt += (x+roi_x_base) * pixel_val;
+                y_wt += (y+roi_y_base) * pixel_val;
                 total_wt += pixel_val;
             }
         }
         double x_com = cal.getX(x_wt / total_wt);
         double y_com = cal.getY(y_wt / total_wt);
-
-        x_com += cal.getX(roi.getXBase());
-        y_com += cal.getY(roi.getYBase());
 
         return new double[] {x_com, y_com};
     }
