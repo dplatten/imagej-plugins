@@ -4,6 +4,7 @@ package QuantitativeIQ;// ImageJ plugin to calculate the task transfer function 
 // The routine will run on a user-selected oval region of interest (ROI). If no
 // ROI is selected then the routine exits.
 //
+import ij.IJ;
 import ij.gui.GenericDialog;
 import ij.gui.Plot;
 import ij.plugin.PlugIn;
@@ -16,6 +17,8 @@ import org.apache.commons.math3.transform.FastFourierTransformer;
 import org.apache.commons.math3.transform.TransformType;
 import org.apache.commons.math3.util.MathArrays;
 
+import java.text.DecimalFormat;
+
 /**
  *
  */
@@ -24,11 +27,37 @@ public class TaskFunction_ implements PlugIn {
 
     private double task_radius = 1.5; // Radius of task (mm)
     private double task_contrast = 1.0; // The contrast of the task
+
+    private double cutoff_f = 2.0; // Maximum frequency for which to calculate the task when logging
     private double f_res = 0.01; // Increment for the task function fft (mm^-1)
+
+    private DecimalFormat two_dp = new DecimalFormat("0.00");
+    private DecimalFormat three_dp = new DecimalFormat("0.000");
 
     private UnivariateFunction task_function;
     private UnivariateFunction task_function_fft;
     private UnivariateFunction task_function_sinc;
+
+    private boolean log_results = true;
+
+
+    /** Method to enable or disable writing to the ImageJ log
+     *
+     * @param log_contition Boolean value to set logging on or off
+     */
+    void setLogging(boolean log_contition) {
+        this.log_results = log_contition;
+    }
+
+
+    /** Method to set the frequency cut off for logging
+     *
+     * @param new_freq The new frequency cut off (per mm)
+     */
+    void setFreqCutoff(double new_freq) {
+        this.cutoff_f = new_freq;
+    }
+
 
     /**
      *
@@ -44,7 +73,7 @@ public class TaskFunction_ implements PlugIn {
      * @return
      */
     // Defined to enable other plugins to access the task function TTF
-    UnivariateFunction getTaskFunctionTTF() {
+    UnivariateFunction getTaskFunctionFFT() {
         return this.task_function_fft;
     }
 
@@ -161,6 +190,8 @@ public class TaskFunction_ implements PlugIn {
         task_fft_labels += "Sinc of task function up to Nyquist\t";
         plot_task_fft.addLegend(task_fft_labels);
         plot_task_fft.show();
+
+        if (this.log_results) logResults("FFT of radius " + this.task_radius + " mm; " + this.task_contrast + " contrast");
     }
 
 
@@ -241,5 +272,22 @@ public class TaskFunction_ implements PlugIn {
 
         UnivariateInterpolator linear_interpolator = new LinearInterpolator();
         this.task_function_sinc = linear_interpolator.interpolate(freq_scale, abs_sinc);
+    }
+
+
+    /** Method to write the task function FFT results to the ImageJ log
+     *
+     * @param label The label for the task function FFT values
+     */
+    private void logResults(String label) {
+        IJ.log("Task function using " + this.three_dp.format(this.cutoff_f) + " mm^-1 cutoff  frequency");
+        IJ.log("Freq (mm^-1)," + label);
+
+        double f = 0.0;
+        while (f <= this.cutoff_f) {
+            IJ.log( this.three_dp.format(f) + "," + this.three_dp.format(this.task_function_fft.value(f)));
+            f += this.f_res;
+        }
+        IJ.log("\n");
     }
 }

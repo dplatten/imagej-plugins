@@ -420,6 +420,7 @@ public class EyeModel_ implements PlugIn {
         for (int i=0; i<E.freq.length; i++) {
             IJ.log("" + this.three_dp.format(E.freq[i]) + ", " + this.three_dp.format(E.val[i]));
         }
+        IJ.log("\n");
     }
 
 

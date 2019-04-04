@@ -75,6 +75,8 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
         TTF.run(ip);
         TTF_result ttf_result = TTF.getTTFResult();
+        double[] ttf_com = TTF.getCentreOfMass();
+        double[] ttf_com_offset = TTF.getCentreOfMassOffset();
         CNR_result cnr_result = TTF.getCNRResult();
 
 
@@ -87,7 +89,15 @@ public class DetectabilityIndex_ implements PlugInFilter {
             IJ.error("There was a problem setting up the NPS routine");
             return;
         }
-        NPS.run(ip);
+
+        try {
+            NPS.run(ip);
+        }
+        catch (Exception e) {
+            IJ.error("There was an error when running the NPS:\n" + e);
+            return;
+        }
+
         NPS_result nps_result = NPS.getNPSResult();
 
 
@@ -128,6 +138,8 @@ public class DetectabilityIndex_ implements PlugInFilter {
         }
 
         TaskFunction_ task_function = new TaskFunction_();
+        task_function.setLogging(false);
+        task_function.setFreqCutoff(nyquist);
         task_function.setTaskRadius(this.task_radius);
         task_function.setTaskContrast(this.task_contrast);
         task_function.disc_function();
@@ -156,7 +168,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
         // Obtain the FFT of the task function, W_fn
         task_function.disc_function_fft();
-        UnivariateFunction W_fn =  task_function.getTaskFunctionTTF();
+        UnivariateFunction W_fn =  task_function.getTaskFunctionFFT();
 
 
         // Plot the FFT of the task function
@@ -180,10 +192,18 @@ public class DetectabilityIndex_ implements PlugInFilter {
         // We are using radial functions here, so it's only a single integral over the radial frequency, rather than
         // a double integral over u and v.
         UnivariateInterpolator linear_interpolator = new LinearInterpolator();
-        UnivariateFunction TTF_fn = linear_interpolator.interpolate(ttf_result.freq, ttf_result.val);
-        UnivariateFunction E_fn = linear_interpolator.interpolate(E.freq, E.val);
-        UnivariateFunction NPS_fn = linear_interpolator.interpolate(nps_result.freq, nps_result.val);
-
+        UnivariateFunction TTF_fn;
+        UnivariateFunction E_fn;
+        UnivariateFunction NPS_fn;
+        try {
+            TTF_fn = linear_interpolator.interpolate(ttf_result.freq, ttf_result.val);
+            E_fn = linear_interpolator.interpolate(E.freq, E.val);
+            NPS_fn = linear_interpolator.interpolate(nps_result.freq, nps_result.val);
+        }
+        catch (Exception e) {
+            IJ.error("There was an error when interpolating the results:\n" + e);
+            return;
+        }
 
         // Using equation 2 in http://dx.doi.org/10.1118/1.4923172
         UnivariateFunction numerator = FunctionUtils.multiply(W_fn, W_fn, TTF_fn, TTF_fn, E_fn, E_fn);
@@ -205,7 +225,9 @@ public class DetectabilityIndex_ implements PlugInFilter {
                 "\nCNR,"              + this.two_dp.format(cnr_result.cnr) +
                 "\nNoise (HU),"       + this.two_dp.format(cnr_result.noise) +
                 "\nTTF 50 (1/mm),"    + this.two_dp.format(TTF.getTTF50()) +
-                "\nTTF 10 (1/mm),"    + this.two_dp.format(TTF.getTTF10())
+                "\nTTF 10 (1/mm),"    + this.two_dp.format(TTF.getTTF10()) +
+                "\nTTF centre of mass," + this.two_dp.format(ttf_com[0]) + "," + this.two_dp.format(ttf_com[1]) +
+                "\nTTF centre of mass offset," + this.two_dp.format(ttf_com_offset[0]) + "," + this.two_dp.format(ttf_com_offset[1])
         );
 
         IJ.log("\nEye model settings used" +

@@ -525,6 +525,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
         for (int i=0; i<nps.freq.length; i++) {
             IJ.log("" + this.two_dp.format(nps.freq[i]) + ", " + this.three_dp.format(nps.val[i]));
         }
+        IJ.log("\n");
     }
 
 

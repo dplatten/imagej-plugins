@@ -43,6 +43,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
     private int loess_robustness = 10;
     private Roi main_roi;
     private Boolean find_com = Boolean.TRUE;
+    private double[] com = new double[2];
+    private double[] com_offset = {0.0, 0.0};
 
     private String[] esf_proc_choices = {"Linear regression", "Local regression", "Local regression (monotonic)"};
     private static int LINEAR_REGRESSION = 0;
@@ -84,10 +86,9 @@ public class TaskTransferFunction_ implements PlugInFilter {
         this.log_results = log_contition;
     }
 
-
     // Defined to enable other plugins to access the TTF results
     TTF_result getTTFResult() {
-        return ttf_result;
+        return this.ttf_result;
     }
 
 
@@ -105,7 +106,17 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
     // Defined to enable other plugins to access the CNR results
     CNR_result getCNRResult() {
-        return cnr_result;
+        return this.cnr_result;
+    }
+
+    // Defined to enable retrieval of centre of mass
+    double[] getCentreOfMass() {
+        return this.com;
+    }
+
+    // Defined to enable retrieval of the centre of mass offset
+    double[] getCentreOfMassOffset() {
+        return this.com_offset;
     }
 
 
@@ -144,11 +155,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
             return(0);
         }
 
-        // Make the main_roi square with a side length that is a power of two
-        // Ensure the ROI is square with a side length that is a power of two
-        double roi_x = this.main_roi.getXBase();
-        double roi_y = this.main_roi.getYBase();
-
+/*
+        // Force the main_roi to be square with a side length that is a power of two
         double N = this.main_roi.getFloatWidth();
         int M = (int) (Math.log(N) / Math.log(2.0));
         int N_power_two = (int) Math.pow(2, M);
@@ -159,12 +167,15 @@ public class TaskTransferFunction_ implements PlugInFilter {
             this.imp.setRoi(this.main_roi);
             this.imp.updateAndDraw();
         }
+*/
 
         GenericDialog gd = new GenericDialog("Task transfer function options");
-        gd.addNumericField("Object diameter (mm)", this.obj_dia_mm, 0);
+        gd.addNumericField("Object diameter (mm) [Mercury 25, Catphan 12]", this.obj_dia_mm, 0);
         gd.addNumericField("Pixel reduction factor", this.pixel_reduction_factor, 0);
         gd.addNumericField("Frequency rebin increment (mm^-1)", this.rebin_f_inc, 2);
         gd.addCheckbox("Find centre of mass", this.find_com);
+        gd.addNumericField("CoM x offset (mm)", this.com_offset[0], 2);
+        gd.addNumericField("CoM y offset (mm)", this.com_offset[1], 2);
         gd.addRadioButtonGroup("ESF processing to use", this.esf_proc_choices, 3, 1, this.esf_proc_choices[this.esf_proc_choice_idx]);
         gd.addMessage("Local regression options");
         gd.addNumericField("Bandwidth", this.loess_bandwidth, 2);
@@ -184,6 +195,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
         this.pixel_reduction_factor = gd.getNextNumber();
         this.rebin_f_inc = gd.getNextNumber();
         this.find_com = gd.getNextBoolean();
+        this.com_offset[0] = gd.getNextNumber();
+        this.com_offset[1] = gd.getNextNumber();
         this.esf_proc_choice = gd.getNextRadioButton();
         this.esf_proc_choice_idx = indexOf(this.esf_proc_choices, this.esf_proc_choice);
         this.loess_bandwidth = gd.getNextNumber();
@@ -222,7 +235,6 @@ public class TaskTransferFunction_ implements PlugInFilter {
         //---------------------------------------------------------------------
         // Obtain the pixel size of the image. This will return 1.0 if ImageJ
         // isn't able to read the pixel size from the DICOM tags.
-        //Calibration cal = this.imp.getCalibration();
         double pixel_size_in_mm = this.cal.pixelWidth;
         double obj_dia_pix = this.obj_dia_mm/pixel_size_in_mm;
         //---------------------------------------------------------------------
@@ -231,23 +243,20 @@ public class TaskTransferFunction_ implements PlugInFilter {
         //---------------------------------------------------------------------
         // Determine the centre of mass (Com). Initialise the CoM to the centre
         // of the main_roi.
-        double[] com = new double[2];
-        com[0] = this.cal.getX(this.main_roi.getXBase() + (this.main_roi.getFloatWidth()/2.0));
-        com[1] = this.cal.getY(this.main_roi.getYBase() + (this.main_roi.getFloatHeight()/2.0));
-
-        //double[] com_new = com;
+        this.com[0] = this.cal.getX(this.main_roi.getXBase() + (this.main_roi.getFloatWidth()/2.0));
+        this.com[1] = this.cal.getY(this.main_roi.getYBase() + (this.main_roi.getFloatHeight()/2.0));
 
         double inner_dia = obj_dia_pix + (10.0 / pixel_size_in_mm);
-        Roi inner_roi = new OvalRoi(this.cal.getRawX(com[0]) - inner_dia / 2.0, this.cal.getRawY(com[1]) - inner_dia / 2.0, inner_dia, inner_dia);
-        Roi outer_roi = new OvalRoi(this.cal.getRawX(com[0]) - obj_dia_pix, this.cal.getRawY(com[1]) - obj_dia_pix, obj_dia_pix * 2.0, obj_dia_pix * 2.0);
+        Roi inner_roi = new OvalRoi(this.cal.getRawX(this.com[0]) - inner_dia / 2.0, this.cal.getRawY(this.com[1]) - inner_dia / 2.0, inner_dia, inner_dia);
+        Roi outer_roi = new OvalRoi(this.cal.getRawX(this.com[0]) - obj_dia_pix, this.cal.getRawY(this.com[1]) - obj_dia_pix, obj_dia_pix * 2.0, obj_dia_pix * 2.0);
         Roi annular_roi = new ShapeRoi(outer_roi).xor(new ShapeRoi(inner_roi));
 
         if (this.find_com) {
             //---------------------------------------------------------------------
             // Obtain the centre of mass of the ROI set by the user.
             this.imp.setRoi(this.main_roi);
-            com = centreOfMass(ip, this.main_roi, this.cal, 0.0);
-            if (this.log_results) IJ.log("Initial CoM:," + this.three_dp.format(com[0]) + "," + this.three_dp.format(com[1]));
+            this.com = centreOfMass(ip, this.main_roi, this.cal, 0.0);
+            if (this.log_results) IJ.log("Initial CoM:," + this.three_dp.format(this.com[0]) + "," + this.three_dp.format(this.com[1]));
             //---------------------------------------------------------------------
 
 
@@ -256,8 +265,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
             // annular region of interest centred on the centre of mass that has an
             // internal diameter of object diameter + 10 mm and an external
             // diameter of 2 x object diameter.
-            inner_roi = new OvalRoi(this.cal.getRawX(com[0]) - inner_dia / 2.0, this.cal.getRawY(com[1]) - inner_dia / 2.0, inner_dia, inner_dia);
-            outer_roi = new OvalRoi(this.cal.getRawX(com[0]) - obj_dia_pix, this.cal.getRawY(com[1]) - obj_dia_pix, obj_dia_pix * 2.0, obj_dia_pix * 2.0);
+            inner_roi = new OvalRoi(this.cal.getRawX(this.com[0]) - inner_dia / 2.0, this.cal.getRawY(this.com[1]) - inner_dia / 2.0, inner_dia, inner_dia);
+            outer_roi = new OvalRoi(this.cal.getRawX(this.com[0]) - obj_dia_pix, this.cal.getRawY(this.com[1]) - obj_dia_pix, obj_dia_pix * 2.0, obj_dia_pix * 2.0);
             annular_roi = new ShapeRoi(outer_roi).xor(new ShapeRoi(inner_roi));
 
 
@@ -268,37 +277,48 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
             // Recalculate the CoM with background subtracted
             this.imp.setRoi(outer_roi);
-            com = centreOfMass(ip, outer_roi, this.cal, -bgd_mean);
-            if (this.log_results) IJ.log("Adjusted CoM:," + this.three_dp.format(com[0]) + "," + this.three_dp.format(com[1]));
+            this.com = centreOfMass(ip, outer_roi, this.cal, -bgd_mean);
+            if (this.log_results) IJ.log("Adjusted CoM:," + this.three_dp.format(this.com[0]) + "," + this.three_dp.format(this.com[1]));
 
 
             // Recentre the annualar roi on the new CoM and recalculate CoM  for a final time
             //annular_roi.setLocation(this.cal.getRawX(com[0]) - obj_dia_pix, this.cal.getRawY(com[1]) - obj_dia_pix);
-            annular_roi.setLocation(this.cal.getRawX(com[0]) - obj_dia_pix, this.cal.getRawY(com[1]) - obj_dia_pix);
+            annular_roi.setLocation(this.cal.getRawX(this.com[0]) - obj_dia_pix, this.cal.getRawY(this.com[1]) - obj_dia_pix);
             this.imp.setRoi(annular_roi);
             annular_stats = this.imp.getAllStatistics();
             bgd_mean = annular_stats.mean;
             this.imp.setRoi(outer_roi);
-            com = centreOfMass(ip, outer_roi, cal, -bgd_mean);
+            this.com = centreOfMass(ip, outer_roi, cal, -bgd_mean);
 
 
-            main_roi.setLocation(this.cal.getRawX(com[0]) - this.main_roi.getFloatWidth()/2.0, this.cal.getRawY(com[1]) - this.main_roi.getFloatWidth()/2.0);
-            com = centreOfMassLowFreqFilter(ip, this.main_roi, this.cal, this.obj_dia_mm, -bgd_mean);
-            //IJ.log("Low pass com is:," + com_new[0] + "," + com_new[1]);
+            main_roi.setLocation(this.cal.getRawX(this.com[0]) - this.main_roi.getFloatWidth()/2.0, this.cal.getRawY(this.com[1]) - this.main_roi.getFloatWidth()/2.0);
+/*
+            double[] com_low_pass = centreOfMassLowFreqFilter(ip, this.main_roi, this.cal, this.obj_dia_mm, -bgd_mean);
+            if (com_low_pass != null) {
+                this.com = com_low_pass;
+                if (this.log_results) IJ.log("CoM after low-pass filter:," + this.three_dp.format(com[0]) + "," + this.three_dp.format(com[1]));
+            }
+            else {
+                IJ.error("Could not work out centre of mass using low-pass filter.\nUsing existing centre of mass.");
+            };
+*/
         }
 
-        if (this.log_results) IJ.log("Final CoM:," + this.three_dp.format(com[0]) + "," + this.three_dp.format(com[1]));
-        //com = com_new;
+        // Apply the CoM offsets
+        this.com[0] += this.com_offset[0];
+        this.com[1] += this.com_offset[1];
+
+        if (this.log_results) IJ.log("Final CoM:," + this.three_dp.format(this.com[0]) + "," + this.three_dp.format(this.com[1]));
 
         // Add a marker to the image showing the location of the CoM
-        Roi com_marker = new PointRoi(this.cal.getRawX(com[0]), this.cal.getRawY(com[1]));
+        Roi com_marker = new PointRoi(this.cal.getRawX(this.com[0]), this.cal.getRawY(this.com[1]));
         Overlay com_overlay = new Overlay(com_marker);
         com_overlay.setStrokeColor(Color.red);
         this.imp.setOverlay(com_overlay);
 
         // Recentre the outer_roi and annular_roi using the centre of mass.
-        outer_roi.setLocation(this.cal.getRawX(com[0])-obj_dia_pix, this.cal.getRawY(com[1])-obj_dia_pix);
-        annular_roi.setLocation(this.cal.getRawX(com[0]) - obj_dia_pix, this.cal.getRawY(com[1]) - obj_dia_pix);
+        outer_roi.setLocation(this.cal.getRawX(this.com[0])-obj_dia_pix, this.cal.getRawY(this.com[1])-obj_dia_pix);
+        annular_roi.setLocation(this.cal.getRawX(this.com[0]) - obj_dia_pix, this.cal.getRawY(this.com[1]) - obj_dia_pix);
 
         // Create an overlay to display the annular ROI and CoM on the image.
         Overlay overlay = new Overlay();
@@ -311,12 +331,14 @@ public class TaskTransferFunction_ implements PlugInFilter {
         //---------------------------------------------------------------------
         // Calculate the CNR of the object
         double obj_roi_dia = obj_dia_pix - (3.0 / pixel_size_in_mm);
-        Roi obj_roi = new OvalRoi(this.cal.getRawX(com[0])-obj_roi_dia/2.0, this.cal.getRawY(com[1])-obj_roi_dia/2.0, obj_roi_dia, obj_roi_dia);
+        Roi obj_roi = new OvalRoi(this.cal.getRawX(this.com[0])-obj_roi_dia/2.0, this.cal.getRawY(this.com[1])-obj_roi_dia/2.0, obj_roi_dia, obj_roi_dia);
         CNR_result cnr_results = contrastToNoiseRatio(this.imp, obj_roi, annular_roi);
 
         if (this.log_results) IJ.log("CNR is: " + this.three_dp.format(cnr_results.cnr));
         if (this.log_results) IJ.log("Contrast is: " + this.three_dp.format(cnr_results.contrast));
         if (this.log_results) IJ.log("Noise is: " + this.three_dp.format(cnr_results.noise));
+        if (this.log_results) IJ.log("Background is: " + this.three_dp.format(cnr_results.background));
+        if (this.log_results) IJ.log("Signal is: " + this.three_dp.format(cnr_results.signal));
 
         overlay.add(obj_roi);
         overlay.setStrokeColor(Color.green);
@@ -332,7 +354,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
         double[] raw_esf_pos = new double[num_points];
         double[] raw_esf_val = new double[num_points];
         for (Point p : outer_roi.getContainedPoints()) {
-            raw_esf_pos[i] = calculateDistanceBetweenPoints(com[0], com[1], this.cal.getX(p.x), this.cal.getY(p.y));
+            raw_esf_pos[i] = calculateDistanceBetweenPoints(this.com[0], this.com[1], this.cal.getX(p.x), this.cal.getY(p.y));
             raw_esf_val[i] = ip.getPixelValue(p.x, p.y); // getPixelValue includes calibration
             i++;
         }
@@ -397,7 +419,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
         }
 
         UnivariateInterpolator interpolator;
-        UnivariateFunction function;
+        UnivariateFunction function = null;
 
         if (this.esf_proc_choice_idx == LINEAR_REGRESSION) {
             // Calculate resampled ESF values using linear interpolation
@@ -413,8 +435,16 @@ public class TaskTransferFunction_ implements PlugInFilter {
             // http://commons.apache.org/proper/commons-math/javadocs/api-3.6/org/apache/commons/math3/analysis/interpolation/LoessInterpolator.html
             // and https://en.wikipedia.org/wiki/Local_regression
             interpolator = new LoessInterpolator(this.loess_bandwidth, this.loess_robustness);
-            double[] smoothed_esf = new LoessInterpolator(this.loess_bandwidth, this.loess_robustness).smooth(raw_esf_pos, raw_esf_val);
-            function = interpolator.interpolate(raw_esf_pos, smoothed_esf);
+            double[] smoothed_esf;
+
+            try {
+                smoothed_esf = new LoessInterpolator(this.loess_bandwidth, this.loess_robustness).smooth(raw_esf_pos, raw_esf_val);
+                function = interpolator.interpolate(raw_esf_pos, smoothed_esf);
+            }
+            catch (Exception e) {
+                IJ.error("There was an error when interpolating the raw ESF:\n" + e);
+                return;
+            }
 
             for (i = 0; i < esf_rebinned_val.length; i++) {
                 esf_rebinned_val[i] = function.value(esf_rebinned_pos[i]);
@@ -452,7 +482,13 @@ public class TaskTransferFunction_ implements PlugInFilter {
         //---------------------------------------------------------------------
         // Differentiate the ESF to obtain line spread function (LSF)
         FiniteDifferencesDifferentiator differentiator = new FiniteDifferencesDifferentiator(2, rebinned_sample_inc);;
-        function = interpolator.interpolate(esf_rebinned_pos, esf_rebinned_val);
+        try {
+            function = interpolator.interpolate(esf_rebinned_pos, esf_rebinned_val);
+        }
+        catch (Exception e) {
+            IJ.error("There was an error when interpolating the rebinned ESF:\n" + e);
+            return;
+        }
         UnivariateDifferentiableFunction complete_f = differentiator.differentiate(function);;
         double[] lsf_val = differentiate(esf_rebinned_pos, complete_f);
 
@@ -575,7 +611,14 @@ public class TaskTransferFunction_ implements PlugInFilter {
 */
 
         TwoDFFT twod_fourier_transformer = new TwoDFFT();
-        Complex[][] fft = twod_fourier_transformer.transform(roi_pixels, DftNormalization.STANDARD);
+        Complex[][] fft;
+        try {
+            fft = twod_fourier_transformer.transform(roi_pixels, DftNormalization.STANDARD);
+        }
+        catch (Exception e) {
+            IJ.error("There was an error when Fourier transforming the region:\n" + e);
+            return(null);
+        }
 
 /*
         // ---------------------------------------------------------------------
@@ -722,7 +765,9 @@ public class TaskTransferFunction_ implements PlugInFilter {
         ImageStatistics bgd_stats = imp.getAllStatistics();
 
         CNR_result result = new CNR_result();
-        result.contrast = obj_stats.mean - bgd_stats.mean;
+        result.signal = obj_stats.mean;
+        result.background = bgd_stats.mean;
+        result.contrast = result.signal - result.background;
         result.noise = bgd_stats.stdDev;
         result.cnr = Math.abs(result.contrast) / result.noise;
 
@@ -871,6 +916,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
         for (int i=0; i<ttf.freq.length; i++) {
             IJ.log("" + this.two_dp.format(ttf.freq[i]) + ", " + this.three_dp.format(ttf.val[i]));
         }
+        IJ.log("\n");
     }
 
 
@@ -914,7 +960,13 @@ public class TaskTransferFunction_ implements PlugInFilter {
         MathArrays.sortInPlace(ttf_vals, ttf_freqs);
         fn_ttf_lin = linear_interpolator.interpolate(ttf_vals, ttf_freqs);
 
-        return fn_ttf_lin.value(req_ttf_val);
+        try {
+            return fn_ttf_lin.value(req_ttf_val);
+        }
+        catch (Exception e) {
+            IJ.error("There was an error when obtaining the TTF frequency at " + req_ttf_val + ":\n" + e);
+            return 0.0;
+        }
     }
 
 
@@ -1043,6 +1095,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
         double cnr;
         double contrast;
         double noise;
+        double signal;
+        double background;
     }
 
 
