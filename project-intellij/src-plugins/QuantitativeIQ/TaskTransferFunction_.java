@@ -27,7 +27,6 @@ import java.awt.*;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.lang.System;
 
 /**
  *
@@ -42,9 +41,12 @@ public class TaskTransferFunction_ implements PlugInFilter {
     private double loess_bandwidth = 0.02;
     private int loess_robustness = 10;
     private Roi main_roi;
-    private Boolean find_com = Boolean.TRUE;
+
+    private boolean find_com = true;
     private double[] com = new double[2];
-    private double[] com_offset = {0.0, 0.0};
+    private boolean use_low_pass = false;
+    private double low_pass_factor = 0.9;
+    //private double high_pass_factor = 1.0;
 
     private String[] esf_proc_choices = {"Linear regression", "Local regression", "Local regression (monotonic)"};
     private static int LINEAR_REGRESSION = 0;
@@ -114,11 +116,6 @@ public class TaskTransferFunction_ implements PlugInFilter {
         return this.com;
     }
 
-    // Defined to enable retrieval of the centre of mass offset
-    double[] getCentreOfMassOffset() {
-        return this.com_offset;
-    }
-
 
     /**
      *
@@ -155,27 +152,14 @@ public class TaskTransferFunction_ implements PlugInFilter {
             return(0);
         }
 
-/*
-        // Force the main_roi to be square with a side length that is a power of two
-        double N = this.main_roi.getFloatWidth();
-        int M = (int) (Math.log(N) / Math.log(2.0));
-        int N_power_two = (int) Math.pow(2, M);
-        if (N_power_two != N) { // Make the Roi larger using the next power of 2 bigger than the current width
-            N_power_two = (int) Math.pow(2, M+1);
-            Roi new_roi = new Roi(this.main_roi.getXBase() - (N_power_two-N)/2.0, this.main_roi.getYBase() - (N_power_two-N)/2.0, N_power_two, N_power_two);
-            this.main_roi = new_roi;
-            this.imp.setRoi(this.main_roi);
-            this.imp.updateAndDraw();
-        }
-*/
-
         GenericDialog gd = new GenericDialog("Task transfer function options");
         gd.addNumericField("Object diameter (mm) [Mercury 25, Catphan 12]", this.obj_dia_mm, 0);
         gd.addNumericField("Pixel reduction factor", this.pixel_reduction_factor, 0);
         gd.addNumericField("Frequency rebin increment (mm^-1)", this.rebin_f_inc, 2);
         gd.addCheckbox("Find centre of mass", this.find_com);
-        gd.addNumericField("CoM x offset (mm)", this.com_offset[0], 2);
-        gd.addNumericField("CoM y offset (mm)", this.com_offset[1], 2);
+        gd.addCheckbox("Use low-pass filter for CoM", this.use_low_pass);
+        gd.addNumericField("Low-pass filter factor", this.low_pass_factor, 2);
+        //gd.addNumericField("High-pass filter factor", this.high_pass_factor, 2);
         gd.addRadioButtonGroup("ESF processing to use", this.esf_proc_choices, 3, 1, this.esf_proc_choices[this.esf_proc_choice_idx]);
         gd.addMessage("Local regression options");
         gd.addNumericField("Bandwidth", this.loess_bandwidth, 2);
@@ -195,8 +179,9 @@ public class TaskTransferFunction_ implements PlugInFilter {
         this.pixel_reduction_factor = gd.getNextNumber();
         this.rebin_f_inc = gd.getNextNumber();
         this.find_com = gd.getNextBoolean();
-        this.com_offset[0] = gd.getNextNumber();
-        this.com_offset[1] = gd.getNextNumber();
+        this.use_low_pass = gd.getNextBoolean();
+        this.low_pass_factor = gd.getNextNumber();
+        //this.high_pass_factor = gd.getNextNumber();
         this.esf_proc_choice = gd.getNextRadioButton();
         this.esf_proc_choice_idx = indexOf(this.esf_proc_choices, this.esf_proc_choice);
         this.loess_bandwidth = gd.getNextNumber();
@@ -217,6 +202,20 @@ public class TaskTransferFunction_ implements PlugInFilter {
             this.imp.setCalibration(this.cal);
             this.imp.show();
             this.imp.setRoi(this.main_roi);
+        }
+
+        // If using low pass filter for centre of mass then ROI must be a power of two
+        if (this.use_low_pass) {
+            double N = this.main_roi.getFloatWidth();
+            int M = (int) (Math.log(N) / Math.log(2.0));
+            int N_power_two = (int) Math.pow(2, M);
+            if (N_power_two != N) { // Make the Roi larger using the next power of 2 bigger than the current width
+                N_power_two = (int) Math.pow(2, M + 1);
+                Roi new_roi = new Roi(this.main_roi.getXBase() - (N_power_two - N) / 2.0, this.main_roi.getYBase() - (N_power_two - N) / 2.0, N_power_two, N_power_two);
+                this.main_roi = new_roi;
+                this.imp.setRoi(this.main_roi);
+                this.imp.updateAndDraw();
+            }
         }
 
         return DOES_ALL;
@@ -288,21 +287,19 @@ public class TaskTransferFunction_ implements PlugInFilter {
             this.imp.setRoi(outer_roi);
             this.com = centreOfMass(ip, outer_roi, cal, -bgd_mean);
 
-/*
-            double[] com_low_pass = centreOfMassLowFreqFilter(ip, this.main_roi, this.cal, this.obj_dia_mm, -bgd_mean);
-            if (com_low_pass != null) {
-                this.com = com_low_pass;
-                if (this.log_results) IJ.log("CoM after low-pass filter:," + this.three_dp.format(com[0]) + "," + this.three_dp.format(com[1]));
+            // Use the low-pass filter method if selected
+            if (this.use_low_pass) {
+                this.main_roi.setLocation(this.cal.getRawX(this.com[0]) - this.main_roi.getFloatWidth()/2.0, this.cal.getRawY(this.com[1]) - this.main_roi.getFloatHeight()/2.0);
+                double[] com_low_pass = centreOfMassLowFreqFilter(ip, this.main_roi, this.cal, this.obj_dia_mm, -bgd_mean);
+                if (com_low_pass != null) {
+                    this.com = com_low_pass;
+                    if (this.log_results)
+                        IJ.log("CoM after low-pass filter:," + this.three_dp.format(com[0]) + "," + this.three_dp.format(com[1]));
+                } else {
+                    IJ.error("Could not work out centre of mass using low-pass filter.\nUsing existing centre of mass.");
+                }
             }
-            else {
-                IJ.error("Could not work out centre of mass using low-pass filter.\nUsing existing centre of mass.");
-            };
-*/
         }
-
-        // Apply the CoM offsets
-        this.com[0] += this.com_offset[0];
-        this.com[1] += this.com_offset[1];
 
         if (this.log_results) IJ.log("Final CoM:," + this.three_dp.format(this.com[0]) + "," + this.three_dp.format(this.com[1]));
 
@@ -312,14 +309,14 @@ public class TaskTransferFunction_ implements PlugInFilter {
         com_overlay.setStrokeColor(Color.red);
         this.imp.setOverlay(com_overlay);
 
-        // Recentre the main_roi, outer_roi and annular_roi using the centre of mass.
-        this.main_roi.setLocation(this.cal.getRawX(this.com[0]) - this.main_roi.getFloatWidth()/2.0, this.cal.getRawY(this.com[1]) - this.main_roi.getFloatHeight()/2.0);
+        // Recentre the outer_roi and annular_roi using the centre of mass.
         outer_roi.setLocation(this.cal.getRawX(this.com[0]) - outer_roi.getFloatWidth()/2.0, this.cal.getRawY(this.com[1]) - outer_roi.getFloatHeight()/2.0);
         annular_roi.setLocation(this.cal.getRawX(this.com[0]) - annular_roi.getFloatWidth()/2.0, this.cal.getRawY(this.com[1]) - annular_roi.getFloatHeight()/2.0);
 
         // Create an overlay to display the annular ROI and CoM on the image.
         Overlay overlay = new Overlay();
         this.imp.setOverlay(overlay);
+        overlay.add(this.main_roi);
         overlay.add(annular_roi);
         overlay.add(com_marker);
         //---------------------------------------------------------------------
@@ -630,13 +627,11 @@ public class TaskTransferFunction_ implements PlugInFilter {
         // ---------------------------------------------------------------------
 */
 
-
         double freq_inc = 1.0 / (roi_pixels.length * cal.pixelWidth);
 
-
         // Make frequencies higher than freq_cut_off zero in the FFT.
-        //double low_freq_cut_off = 0.5 / obj_diam;
-        double high_freq_cut_off = 1.0 / obj_diam;
+        double high_freq_cut_off = this.low_pass_factor / obj_diam;//1.0 / obj_diam;
+        //double low_freq_cut_off = this.high_pass_factor / obj_diam;
 
         Complex complexZero = new Complex(0.0, 0.0);
 
@@ -647,6 +642,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
                 double dist = calculateDistanceBetweenPoints(0,0, i, j);
                 double radial_freq = dist * freq_inc;
                 if (radial_freq > high_freq_cut_off) fft[i][j] = complexZero;
+                //if (radial_freq > high_freq_cut_off || radial_freq < low_freq_cut_off) fft[i][j] = complexZero;
             }
         }
 
@@ -658,6 +654,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
                 double dist = calculateDistanceBetweenPoints(roi_pixels.length, 0, i, j);
                 double radial_freq = dist * freq_inc;
                 if (radial_freq > high_freq_cut_off) fft[i][j] = complexZero;
+                //if (radial_freq > high_freq_cut_off || radial_freq < low_freq_cut_off) fft[i][j] = complexZero;
             }
         }
 
@@ -669,6 +666,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
                 double dist = calculateDistanceBetweenPoints(0, roi_pixels[0].length, i, j);
                 double radial_freq = dist * freq_inc;
                 if (radial_freq > high_freq_cut_off) fft[i][j] = complexZero;
+                //if (radial_freq > high_freq_cut_off || radial_freq < low_freq_cut_off) fft[i][j] = complexZero;
             }
         }
 
@@ -681,21 +679,13 @@ public class TaskTransferFunction_ implements PlugInFilter {
                 double dist = calculateDistanceBetweenPoints(roi_pixels.length, roi_pixels[0].length, i, j);
                 double radial_freq = dist * freq_inc;
                 if (radial_freq > high_freq_cut_off) fft[i][j] = complexZero;
+                //if (radial_freq > high_freq_cut_off || radial_freq < low_freq_cut_off) fft[i][j] = complexZero;
             }
         }
 
 
         // Now shift the quadrants so that zero is at the centre
-        Complex[][] shifted_fft = new Complex[fft.length][fft[0].length];
-        System.arraycopy(fft, (int)(fft.length/2.0), shifted_fft, 0, (int)(fft.length/2.0));
-        System.arraycopy(fft, 0, shifted_fft, (int)(fft.length/2.0), (int)(fft.length/2.0));
-
-        fft = transpose(shifted_fft);
-        shifted_fft = transpose(shifted_fft);
-        System.arraycopy(fft, (int)(fft.length/2.0), shifted_fft, 0, (int)(fft.length/2.0));
-        System.arraycopy(fft, 0, shifted_fft, (int)(fft.length/2.0), (int)(fft.length/2.0));
-
-        shifted_fft = transpose(shifted_fft);
+        fft = twod_fourier_transformer.swapQuadrants(fft);
 
 /*
         // ---------------------------------------------------------------------
@@ -709,18 +699,18 @@ public class TaskTransferFunction_ implements PlugInFilter {
 */
 
         // Now inverse Fourier transform the fft to obtain image space again
-        fft = twod_fourier_transformer.transform(shifted_fft, DftNormalization.STANDARD, TransformType.INVERSE);
+        fft = twod_fourier_transformer.transform(fft, DftNormalization.STANDARD, TransformType.INVERSE);
 
-/*
+
         // ---------------------------------------------------------------------
-        temp = NewImage.createFloatImage("Inverse FFT", fft.length, fft[0].length, 1, NewImage.FILL_BLACK);
+        ImagePlus temp = NewImage.createFloatImage("Inverse FFT", fft.length, fft[0].length, 1, NewImage.FILL_BLACK);
         temp.getProcessor().setFloatArray(convertComplexToFloat(fft));
         temp.show();
         temp.updateAndDraw();
         IJ.run(temp, "Enhance Contrast", "saturated=0.35");
         IJ.run("Set... ", "zoom=800");
         // ---------------------------------------------------------------------
-*/
+
 
         // Now find the centre of mass of the filtered image
         double x_wt=0;
@@ -1126,28 +1116,6 @@ public class TaskTransferFunction_ implements PlugInFilter {
             }
         }
         return result;
-    }
-
-
-    /** Method to transpose a 2d array of complex numbers: the row and column indices are swapped.
-     *   1   2   3   4                 1   5   9  13
-     *   5   6   7   8    Transpose    2   6  10  14
-     *   9  10  11  12  <----------->  3   7  11  15
-     *  13  14  15  16                 4   8  12  16
-     *
-     * @param input A two-dimensional array of complex numbers
-     * @return The transpose of the input, also a two-dimensional array of complex numbers
-     */
-    private Complex[][] transpose(Complex[][] input) {
-        Complex[][] output = new Complex[input[0].length][input.length];
-
-        for (int i=0; i<input.length; i++) {
-            for (int j=0; j<input[0].length; j++) {
-                output[j][i] = input[i][j];
-            }
-        }
-
-        return output;
     }
 
 

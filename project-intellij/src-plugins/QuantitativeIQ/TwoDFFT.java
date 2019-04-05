@@ -76,6 +76,27 @@ public class TwoDFFT {
     }
 
 
+    /** Method to swap the quadrants of a two dimensional frequency domain array that is the result
+     * of a 2d Fourier transform of an image.
+     *
+     * @param input_array Array of frequency data with zero frequency at 0,0
+     * @return Array of frequency data with zero frequency at the centre
+     */
+    Complex[][] swapQuadrants(Complex[][] input_array) {
+        // Shift the quadrants so that zero is at the centre
+        Complex[][] shifted_fft = new Complex[input_array.length][input_array[0].length];
+        System.arraycopy(input_array, (int) (input_array.length / 2.0), shifted_fft, 0, (int) (input_array.length / 2.0));
+        System.arraycopy(input_array, 0, shifted_fft, (int) (input_array.length / 2.0), (int) (input_array.length / 2.0));
+
+        input_array = transpose(shifted_fft);
+        shifted_fft = transpose(shifted_fft);
+        System.arraycopy(input_array, (int) (input_array.length / 2.0), shifted_fft, 0, (int) (input_array.length / 2.0));
+        System.arraycopy(input_array, 0, shifted_fft, (int) (input_array.length / 2.0), (int) (input_array.length / 2.0));
+
+        return transpose(shifted_fft);
+    }
+
+
     /** Method to transpose a 2d array of complex numbers: the row and column indices are swapped.
      *   1   2   3   4                 1   5   9  13
      *   5   6   7   8    Transpose    2   6  10  14

@@ -76,7 +76,6 @@ public class DetectabilityIndex_ implements PlugInFilter {
         TTF.run(ip);
         TTF_result ttf_result = TTF.getTTFResult();
         double[] ttf_com = TTF.getCentreOfMass();
-        double[] ttf_com_offset = TTF.getCentreOfMassOffset();
         CNR_result cnr_result = TTF.getCNRResult();
 
 
@@ -226,8 +225,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
                 "\nNoise (HU),"       + this.two_dp.format(cnr_result.noise) +
                 "\nTTF 50 (1/mm),"    + this.two_dp.format(TTF.getTTF50()) +
                 "\nTTF 10 (1/mm),"    + this.two_dp.format(TTF.getTTF10()) +
-                "\nTTF centre of mass," + this.two_dp.format(ttf_com[0]) + "," + this.two_dp.format(ttf_com[1]) +
-                "\nTTF centre of mass offset," + this.two_dp.format(ttf_com_offset[0]) + "," + this.two_dp.format(ttf_com_offset[1])
+                "\nTTF centre of mass," + this.two_dp.format(ttf_com[0]) + "," + this.two_dp.format(ttf_com[1])
         );
 
         IJ.log("\nEye model settings used" +
