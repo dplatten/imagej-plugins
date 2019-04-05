@@ -246,9 +246,10 @@ public class TaskTransferFunction_ implements PlugInFilter {
         this.com[0] = this.cal.getX(this.main_roi.getXBase() + (this.main_roi.getFloatWidth()/2.0));
         this.com[1] = this.cal.getY(this.main_roi.getYBase() + (this.main_roi.getFloatHeight()/2.0));
 
-        double inner_dia = obj_dia_pix + (10.0 / pixel_size_in_mm);
-        Roi inner_roi = new OvalRoi(this.cal.getRawX(this.com[0]) - inner_dia / 2.0, this.cal.getRawY(this.com[1]) - inner_dia / 2.0, inner_dia, inner_dia);
-        Roi outer_roi = new OvalRoi(this.cal.getRawX(this.com[0]) - obj_dia_pix, this.cal.getRawY(this.com[1]) - obj_dia_pix, obj_dia_pix * 2.0, obj_dia_pix * 2.0);
+        double inner_dia = obj_dia_pix * 1.5;//+ (10.0 / pixel_size_in_mm);
+        double outer_dia = obj_dia_pix * 2.0;
+        Roi inner_roi = new OvalRoi(this.cal.getRawX(this.com[0]) - inner_dia/2.0, this.cal.getRawY(this.com[1]) - inner_dia/2.0, inner_dia, inner_dia);
+        Roi outer_roi = new OvalRoi(this.cal.getRawX(this.com[0]) - outer_dia/2.0, this.cal.getRawY(this.com[1]) - outer_dia/2.0, outer_dia, outer_dia);
         Roi annular_roi = new ShapeRoi(outer_roi).xor(new ShapeRoi(inner_roi));
 
         if (this.find_com) {
@@ -265,10 +266,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
             // annular region of interest centred on the centre of mass that has an
             // internal diameter of object diameter + 10 mm and an external
             // diameter of 2 x object diameter.
-            inner_roi = new OvalRoi(this.cal.getRawX(this.com[0]) - inner_dia / 2.0, this.cal.getRawY(this.com[1]) - inner_dia / 2.0, inner_dia, inner_dia);
-            outer_roi = new OvalRoi(this.cal.getRawX(this.com[0]) - obj_dia_pix, this.cal.getRawY(this.com[1]) - obj_dia_pix, obj_dia_pix * 2.0, obj_dia_pix * 2.0);
-            annular_roi = new ShapeRoi(outer_roi).xor(new ShapeRoi(inner_roi));
-
+            annular_roi.setLocation(this.cal.getRawX(this.com[0]) - annular_roi.getFloatWidth()/2.0, this.cal.getRawY(this.com[1]) - annular_roi.getFloatHeight()/2.0);
 
             // Obtain the mean pixel value of the annular ROI
             this.imp.setRoi(annular_roi);
@@ -276,22 +274,20 @@ public class TaskTransferFunction_ implements PlugInFilter {
             double bgd_mean = annular_stats.mean;
 
             // Recalculate the CoM with background subtracted
+            outer_roi.setLocation(this.cal.getRawX(this.com[0]) - outer_roi.getFloatWidth()/2.0, this.cal.getRawY(this.com[1]) - outer_roi.getFloatHeight()/2.0);
             this.imp.setRoi(outer_roi);
             this.com = centreOfMass(ip, outer_roi, this.cal, -bgd_mean);
             if (this.log_results) IJ.log("Adjusted CoM:," + this.three_dp.format(this.com[0]) + "," + this.three_dp.format(this.com[1]));
 
-
             // Recentre the annualar roi on the new CoM and recalculate CoM  for a final time
             //annular_roi.setLocation(this.cal.getRawX(com[0]) - obj_dia_pix, this.cal.getRawY(com[1]) - obj_dia_pix);
-            annular_roi.setLocation(this.cal.getRawX(this.com[0]) - obj_dia_pix, this.cal.getRawY(this.com[1]) - obj_dia_pix);
+            annular_roi.setLocation(this.cal.getRawX(this.com[0]) - annular_roi.getFloatWidth()/2.0, this.cal.getRawY(this.com[1]) - annular_roi.getFloatHeight()/2.0);
             this.imp.setRoi(annular_roi);
             annular_stats = this.imp.getAllStatistics();
             bgd_mean = annular_stats.mean;
             this.imp.setRoi(outer_roi);
             this.com = centreOfMass(ip, outer_roi, cal, -bgd_mean);
 
-
-            main_roi.setLocation(this.cal.getRawX(this.com[0]) - this.main_roi.getFloatWidth()/2.0, this.cal.getRawY(this.com[1]) - this.main_roi.getFloatWidth()/2.0);
 /*
             double[] com_low_pass = centreOfMassLowFreqFilter(ip, this.main_roi, this.cal, this.obj_dia_mm, -bgd_mean);
             if (com_low_pass != null) {
@@ -316,9 +312,10 @@ public class TaskTransferFunction_ implements PlugInFilter {
         com_overlay.setStrokeColor(Color.red);
         this.imp.setOverlay(com_overlay);
 
-        // Recentre the outer_roi and annular_roi using the centre of mass.
-        outer_roi.setLocation(this.cal.getRawX(this.com[0])-obj_dia_pix, this.cal.getRawY(this.com[1])-obj_dia_pix);
-        annular_roi.setLocation(this.cal.getRawX(this.com[0]) - obj_dia_pix, this.cal.getRawY(this.com[1]) - obj_dia_pix);
+        // Recentre the main_roi, outer_roi and annular_roi using the centre of mass.
+        this.main_roi.setLocation(this.cal.getRawX(this.com[0]) - this.main_roi.getFloatWidth()/2.0, this.cal.getRawY(this.com[1]) - this.main_roi.getFloatHeight()/2.0);
+        outer_roi.setLocation(this.cal.getRawX(this.com[0]) - outer_roi.getFloatWidth()/2.0, this.cal.getRawY(this.com[1]) - outer_roi.getFloatHeight()/2.0);
+        annular_roi.setLocation(this.cal.getRawX(this.com[0]) - annular_roi.getFloatWidth()/2.0, this.cal.getRawY(this.com[1]) - annular_roi.getFloatHeight()/2.0);
 
         // Create an overlay to display the annular ROI and CoM on the image.
         Overlay overlay = new Overlay();
@@ -330,7 +327,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
         //---------------------------------------------------------------------
         // Calculate the CNR of the object
-        double obj_roi_dia = obj_dia_pix - (3.0 / pixel_size_in_mm);
+        double obj_roi_dia = obj_dia_pix * 0.5; // - (3.0 / pixel_size_in_mm);
         Roi obj_roi = new OvalRoi(this.cal.getRawX(this.com[0])-obj_roi_dia/2.0, this.cal.getRawY(this.com[1])-obj_roi_dia/2.0, obj_roi_dia, obj_roi_dia);
         CNR_result cnr_results = contrastToNoiseRatio(this.imp, obj_roi, annular_roi);
 
@@ -354,7 +351,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
         double[] raw_esf_pos = new double[num_points];
         double[] raw_esf_val = new double[num_points];
         for (Point p : outer_roi.getContainedPoints()) {
-            raw_esf_pos[i] = calculateDistanceBetweenPoints(this.com[0], this.com[1], this.cal.getX(p.x), this.cal.getY(p.y));
+            raw_esf_pos[i] = calculateDistanceBetweenPoints(this.com[0], this.com[1], this.cal.getX(p.x + 0.5), this.cal.getY(p.y + 0.5));  // The value is associated with the centre of the pixel, so add 0.5
             raw_esf_val[i] = ip.getPixelValue(p.x, p.y); // getPixelValue includes calibration
             i++;
         }
@@ -583,8 +580,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
         for (Point p : roi.getContainedPoints()) {
             double pixel_val = ip.getPixelValue(p.x, p.y);
             pixel_val += pv_offset;
-            x_wt += cal.getX(p.x) * pixel_val;
-            y_wt += cal.getY(p.y) * pixel_val;
+            x_wt += cal.getX(p.x + 0.5) * pixel_val; // The value is associated with the centre of the pixel, so add 0.5
+            y_wt += cal.getY(p.y + 0.5) * pixel_val; // The value is associated with the centre of the pixel, so add 0.5
             total_wt += pixel_val;
         }
         double x_com = x_wt / total_wt;
@@ -735,8 +732,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
             for (int y=0; y<fft.length; y++) {
                 double pixel_val = fft[x][y].abs();
                 pixel_val += pv_offset;
-                x_wt += (x+roi_x_base) * pixel_val;
-                y_wt += (y+roi_y_base) * pixel_val;
+                x_wt += (x+roi_x_base+0.5) * pixel_val; // The value is associated with the centre of the pixel, so add 0.5
+                y_wt += (y+roi_y_base+0.5) * pixel_val; // The value is associated with the centre of the pixel, so add 0.5
                 total_wt += pixel_val;
             }
         }
