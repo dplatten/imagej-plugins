@@ -5,6 +5,7 @@ import ij.plugin.PlugIn;
 import org.apache.commons.math3.stat.StatUtils;
 import org.apache.commons.math3.util.MathArrays;
 
+import java.awt.*;
 import java.text.DecimalFormat;
 
 /**
@@ -55,6 +56,9 @@ public class EyeModel_ implements PlugIn {
 
     private boolean log_results = true;
 
+    private DecimalFormat zero_dp = new DecimalFormat("0");
+    private DecimalFormat one_dp = new DecimalFormat("0.0");
+    private DecimalFormat two_dp = new DecimalFormat("0.00");
     private DecimalFormat three_dp = new DecimalFormat("0.000");
 
     static int SOLOMON_ET_AL = 0;
@@ -395,10 +399,15 @@ public class EyeModel_ implements PlugIn {
         // value first, as the squaring will render any negative values positive anyway.
         E.val = MathArrays.ebeMultiply(E.val, E.val);
 
-        Plot plot_eye = new Plot("Solomon et al eye response", "Frequency (mm^-1)", "Eye response");
+        Plot plot_eye = new Plot("Solomon et al eye response", "Frequency (mm^-1)", "Relative eye response");
         plot_eye.add("line", E.freq, E.val);
-        String eye_labels = "Solomon et al eye response\t";
-        plot_eye.addLegend(eye_labels);
+        plot_eye.addLabel(0.5,0.2, "Solomon et al 2015 eye response\n" +
+                this.zero_dp.format(viewing_dist) + " mm viewing distance\n" +
+                this.zero_dp.format(recon_fov) + " mm recon field of view\n" +
+                this.zero_dp.format(image_pixel_width) + " image pixel width\n" +
+                this.two_dp.format(display_pixel_pitch) + " mm display monitor pixel pitch\n" +
+                this.one_dp.format(display_zoom_factor) + " display zoom factor\n" +
+                this.one_dp.format(display_size) + " mm displayed image size");
         plot_eye.show();
 
         // Write the results to the ImageJ log
