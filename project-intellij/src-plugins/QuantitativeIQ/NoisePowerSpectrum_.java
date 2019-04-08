@@ -192,8 +192,8 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
         // Multiply the ensemble by dx, dy and divide by M, Nx and Ny
         double multiplication_factor = pixel_size_in_mm * pixel_size_in_mm / this.num_records / this.record_size / this.record_size;
 
-        // Include provision for the number of images in the stack, if this was used
-        if (this.use_average_stack) multiplication_factor /= this.imp.getImageStackSize();
+        // Include provision for the number of images the user chose to ue in the stack, if stack average was selected
+        if (this.use_average_stack) multiplication_factor /= (this.max_stack_index - this.min_stack_index + 1);
 
         ensemble_nps = multiply2dDoubleArray(ensemble_nps, multiplication_factor);
         // ---------------------------------------------------------------------
