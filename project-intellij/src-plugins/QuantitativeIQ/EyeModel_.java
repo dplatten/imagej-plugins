@@ -5,7 +5,6 @@ import ij.plugin.PlugIn;
 import org.apache.commons.math3.stat.StatUtils;
 import org.apache.commons.math3.util.MathArrays;
 
-import java.awt.*;
 import java.text.DecimalFormat;
 
 /**

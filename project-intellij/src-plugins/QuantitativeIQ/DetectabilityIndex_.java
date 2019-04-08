@@ -1,10 +1,6 @@
 package QuantitativeIQ;
 // ImageJ plugin to calculate the detectability index of a circular object present in an image.
 //
-import QuantitativeIQ.TaskTransferFunction_.TTF_result;
-import QuantitativeIQ.TaskTransferFunction_.CNR_result;
-import QuantitativeIQ.NoisePowerSpectrum_.NPS_result;
-import QuantitativeIQ.EyeModel_.Eye_result;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.GenericDialog;
@@ -74,9 +70,9 @@ public class DetectabilityIndex_ implements PlugInFilter {
         }
 
         TTF.run(ip);
-        TTF_result ttf_result = TTF.getTTFResult();
+        TaskTransferFunction_.TTF_result ttf_result = TTF.getTTFResult();
         double[] ttf_com = TTF.getCentreOfMass();
-        CNR_result cnr_result = TTF.getCNRResult();
+        TaskTransferFunction_.CNR_result cnr_result = TTF.getCNRResult();
 
 
         // Then run the NPS on the same image using default settings
@@ -97,7 +93,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
             return;
         }
 
-        NPS_result nps_result = NPS.getNPSResult();
+        NoisePowerSpectrum_.NPS_result nps_result = NPS.getNPSResult();
 
 
         // Obtain the Nyquist frequency of the image
@@ -115,7 +111,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
         eye_model.setDisplayPixelPitch(0.2);
         eye_model.setup(EyeModel_.SOLOMON_ET_AL);
         eye_model.run("normal");
-        Eye_result E = eye_model.getEyeResult();
+        EyeModel_.Eye_result E = eye_model.getEyeResult();
 
 
         // Obtain the task function

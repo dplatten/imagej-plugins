@@ -1,5 +1,4 @@
-package QuantitativeIQ;
-// ImageJ plugin to calculate the noise power spectrum
+package QuantitativeIQ;// ImageJ plugin to calculate the noise power spectrum
 //
 // The routine will run on a user-selected oval region of interest (ROI). If no
 // ROI is selected then the routine uses the whole image.
