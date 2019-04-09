@@ -32,7 +32,6 @@ public class TaskFunction_ implements PlugIn {
     private double cutoff_f = 2.0; // Maximum frequency for which to calculate the task when logging
     private double f_res = 0.01; // Increment for the task function fft (mm^-1)
 
-    private DecimalFormat two_dp = new DecimalFormat("0.00");
     private DecimalFormat three_dp = new DecimalFormat("0.000");
 
     private UnivariateFunction task_function;
@@ -60,73 +59,82 @@ public class TaskFunction_ implements PlugIn {
     }
 
 
-    /**
+    /** Method to return the task function
      *
-     * @return
+     * @return The task function
      */
     // Defined to enable other plugins to access the task function
     UnivariateFunction getTaskFunction() {
         return this.task_function;
     }
 
-    /**
+
+    /** Method to return the Fourier transform of the task function
      *
-     * @return
+     * @return The Fourier transform of the task function
      */
     // Defined to enable other plugins to access the task function TTF
     UnivariateFunction getTaskFunctionFFT() {
         return this.task_function_fft;
     }
 
-    /**
+
+    /** Method to return the sinc of the task function - this mathematically equivalent
+     * to the FFT when the function is rectangular
      *
-     * @return
+     * @return The task function
      */
-    // Defined to enable other plugins to access the task function TTF
+    // Defined to enable other plugins to access the sinc of the task function
     UnivariateFunction getTaskFunctionSinc() {
         return this.task_function_sinc;
     }
 
-    /**
+
+    /** Method to set the task radius
      *
-     * @param new_radius
+     * @param new_radius The new task radius in mm
      */
     void setTaskRadius(double new_radius) { this.task_radius = new_radius; }
 
-    /**
+
+    /** Method to get the current task radius
      *
-     * @return
+     * @return The current task radius in mm
      */
     double getTaskRadius() { return this.task_radius; }
 
-    /**
+
+    /** Method to set the task contrast
      *
-     * @param new_contrast
+     * @param new_contrast The task contrast
      */
     void setTaskContrast(double new_contrast) { this.task_contrast = new_contrast; }
 
-    /**
+
+    /** Method to get the current task contrast
      *
-     * @return
+     * @return The current task contrast
      */
     double getTaskContrast() { return this.task_contrast; }
 
-    /**
+
+    /** Method to set the frequency increment used for plotting the task function
      *
-     * @param new_f_res
+     * @param new_f_res The new frequency increment in 1/mm
      */
     void setFreqRes(double new_f_res) { this.f_res = new_f_res; }
 
-    /**
+
+    /** Method to get the current frequency increment
      *
-     * @return
+     * @return The current frequency increment
      */
     double getFreqRes() { return this.f_res; }
 
 
     /**
      *
-     * @param arg
+     * @param arg Not currently in use
      */
     public void run(String arg) {
         // Produce a task function for the user, but don't do anything with it
@@ -196,10 +204,10 @@ public class TaskFunction_ implements PlugIn {
     }
 
 
-    /**
+    /** Method to produce a function that returns the y value of a rectangular function at position x
      *
      */
-    public void disc_function() {
+    void disc_function() {
         this.task_function = new UnivariateFunction() {
             @Override
             public double value(double x) {
@@ -211,10 +219,10 @@ public class TaskFunction_ implements PlugIn {
     }
 
 
-    /**
+    /** Method to produce a function of the Fourier transform of the current task function
      *
      */
-    public void disc_function_fft() {
+    void disc_function_fft() {
         double pos_range = 1.0 / this.f_res;
         double min_x = -1.0 * pos_range/2.0;
 
@@ -245,10 +253,10 @@ public class TaskFunction_ implements PlugIn {
     }
 
 
-    /**
+    /** Method to produce a function of the sinc function of the current task function
      *
      */
-    public void disc_function_sinc() {
+    void disc_function_sinc() {
         // The Fourier transform of a rectangular function is a sinc function with
         // the height scaled by the height of the rectangular function multiplied
         // by the width. In this case height = task_contrast, and width = 2*task_radius

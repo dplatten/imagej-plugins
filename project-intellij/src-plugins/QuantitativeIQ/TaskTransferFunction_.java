@@ -46,7 +46,6 @@ public class TaskTransferFunction_ implements PlugInFilter {
     private double[] com = new double[2];
     private boolean use_low_pass = false;
     private double low_pass_factor = 0.9;
-    //private double high_pass_factor = 1.0;
 
     private String[] esf_proc_choices = {"Linear regression", "Local regression", "Local regression (monotonic)"};
     private static int LINEAR_REGRESSION = 0;
@@ -117,20 +116,20 @@ public class TaskTransferFunction_ implements PlugInFilter {
     }
 
 
-    /**
+    /** Method to get the current frequency binning increment in 1/mm
      *
-     * @return
+     * @return The current frequency binning increment
      */
     double getFreqBinInc() {
         return rebin_f_inc;
     }
 
 
-    /**
+    /** Method to set up the TTF
      *
-     * @param arg
-     * @param imp
-     * @return
+     * @param arg Not currently used
+     * @param imp The ImagePlus object
+     * @return The return value - 0 if unsuccessful
      */
     public int setup(String arg, ImagePlus imp) {
         this.imp = imp;
@@ -159,7 +158,6 @@ public class TaskTransferFunction_ implements PlugInFilter {
         gd.addCheckbox("Find centre of mass", this.find_com);
         gd.addCheckbox("Use low-pass filter for CoM", this.use_low_pass);
         gd.addNumericField("Low-pass filter factor", this.low_pass_factor, 2);
-        //gd.addNumericField("High-pass filter factor", this.high_pass_factor, 2);
         gd.addRadioButtonGroup("ESF processing to use", this.esf_proc_choices, 3, 1, this.esf_proc_choices[this.esf_proc_choice_idx]);
         gd.addMessage("Local regression options");
         gd.addNumericField("Bandwidth", this.loess_bandwidth, 2);
@@ -181,7 +179,6 @@ public class TaskTransferFunction_ implements PlugInFilter {
         this.find_com = gd.getNextBoolean();
         this.use_low_pass = gd.getNextBoolean();
         this.low_pass_factor = gd.getNextNumber();
-        //this.high_pass_factor = gd.getNextNumber();
         this.esf_proc_choice = gd.getNextRadioButton();
         this.esf_proc_choice_idx = indexOf(this.esf_proc_choices, this.esf_proc_choice);
         this.loess_bandwidth = gd.getNextNumber();
@@ -211,8 +208,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
             int N_power_two = (int) Math.pow(2, M);
             if (N_power_two != N) { // Make the Roi larger using the next power of 2 bigger than the current width
                 N_power_two = (int) Math.pow(2, M + 1);
-                Roi new_roi = new Roi(this.main_roi.getXBase() - (N_power_two - N) / 2.0, this.main_roi.getYBase() - (N_power_two - N) / 2.0, N_power_two, N_power_two);
-                this.main_roi = new_roi;
+                this.main_roi = new Roi(this.main_roi.getXBase() - (N_power_two - N) / 2.0, this.main_roi.getYBase() - (N_power_two - N) / 2.0, N_power_two, N_power_two);
                 this.imp.setRoi(this.main_roi);
                 this.imp.updateAndDraw();
             }
@@ -223,7 +219,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
     /**
      *
-     * @param ip
+     * @param ip The ImageProcessor
      */
     public void run(ImageProcessor ip) {
         if (this.use_average_stack) {
@@ -413,7 +409,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
         }
 
         UnivariateInterpolator interpolator;
-        UnivariateFunction function = null;
+        UnivariateFunction function;
 
         if (this.esf_proc_choice_idx == LINEAR_REGRESSION) {
             // Calculate resampled ESF values using linear interpolation
@@ -475,7 +471,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
         //---------------------------------------------------------------------
         // Differentiate the ESF to obtain line spread function (LSF)
-        FiniteDifferencesDifferentiator differentiator = new FiniteDifferencesDifferentiator(2, rebinned_sample_inc);;
+        FiniteDifferencesDifferentiator differentiator = new FiniteDifferencesDifferentiator(2, rebinned_sample_inc);
         try {
             function = interpolator.interpolate(esf_rebinned_pos, esf_rebinned_val);
         }
@@ -483,7 +479,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
             IJ.error("There was an error when interpolating the rebinned ESF:\n" + e);
             return;
         }
-        UnivariateDifferentiableFunction complete_f = differentiator.differentiate(function);;
+        UnivariateDifferentiableFunction complete_f = differentiator.differentiate(function);
         double[] lsf_val = differentiate(esf_rebinned_pos, complete_f);
 
         // Plot the LSF.
@@ -545,13 +541,13 @@ public class TaskTransferFunction_ implements PlugInFilter {
     }
 
 
-    /**
+    /** Method to calculate the distance between two points in cartesian space
      *
-     * @param x1
-     * @param y1
-     * @param x2
-     * @param y2
-     * @return
+     * @param x1 The x coordinate of point 1
+     * @param y1 The y coordinate of point 1
+     * @param x2 The x coordinate of point 2
+     * @param y2 The y coordinate of point 2
+     * @return The distance between points 1 and 2
      */
     private double calculateDistanceBetweenPoints(double x1, double y1, double x2,double y2) {
         // Calculate the distance between two points in cartesian space.
@@ -559,13 +555,13 @@ public class TaskTransferFunction_ implements PlugInFilter {
     }
 
 
-    /**
+    /** Method to return the centre of mass of the supplied Roi on the ImageProcessor
      *
-     * @param ip
-     * @param roi
-     * @param cal
-     * @param pv_offset
-     * @return
+     * @param ip The ImageProcessor to use
+     * @param roi The Roi to place on the ImageProcessor
+     * @param cal The calibration data for the ImageProcessor
+     * @param pv_offset The offset to add to each pixel value before using it in the calculations
+     * @return The centre of mass as a two-element array
      */
     private double[] centreOfMass(ImageProcessor ip, Roi roi, Calibration cal, double pv_offset) {
         // Calculate the centre of mass of pixels in a Roi positioned on an
@@ -734,12 +730,12 @@ public class TaskTransferFunction_ implements PlugInFilter {
     }
 
 
-    /**
+    /** Method to calculate the contrast to noise ratio
      *
-     * @param imp
-     * @param obj_roi
-     * @param bgd_roi
-     * @return
+     * @param imp The ImagePlus to use
+     * @param obj_roi The Roi of the object (the "signal")
+     * @param bgd_roi The Roi of the background (the "background")
+     * @return An object containing the CNR, signal value, background value, contrast and noise
      */
     private CNR_result contrastToNoiseRatio(ImagePlus imp, Roi obj_roi, Roi bgd_roi) {
         // Calculate the contrast to noise ratio between the two regions of interest.
@@ -762,12 +758,12 @@ public class TaskTransferFunction_ implements PlugInFilter {
     }
 
 
-    /**
+    /** Method to determine the task transfer function from the line spread function
      *
-     * @param lsf
-     * @param lsf_inc_mm
-     * @param px_size_mm
-     * @return
+     * @param lsf The line spread function values
+     * @param lsf_inc_mm The spacing of the supplied line spread function in mm
+     * @param px_size_mm The pixel size of the image in mm
+     * @return The calculated TTF
      */
     private TTF_result TTF(double[] lsf, double lsf_inc_mm, double px_size_mm) {
         // This uses the Fourier transform routine within the Apache Commons
@@ -826,11 +822,11 @@ public class TaskTransferFunction_ implements PlugInFilter {
     }
 
 
-    /**
+    /** Method to differentiate the supplied values
      *
-     * @param locations
-     * @param diff_func
-     * @return
+     * @param locations An array of locations where the differential is required
+     * @param diff_func The differentiable function
+     * @return The differentials at each of the supplied locations
      */
     private double[] differentiate(double[] locations, UnivariateDifferentiableFunction diff_func) {
         double[] deriv_val = new double[locations.length];
@@ -851,11 +847,11 @@ public class TaskTransferFunction_ implements PlugInFilter {
     }
 
 
-    /**
+    /** Method to resample the TTF at a specified frequency increment using linear interpolation
      *
-     * @param ttf
-     * @param freq_inc
-     * @return
+     * @param ttf The starting TTF
+     * @param freq_inc The required frequency increment
+     * @return The resampled TTF
      */
     private TTF_result resampleTTF(TTF_result ttf, double freq_inc) {
         UnivariateInterpolator linear_interpolator = new LinearInterpolator();
@@ -892,10 +888,10 @@ public class TaskTransferFunction_ implements PlugInFilter {
     }
 
 
-    /**
+    /** Method to log the TTF results to the ImageJ log
      *
-     * @param ttf
-     * @param ttf_label
+     * @param ttf The TTF results
+     * @param ttf_label The label to use for the TTF value column
      */
     private void logTTF(TTF_result ttf, String ttf_label) {
         IJ.log("Freq (mm^-1)," + ttf_label);
@@ -907,11 +903,11 @@ public class TaskTransferFunction_ implements PlugInFilter {
     }
 
 
-    /**
+    /** Method to calculate the frequency at a specified TTF value
      *
-     * @param ttf
-     * @param req_ttf_val
-     * @return
+     * @param ttf The TTF
+     * @param req_ttf_val The TTF value for which the frequency is required
+     * @return The frequency of the TTF at the supplied TTF value
      */
     private double freqAtSpecificTTF(TTF_result ttf, double req_ttf_val) {
         UnivariateInterpolator linear_interpolator = new LinearInterpolator();
@@ -957,93 +953,90 @@ public class TaskTransferFunction_ implements PlugInFilter {
     }
 
 
-    /**
+    /** Method to rebin the ESF to a regularly-spaced array
      *
-     * @param pos
-     * @param val
-     * @param pos_inc
-     * @param pos_bin
-     * @return
+     * @param pos The raw positions of the ESF
+     * @param val The value of the ESF at each raw position
+     * @param pos_inc The required position increment of the rebinned ESF
+     * @param pos_bin The bin width to use when calculating the ESF value at each position
+     * @return The rebinned ESF
      */
     private ESF_result rebinESF(double[] pos, double[] val, double pos_inc, double pos_bin) {
 
-        double max_pos = StatUtils.max(pos);
-        double min_pos = StatUtils.min(pos);
-        int num_intervals = (int) Math.round( (max_pos-min_pos) / pos_inc) + 1;
-
-        double[] new_val = new double[num_intervals];
-        double[] new_pos = new double[num_intervals];
-        for (int i=0; i<num_intervals; i++) {
-            new_pos[i] = min_pos + (i * pos_inc);
-        }
-
-        for (int i=0; i<num_intervals; i++) {
-            double sum = 0;
-            double count = 0;
-            double lower_edge = new_pos[i] - pos_bin;
-            double upper_edge = new_pos[i] + pos_bin;
-            for (int j=0; j<pos.length; j++) {
-                if (pos[j] >= lower_edge && pos[j] <= upper_edge) {
-                    count++;
-                    sum += val[j];
-                }
-            }
-            new_val[i] = sum / count;
-        }
-
+        double[][] rebinned_data = rebin(pos, val, pos_inc, pos_bin, true);
         ESF_result results = new ESF_result();
-        results.pos = new_pos;
-        results.val = new_val;
+        results.pos = rebinned_data[0];
+        results.val = rebinned_data[1];
 
         return results;
     }
 
 
-    /**
+    /** Method to rebin the TTF
      *
-     * @param freq
-     * @param val
-     * @param f_inc
-     * @param f_bin
-     * @return
+     * @param freq The frequencies of the starting TTF
+     * @param val The TTF value at each starting frequency
+     * @param f_inc The frequency increment for the rebinned TTF
+     * @param f_bin The bin width to use when calculating the TTF value at each frequency
+     * @return The rebinned TTF
      */
     private TTF_result rebinTTF(double[] freq, double[] val, double f_inc, double f_bin) {
 
-        double max_freq = StatUtils.max(freq);
-        int num_intervals = (int) Math.round( max_freq / f_inc) + 1;
-
-        double[] new_val = new double[num_intervals];
-        double[] new_freq = new double[num_intervals];
-        for (int i=0; i<num_intervals; i++) {
-            new_freq[i] = i * f_inc;
-        }
-
-        for (int i=0; i<num_intervals; i++) {
-            double sum = 0;
-            double count = 0;
-            double lower_edge = new_freq[i] - f_bin;
-            double upper_edge = new_freq[i] + f_bin;
-            for (int j=0; j<freq.length; j++) {
-                if (freq[j] >= lower_edge && freq[j] <= upper_edge) {
-                    count++;
-                    sum += val[j];
-                }
-            }
-            new_val[i] = sum / count;
-        }
-
+        double[][] rebinned_data = rebin(freq, val, f_inc, f_bin, false);
         TTF_result results = new TTF_result();
-        results.freq = new_freq;
-        results.val = new_val;
+        results.freq = rebinned_data[0];
+        results.val = rebinned_data[1];
 
         return results;
     }
 
 
-    /**
+    /** Method to rebin a series of x, y values to regular x spacing of x_inc
      *
-     * @param N
-     * @return
+     * @param x The original x values
+     * @param y The value of y at each original x
+     * @param x_inc The required x increment
+     * @param x_bin The width of the bin to use to calculate the new value of y at each new value of x
+     * @param calc_min_x Use min(x) or 0 as the minimum x value
+     * @return The rebinned data
+     */
+    private double[][] rebin(double[] x, double[] y, double x_inc, double x_bin, boolean calc_min_x) {
+        double max_x = StatUtils.max(x);
+        double min_x = 0.0;
+        if (calc_min_x) min_x = StatUtils.min(x);
+        int num_intervals = (int) Math.round((max_x - min_x) / x_inc) + 1;
+
+        double [][] rebinned = new double[2][num_intervals];
+
+        // Calculate the new x values
+        for (int i = 0; i < num_intervals; i++) {
+            rebinned[0][i] = min_x + (i * x_inc);
+        }
+
+        // Calculate the new y value at each new x position using the mean of all original y values that fall
+        // within x+x_bin >= x >= x-x_bin
+        for (int i = 0; i < num_intervals; i++) {
+            double sum = 0;
+            double count = 0;
+            double lower_edge = rebinned[0][i] - x_bin;
+            double upper_edge = rebinned[0][i] + x_bin;
+            for (int j = 0; j < x.length; j++) {
+                if (x[j] >= lower_edge && x[j] <= upper_edge) {
+                    count++;
+                    sum += y[j];
+                }
+            }
+            rebinned[1][i] = sum / count;
+        }
+
+        return rebinned;
+    }
+
+
+    /** Method to calculate a Hann window
+     *
+     * @param N The number of data points in the window
+     * @return The values of the Hann window
      */
     private double[] hannWindow(int N) {
         // See https://en.wikipedia.org/wiki/Hann_function
@@ -1089,12 +1082,12 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
     /** Method to obtain the index of element val in array arr
      *
-     * @param arr
-     * @param val
-     * @param <T>
-     * @return
+     * @param arr The array being searched
+     * @param val The value being looked for
+     * @param <T> The data type of the array and value being looked for
+     * @return The array index which contains the supplied value
      */
-    public static <T> int indexOf(T[] arr, T val) {
+    private static <T> int indexOf(T[] arr, T val) {
         return Arrays.asList(arr).indexOf(val);
     }
 

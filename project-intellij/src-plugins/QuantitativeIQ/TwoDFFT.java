@@ -5,7 +5,7 @@ import org.apache.commons.math3.transform.DftNormalization;
 import org.apache.commons.math3.transform.FastFourierTransformer;
 import org.apache.commons.math3.transform.TransformType;
 
-public class TwoDFFT {
+class TwoDFFT {
 
     /** A method to carry out a two-dimensional forward Fourier transform.
      *  The frequency scale of the resulting transform can be calculated using:

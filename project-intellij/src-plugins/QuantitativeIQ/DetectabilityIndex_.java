@@ -29,11 +29,12 @@ public class DetectabilityIndex_ implements PlugInFilter {
     private DecimalFormat two_dp = new DecimalFormat("0.00");
     private DecimalFormat three_dp = new DecimalFormat("0.000");
 
-    /**
+
+    /** Method to set up the detectability index plugin
      *
-     * @param arg
-     * @param imp
-     * @return
+     * @param arg Not currently used
+     * @param imp The ImagePlus to use
+     * @return 0 if no image is open, DOES_ALL otherwise
      */
     public int setup(String arg, ImagePlus imp) {
         this.imp = imp;
@@ -46,9 +47,10 @@ public class DetectabilityIndex_ implements PlugInFilter {
         return DOES_ALL;
     }
 
-    /**
+
+    /** Method to run the plugin
      *
-     * @param ip
+     * @param ip The ImageProcessor to use
      */
     public void run(ImageProcessor ip) {
         // Calculate the detectability index according to equation 2 in http://dx.doi.org/10.1118/1.4923172,

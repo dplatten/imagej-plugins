@@ -128,6 +128,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
         return DOES_ALL;
     }
 
+
     /**
      *
      * @param ip The ImageProcessor that is passed to this method

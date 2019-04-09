@@ -114,7 +114,7 @@ public class EyeModel_ implements PlugIn {
 
     /** Method to get the image reconstruction field of view
      *
-         * @return Returns the image reconstruction field of view.
+     * @return Returns the image reconstruction field of view.
      */
     double getReconFOV() {
         return this.recon_fov;
