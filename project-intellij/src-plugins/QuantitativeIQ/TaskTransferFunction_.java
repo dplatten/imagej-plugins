@@ -195,6 +195,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
             z_projector.setStartSlice(240);
             z_projector.setStopSlice(273);
             z_projector.doProjection();
+            this.imp.deleteRoi();
             this.imp = z_projector.getProjection();
             this.imp.setCalibration(this.cal);
             this.imp.show();
@@ -775,6 +776,11 @@ public class TaskTransferFunction_ implements PlugInFilter {
         // Also see http://download.ni.com/evaluation/pxi/Understanding%20FFTs%20and%20Windowing.pdf
         double[] hann = hannWindow(lsf.length);
         lsf = MathArrays.ebeMultiply(lsf, hann);
+
+        // Plot the Hann-windowed ESF
+        Plot plot_lsf_hann = new Plot("Line spread function (Hann applied)", "Uncalibrated", "Pixel value");
+        plot_lsf_hann.add("line", lsf);
+        plot_lsf_hann.show();
 
         FastFourierTransformer fourier_transformer = new FastFourierTransformer(DftNormalization.STANDARD);
 

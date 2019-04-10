@@ -5,12 +5,14 @@
 //package ij.plugin;
 import ij.*;
 import ij.gui.*;
+import ij.measure.Calibration;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.*;
 
 public class ResampleImage_ implements PlugInFilter {
     protected ImagePlus imp;
     private float p;
+    private boolean keep_same_mean = false;
 
     public int setup(String arg, ImagePlus imp) {
     	this.imp = imp;
@@ -20,6 +22,8 @@ public class ResampleImage_ implements PlugInFilter {
         }
         else {
             p = (float) IJ.getNumber("Enter resampling fraction", 0.5);
+            String choice = IJ.getString("Keep same mean?", "No");
+            if (!choice.equals("No")) this.keep_same_mean = true;
         }
 
     	return DOES_ALL;
@@ -49,7 +53,12 @@ public class ResampleImage_ implements PlugInFilter {
                     if (Math.random() < p) count++;
                 }
                 // Set this pixel location to be the value of count
-                results_pixels[x][y] = (float) count;
+                if (this.keep_same_mean) {
+                    results_pixels[x][y] = (float) (count * (1.0 / this.p));
+                }
+                else {
+                    results_pixels[x][y] = (float) count;
+                }
     		}
             // Update the progress bar
     		progress = (float)y / (float)height;
@@ -62,6 +71,10 @@ public class ResampleImage_ implements PlugInFilter {
     	ImagePlus results_image = NewImage.createFloatImage(image_title, width, height, 1, NewImage.FILL_BLACK);
     	ImageProcessor results_ip = results_image.getProcessor();
         results_ip.setFloatArray(results_pixels);
+
+        // Copy the calibration from the original image to the new one
+        Calibration cal = imp.getCalibration();
+        results_image.setCalibration(cal);
 
     	// Display the results image.
     	results_image.show();
