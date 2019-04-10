@@ -56,7 +56,6 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
         if (this.roi_manager == null) {
             this.roi_manager = new RoiManager();
-            this.roi_manager.addRoi(this.main_roi);
         }
 
         if (this.main_roi == null) {
@@ -65,6 +64,11 @@ public class DetectabilityIndex_ implements PlugInFilter {
                 IJ.error("Please add an ROI around an object or\nadd ROIs to the ROI manager");
                 return (0);
             }
+        }
+        else {
+            // If the ROI that is set is not one of the ones in the ROI manager then
+            // add it to the ROI manager
+            if (this.roi_manager.getSelectedIndexes().length == 0 ) this.roi_manager.addRoi(this.main_roi);
         }
 
         return DOES_ALL;
@@ -86,7 +90,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
         //  Eye model (E)
 
 
-        // Then run the NPS on the same image using default settings
+        // Run the NPS on the image
         this.imp.deleteRoi(); // Remove any currently set ROI
         NoisePowerSpectrum_ NPS = new NoisePowerSpectrum_();
         NPS.setLogging(false); // Switch off writing to the ImageJ log
@@ -139,7 +143,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
         // Run the TTF routine on all ROIs that are selected in the ROI manager
         int[] selected_rois = this.roi_manager.getIndexes();
-        for (int idx=0; idx<selected_rois.length; idx++) {
+        for (int idx : selected_rois) {
 
             Roi current_roi = this.roi_manager.getRoi(selected_rois[idx]);
             this.imp.setRoi(current_roi);
