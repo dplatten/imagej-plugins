@@ -39,6 +39,14 @@ public class TaskFunction_ implements PlugIn {
     private UnivariateFunction task_function_sinc;
 
     private boolean log_results = true;
+    private boolean show_plots = true;
+
+
+    /** Method to enable or disable the display of plots
+     *
+     * @param show_plots Boolean value to set chart display on or off
+     */
+    void setPlotting(boolean show_plots) { this.show_plots = show_plots; }
 
 
     /** Method to enable or disable writing to the ImageJ log
@@ -160,45 +168,47 @@ public class TaskFunction_ implements PlugIn {
         disc_function_fft();
         disc_function_sinc();
 
-        // Plot the task function
-        double task_x_inc = 0.01;
-        double x_min = -2.0 * this.task_radius;
-        double x_max = 2.0 * this.task_radius;
-        int n_elements = (int) ((x_max - x_min) / task_x_inc) + 1;
+        if (this.show_plots) {
+            // Plot the task function
+            double task_x_inc = 0.01;
+            double x_min = -2.0 * this.task_radius;
+            double x_max = 2.0 * this.task_radius;
+            int n_elements = (int) ((x_max - x_min) / task_x_inc) + 1;
 
-        double[] x_pos = new double[n_elements];
-        double[] y_val = new double[n_elements];
+            double[] x_pos = new double[n_elements];
+            double[] y_val = new double[n_elements];
 
-        for (int i=0; i<n_elements; i++) {
-            x_pos[i] = x_min + i*task_x_inc;
-            y_val[i] = this.task_function.value(x_pos[i]);
+            for (int i = 0; i < n_elements; i++) {
+                x_pos[i] = x_min + i * task_x_inc;
+                y_val[i] = this.task_function.value(x_pos[i]);
+            }
+            Plot plot_task = new Plot("Task function", "Distance (mm)", "Pixel value");
+            plot_task.add("line", x_pos, y_val);
+            String task_labels = "Task function\t";
+            plot_task.addLegend(task_labels);
+            plot_task.show();
+
+
+            // Plot the FFT and sinc of the task function
+            int n_felements = (int) Math.ceil(nyquist / this.f_res) + 1;
+
+            double[] f_pos = new double[n_felements];
+            double[] fft_val = new double[n_felements];
+            double[] sinc_val = new double[n_felements];
+            for (int i = 0; i < n_felements; i++) {
+                f_pos[i] = i * this.f_res;
+                fft_val[i] = this.task_function_fft.value(f_pos[i]);
+                sinc_val[i] = this.task_function_sinc.value(f_pos[i]);
+            }
+            Plot plot_task_fft = new Plot("Task function fft", "Frequency (mm^-1)", "Value");
+            plot_task_fft.add("line", f_pos, fft_val);
+            String task_fft_labels = "FFT of task function up to Nyquist\t";
+            plot_task_fft.setColor("Red");
+            plot_task_fft.add("line", f_pos, sinc_val);
+            task_fft_labels += "Sinc of task function up to Nyquist\t";
+            plot_task_fft.addLegend(task_fft_labels);
+            plot_task_fft.show();
         }
-        Plot plot_task = new Plot("Task function", "Distance (mm)", "Pixel value");
-        plot_task.add("line", x_pos, y_val);
-        String task_labels = "Task function\t";
-        plot_task.addLegend(task_labels);
-        plot_task.show();
-
-
-        // Plot the FFT and sinc of the task function
-        int n_felements = (int) Math.ceil(nyquist / this.f_res) + 1;
-
-        double[] f_pos = new double[n_felements];
-        double[] fft_val = new double[n_felements];
-        double[] sinc_val = new double[n_felements];
-        for (int i=0; i<n_felements; i++) {
-            f_pos[i] = i*this.f_res;
-            fft_val[i] = this.task_function_fft.value(f_pos[i]);
-            sinc_val[i] = this.task_function_sinc.value(f_pos[i]);
-        }
-        Plot plot_task_fft = new Plot("Task function fft", "Frequency (mm^-1)", "Value");
-        plot_task_fft.add("line", f_pos, fft_val);
-        String task_fft_labels = "FFT of task function up to Nyquist\t";
-        plot_task_fft.setColor("Red");
-        plot_task_fft.add("line", f_pos, sinc_val);
-        task_fft_labels += "Sinc of task function up to Nyquist\t";
-        plot_task_fft.addLegend(task_fft_labels);
-        plot_task_fft.show();
 
         if (this.log_results) logResults("FFT of radius " + this.task_radius + " mm; " + this.task_contrast + " contrast");
     }

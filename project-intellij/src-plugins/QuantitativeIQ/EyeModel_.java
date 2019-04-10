@@ -54,6 +54,7 @@ public class EyeModel_ implements PlugIn {
     private static Eye_result eye_result;
 
     private boolean log_results = true;
+    private boolean show_plots = true;
 
     private DecimalFormat zero_dp = new DecimalFormat("0");
     private DecimalFormat one_dp = new DecimalFormat("0.0");
@@ -63,6 +64,13 @@ public class EyeModel_ implements PlugIn {
     static int SOLOMON_ET_AL = 0;
     static int RICHARD_AND_SIEWERDSEN = 1;
     private int model_choice = SOLOMON_ET_AL;
+
+
+    /** Method to enable or disable the display of plots
+     *
+     * @param show_plots Boolean value to set chart display on or off
+     */
+    void setPlotting(boolean show_plots) { this.show_plots = show_plots; }
 
 
     /** Method to enable or disable writing to the ImageJ log
@@ -315,11 +323,13 @@ public class EyeModel_ implements PlugIn {
             E.val[i] = Math.pow(E.freq[i], n) * Math.exp(-1.0 * c * E.freq[i] * E.freq[i]);
         }
 
-        Plot plot_eye = new Plot("Richard and Siewerdsen eye response", "Frequency (mm^-1)", "Eye response");
-        plot_eye.add("line", E.freq, E.val);
-        String eye_labels = "Richard and Siewerdsen eye response\t";
-        plot_eye.addLegend(eye_labels);
-        plot_eye.show();
+        if (this.show_plots) {
+            Plot plot_eye = new Plot("Richard and Siewerdsen eye response", "Frequency (mm^-1)", "Eye response");
+            plot_eye.add("line", E.freq, E.val);
+            String eye_labels = "Richard and Siewerdsen eye response\t";
+            plot_eye.addLegend(eye_labels);
+            plot_eye.show();
+        }
 
         // Write the results to the ImageJ log
         if (this.log_results) logResults(E, "Richard and Siewerdsen eye response");
@@ -398,16 +408,18 @@ public class EyeModel_ implements PlugIn {
         // value first, as the squaring will render any negative values positive anyway.
         E.val = MathArrays.ebeMultiply(E.val, E.val);
 
-        Plot plot_eye = new Plot("Solomon et al eye response", "Frequency (mm^-1)", "Relative eye response");
-        plot_eye.add("line", E.freq, E.val);
-        plot_eye.addLabel(0.5,0.2, "Solomon et al 2015 eye response\n" +
-                this.zero_dp.format(viewing_dist) + " mm viewing distance\n" +
-                this.zero_dp.format(recon_fov) + " mm recon field of view\n" +
-                this.zero_dp.format(image_pixel_width) + " image pixel width\n" +
-                this.two_dp.format(display_pixel_pitch) + " mm display monitor pixel pitch\n" +
-                this.one_dp.format(display_zoom_factor) + " display zoom factor\n" +
-                this.one_dp.format(display_size) + " mm displayed image size");
-        plot_eye.show();
+        if (this.show_plots) {
+            Plot plot_eye = new Plot("Solomon et al eye response", "Frequency (mm^-1)", "Relative eye response");
+            plot_eye.add("line", E.freq, E.val);
+            plot_eye.addLabel(0.5, 0.2, "Solomon et al 2015 eye response\n" +
+                    this.zero_dp.format(viewing_dist) + " mm viewing distance\n" +
+                    this.zero_dp.format(recon_fov) + " mm recon field of view\n" +
+                    this.zero_dp.format(image_pixel_width) + " image pixel width\n" +
+                    this.two_dp.format(display_pixel_pitch) + " mm display monitor pixel pitch\n" +
+                    this.one_dp.format(display_zoom_factor) + " display zoom factor\n" +
+                    this.one_dp.format(display_size) + " mm displayed image size");
+            plot_eye.show();
+        }
 
         // Write the results to the ImageJ log
         if (this.log_results) logResults(E, "Solomon et al eye response");

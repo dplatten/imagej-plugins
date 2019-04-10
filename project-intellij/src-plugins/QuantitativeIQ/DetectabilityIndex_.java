@@ -34,6 +34,11 @@ public class DetectabilityIndex_ implements PlugInFilter {
     private RoiManager roi_manager = RoiManager.getInstance2();
     private Roi main_roi;
 
+    private boolean show_eye_plots = false;
+    private boolean show_task_plots = false;
+    private boolean show_nps_plots = false;
+    private boolean show_ttf_plots = false;
+
 
     /** Method to set up the detectability index plugin
      *
@@ -47,6 +52,20 @@ public class DetectabilityIndex_ implements PlugInFilter {
             IJ.error("Please open an image");
             return(0);
         }
+
+        GenericDialog gd = new GenericDialog("Plotting options");
+        gd.addCheckbox("Show eye filter plots", this.show_eye_plots);
+        gd.addCheckbox("Show task function plots", this.show_task_plots);
+        gd.addCheckbox("Show NPS plots", this.show_nps_plots);
+        gd.addCheckbox("Show TTF plots", this.show_ttf_plots);
+        gd.showDialog();
+        if(gd.wasCanceled()) {
+            return(1); // Return to the calling method with a non-zero result
+        }
+        this.show_eye_plots = gd.getNextBoolean();
+        this.show_task_plots = gd.getNextBoolean();
+        this.show_nps_plots = gd.getNextBoolean();
+        this.show_ttf_plots = gd.getNextBoolean();
 
         this.main_roi = imp.getRoi();
         if (this.roi_manager == null && this.main_roi == null) {
@@ -93,6 +112,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
         // Run the NPS on the image
         this.imp.deleteRoi(); // Remove any currently set ROI
         NoisePowerSpectrum_ NPS = new NoisePowerSpectrum_();
+        NPS.setPlotting(this.show_nps_plots);
         NPS.setLogging(false); // Switch off writing to the ImageJ log
         int result = NPS.setup("", this.imp);
         if (result == 0) {
@@ -107,6 +127,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
             return;
         }
 
+        this.imp.updateAndDraw();
         NoisePowerSpectrum_.NPS_result nps_result = NPS.getNPSResult();
 
 
@@ -118,6 +139,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
         // Obtain the eye model data
         EyeModel_ eye_model = new EyeModel_();
         eye_model.setLogging(false); // Switch off writing to the ImageJ log
+        eye_model.setPlotting(this.show_eye_plots);
         eye_model.setFreqCutoff(nyquist);
         eye_model.setReconFOV(cal.pixelWidth * imp.getWidth());
         eye_model.setImagePixelWidth(imp.getWidth());
@@ -150,6 +172,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
             // Run the TTF analysis using default settings
             TaskTransferFunction_ TTF = new TaskTransferFunction_();
+            TTF.setPlotting(this.show_ttf_plots);
             TTF.setLogging(false); // Switch off writing to the ImageJ log
             result = TTF.setup("", this.imp);
             if (result == 0) {
@@ -176,46 +199,48 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
             UnivariateFunction task_fn = task_function.getTaskFunction();
 
+            if (this.show_task_plots) {
+                // Plot the task function
+                double x_min = -2.0 * this.task_radius;
+                double x_max = 2.0 * this.task_radius;
+                int n_elements = (int) ((x_max - x_min) / task_x_inc) + 1;
 
-            // Plot the task function
-            double x_min = -2.0 * this.task_radius;
-            double x_max = 2.0 * this.task_radius;
-            int n_elements = (int) ((x_max - x_min) / task_x_inc) + 1;
+                double[] x_pos = new double[n_elements];
+                double[] y_val = new double[n_elements];
 
-            double[] x_pos = new double[n_elements];
-            double[] y_val = new double[n_elements];
-
-            for (int i = 0; i < n_elements; i++) {
-                x_pos[i] = x_min + i * task_x_inc;
-                y_val[i] = task_fn.value(x_pos[i]);
+                for (int i = 0; i < n_elements; i++) {
+                    x_pos[i] = x_min + i * task_x_inc;
+                    y_val[i] = task_fn.value(x_pos[i]);
+                }
+                Plot plot_task = new Plot("Task function", "Distance (mm)", "Pixel value");
+                plot_task.add("line", x_pos, y_val);
+                String task_labels = "Task function\t";
+                plot_task.addLegend(task_labels);
+                plot_task.show();
             }
-            Plot plot_task = new Plot("Task function", "Distance (mm)", "Pixel value");
-            plot_task.add("line", x_pos, y_val);
-            String task_labels = "Task function\t";
-            plot_task.addLegend(task_labels);
-            plot_task.show();
 
 
             // Obtain the FFT of the task function, W_fn
             task_function.disc_function_fft();
             UnivariateFunction W_fn = task_function.getTaskFunctionFFT();
 
+            if (this.show_task_plots) {
+                // Plot the FFT of the task function
+                double f_inc = task_function.getFreqRes();
+                int n_felements = (int) Math.ceil(nyquist / f_inc) + 1;
 
-            // Plot the FFT of the task function
-            double f_inc = task_function.getFreqRes();
-            int n_felements = (int) Math.ceil(nyquist / f_inc) + 1;
-
-            double[] f_pos = new double[n_felements];
-            double[] fft_val = new double[n_felements];
-            for (int i = 0; i < n_felements; i++) {
-                f_pos[i] = i * f_inc;
-                fft_val[i] = W_fn.value(f_pos[i]);
+                double[] f_pos = new double[n_felements];
+                double[] fft_val = new double[n_felements];
+                for (int i = 0; i < n_felements; i++) {
+                    f_pos[i] = i * f_inc;
+                    fft_val[i] = W_fn.value(f_pos[i]);
+                }
+                Plot plot_task_fft = new Plot("Task function fft", "Frequency (mm^-1)", "Value");
+                plot_task_fft.add("line", f_pos, fft_val);
+                String task_fft_labels = "FFT of task function up to Nyquist\t";
+                plot_task_fft.addLegend(task_fft_labels);
+                plot_task_fft.show();
             }
-            Plot plot_task_fft = new Plot("Task function fft", "Frequency (mm^-1)", "Value");
-            plot_task_fft.add("line", f_pos, fft_val);
-            String task_fft_labels = "FFT of task function up to Nyquist\t";
-            plot_task_fft.addLegend(task_fft_labels);
-            plot_task_fft.show();
 
 
             // Calculate the detectability index using a modified version of equation 2 in http://dx.doi.org/10.1118/1.4923172

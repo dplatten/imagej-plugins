@@ -35,6 +35,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
     private static NPS_result nps_result;
 
     private boolean log_results = true;
+    private boolean show_plots = true;
 
     private boolean use_average_stack = false;
     private int min_stack_index;
@@ -42,6 +43,13 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
     private DecimalFormat two_dp = new DecimalFormat("0.00");
     private DecimalFormat three_dp = new DecimalFormat("0.000");
+
+
+    /** Method to enable or disable the display of plots
+     *
+     * @param show_plots Boolean value to set chart display on or off
+     */
+    void setPlotting(boolean show_plots) { this.show_plots = show_plots; }
 
 
     /** Method to enable or disable writing to the ImageJ log
@@ -199,15 +207,18 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
         // ---------------------------------------------------------------------
 
 
+
         // ---------------------------------------------------------------------
-        // Display the resulting 2d NPS
-        ImagePlus nps_2d = NewImage.createFloatImage("2d NPS", this.record_size, this.record_size, 1, NewImage.FILL_BLACK);
-        nps_2d.getProcessor().setFloatArray(convertDoubleToFloat(ensemble_nps));
-        IJ.run(nps_2d, "Swap Quadrants", "");
-        nps_2d.show();
-        nps_2d.updateAndDraw();
-        IJ.run(nps_2d, "Enhance Contrast", "saturated=0.35");
-        IJ.run("Set... ", "zoom=800");
+        if (this.show_plots) {
+            // Display the resulting 2d NPS
+            ImagePlus nps_2d = NewImage.createFloatImage("2d NPS", this.record_size, this.record_size, 1, NewImage.FILL_BLACK);
+            nps_2d.getProcessor().setFloatArray(convertDoubleToFloat(ensemble_nps));
+            IJ.run(nps_2d, "Swap Quadrants", "");
+            nps_2d.show();
+            nps_2d.updateAndDraw();
+            IJ.run(nps_2d, "Enhance Contrast", "saturated=0.35");
+            IJ.run("Set... ", "zoom=800");
+        }
         // ---------------------------------------------------------------------
 
 
@@ -267,16 +278,17 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
         // Sort the radial array data into ascending order of frequency
         MathArrays.sortInPlace(radial_freq, radial_nps);
 
-        // Plot the radial frequency
-        Plot plot_nps = new Plot("Noise power spectrum", "Frequency (mm^-1)", "Noise power (HU^2.mm^2)");
-        plot_nps.setAxisYLog(true);
-        plot_nps.add("dot", radial_freq, radial_nps);
-        plot_nps.show();
-
         double IEC_f_bin = 0.01 / pixel_size_in_mm;
         NPS_result rebinned_NPS = rebinNPS(radial_freq, radial_nps, rebin_f_inc, IEC_f_bin);
 
-        plot_nps.add("line", rebinned_NPS.freq, rebinned_NPS.val);
+        if (this.show_plots) {
+            // Plot the radial frequency
+            Plot plot_nps = new Plot("Noise power spectrum", "Frequency (mm^-1)", "Noise power (HU^2.mm^2)");
+            plot_nps.setAxisYLog(true);
+            plot_nps.add("dot", radial_freq, radial_nps);
+            plot_nps.add("line", rebinned_NPS.freq, rebinned_NPS.val);
+            plot_nps.show();
+        }
         // ---------------------------------------------------------------------
 
 

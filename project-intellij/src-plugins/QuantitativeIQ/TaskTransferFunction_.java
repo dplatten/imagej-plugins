@@ -65,9 +65,20 @@ public class TaskTransferFunction_ implements PlugInFilter {
     private int max_stack_index;
 
     private boolean log_results = true;
+    private boolean show_plots = true;
+
+    private Plot plot_esf;
+    private String plot_esf_label;
 
     private DecimalFormat two_dp = new DecimalFormat("0.00");
     private DecimalFormat three_dp = new DecimalFormat("0.000");
+
+
+    /** Method to enable or disable the display of plots
+     *
+     * @param show_plots Boolean value to set chart display on or off
+     */
+    void setPlotting(boolean show_plots) { this.show_plots = show_plots; }
 
 
     /** Method to enable or disable using an average stack rather than a single image
@@ -383,11 +394,13 @@ public class TaskTransferFunction_ implements PlugInFilter {
         // http://commons.apache.org/proper/commons-math/javadocs/api-3.6/org/apache/commons/math3/util/MathArrays.html#sortInPlace(double[],%20double[]...)
         MathArrays.sortInPlace(raw_esf_pos, raw_esf_val);
 
-        // Plot the raw esf
-        Plot plot_esf = new Plot("Edge spread function", "Distance (mm)", "Pixel value");
-        plot_esf.add("dot", raw_esf_pos, raw_esf_val);
-        String esf_labels = "Raw ESF\t";
-        plot_esf.show();
+        if (this.show_plots) {
+            // Plot the raw esf
+            this.plot_esf = new Plot("Edge spread function", "Distance (mm)", "Pixel value");
+            this.plot_esf.add("dot", raw_esf_pos, raw_esf_val);
+            this.plot_esf_label = "Raw ESF\t";
+            this.plot_esf.show();
+        }
         //---------------------------------------------------------------------
 
 
@@ -461,12 +474,14 @@ public class TaskTransferFunction_ implements PlugInFilter {
             }
         }
 
-        // Add the rebinned ESF to the existing ESF plot as a line.
-        plot_esf.setColor("Red");
-        plot_esf.add("line", esf_rebinned_pos, esf_rebinned_val);
-        esf_labels += this.esf_proc_choice;
-        plot_esf.setColor("Black");
-        plot_esf.addLegend(esf_labels);
+        if (this.show_plots) {
+            // Add the rebinned ESF to the existing ESF plot as a line.
+            this.plot_esf.setColor("Red");
+            this.plot_esf.add("line", esf_rebinned_pos, esf_rebinned_val);
+            this.plot_esf_label += this.esf_proc_choice;
+            this.plot_esf.setColor("Black");
+            this.plot_esf.addLegend(this.plot_esf_label);
+        }
         //---------------------------------------------------------------------
 
 
@@ -483,13 +498,15 @@ public class TaskTransferFunction_ implements PlugInFilter {
         UnivariateDifferentiableFunction complete_f = differentiator.differentiate(function);
         double[] lsf_val = differentiate(esf_rebinned_pos, complete_f);
 
-        // Plot the LSF.
-        Plot plot_lsf = new Plot("Line spread function", "Distance (mm)", "Value");
-        plot_lsf.setColor("Red");
-        plot_lsf.add("line", esf_rebinned_pos, lsf_val);
-        plot_lsf.setColor("Black");
-        plot_lsf.addLegend(this.esf_proc_choice);
-        plot_lsf.show();
+        if (this.show_plots) {
+            // Plot the LSF.
+            Plot plot_lsf = new Plot("Line spread function", "Distance (mm)", "Value");
+            plot_lsf.setColor("Red");
+            plot_lsf.add("line", esf_rebinned_pos, lsf_val);
+            plot_lsf.setColor("Black");
+            plot_lsf.addLegend(this.esf_proc_choice);
+            plot_lsf.show();
+        }
         //---------------------------------------------------------------------
 
 
@@ -497,13 +514,15 @@ public class TaskTransferFunction_ implements PlugInFilter {
         // Fourier transform the LSF to obtain TTF
         TTF_result ttf_data = TTF(lsf_val, rebinned_sample_inc, pixel_size_in_mm);
 
-        // Plot the nTTFs
-        Plot plot_ttf = new Plot("Normalised TTF", "Frequency (per mm)", "nTTF");
-        plot_ttf.setColor("Red");
-        plot_ttf.add("line", ttf_data.freq, ttf_data.val);
-        plot_ttf.setColor("Black");
-        plot_ttf.addLegend(this.esf_proc_choice);
-        plot_ttf.show();
+        if (this.show_plots) {
+            // Plot the nTTFs
+            Plot plot_ttf = new Plot("Normalised TTF", "Frequency (per mm)", "nTTF");
+            plot_ttf.setColor("Red");
+            plot_ttf.add("line", ttf_data.freq, ttf_data.val);
+            plot_ttf.setColor("Black");
+            plot_ttf.addLegend(this.esf_proc_choice);
+            plot_ttf.show();
+        }
         //---------------------------------------------------------------------
 
 
@@ -777,10 +796,12 @@ public class TaskTransferFunction_ implements PlugInFilter {
         double[] hann = hannWindow(lsf.length);
         lsf = MathArrays.ebeMultiply(lsf, hann);
 
-        // Plot the Hann-windowed ESF
-        Plot plot_lsf_hann = new Plot("Line spread function (Hann applied)", "Uncalibrated", "Pixel value");
-        plot_lsf_hann.add("line", lsf);
-        plot_lsf_hann.show();
+        if (this.show_plots) {
+            // Plot the Hann-windowed ESF
+            Plot plot_lsf_hann = new Plot("Line spread function (Hann applied)", "Uncalibrated", "Pixel value");
+            plot_lsf_hann.add("line", lsf);
+            plot_lsf_hann.show();
+        }
 
         FastFourierTransformer fourier_transformer = new FastFourierTransformer(DftNormalization.STANDARD);
 
