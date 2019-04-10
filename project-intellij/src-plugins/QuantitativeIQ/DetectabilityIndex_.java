@@ -127,7 +127,6 @@ public class DetectabilityIndex_ implements PlugInFilter {
             return;
         }
 
-        this.imp.updateAndDraw();
         NoisePowerSpectrum_.NPS_result nps_result = NPS.getNPSResult();
 
 

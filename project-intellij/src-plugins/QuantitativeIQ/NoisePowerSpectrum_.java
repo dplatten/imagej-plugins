@@ -193,6 +193,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
             ImageProcessor im_proc = this.imp.getProcessor();
             ensemble_nps = ensembleNPS(im_proc, record_radius_px, cal, centre, overlay);
         }
+        this.imp.updateAndDraw(); // Update to show the ring of ROIs
         //---------------------------------------------------------------------
 
 
