@@ -241,7 +241,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
         this.com[0] = this.cal.getX(this.main_roi.getXBase() + (this.main_roi.getFloatWidth()/2.0));
         this.com[1] = this.cal.getY(this.main_roi.getYBase() + (this.main_roi.getFloatHeight()/2.0));
 
-        double inner_dia = obj_dia_pix * 1.5;//+ (10.0 / pixel_size_in_mm);
+        double inner_dia = obj_dia_pix * 1.25;//+ (10.0 / pixel_size_in_mm);
         double outer_dia = obj_dia_pix * 2.0;
         Roi inner_roi = new OvalRoi(this.cal.getRawX(this.com[0]) - inner_dia/2.0, this.cal.getRawY(this.com[1]) - inner_dia/2.0, inner_dia, inner_dia);
         Roi outer_roi = new OvalRoi(this.cal.getRawX(this.com[0]) - outer_dia/2.0, this.cal.getRawY(this.com[1]) - outer_dia/2.0, outer_dia, outer_dia);
@@ -775,6 +775,11 @@ public class TaskTransferFunction_ implements PlugInFilter {
         // Also see http://download.ni.com/evaluation/pxi/Understanding%20FFTs%20and%20Windowing.pdf
         double[] hann = hannWindow(lsf.length);
         lsf = MathArrays.ebeMultiply(lsf, hann);
+
+        // Plot the Hann-windowed ESF
+        Plot plot_lsf_hann = new Plot("Line spread function (Hann applied)", "Uncalibrated", "Pixel value");
+        plot_lsf_hann.add("line", lsf);
+        plot_lsf_hann.show();
 
         FastFourierTransformer fourier_transformer = new FastFourierTransformer(DftNormalization.STANDARD);
 
