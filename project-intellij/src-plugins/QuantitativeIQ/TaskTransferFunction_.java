@@ -439,11 +439,12 @@ public class TaskTransferFunction_ implements PlugInFilter {
             // http://commons.apache.org/proper/commons-math/javadocs/api-3.6/org/apache/commons/math3/analysis/interpolation/LoessInterpolator.html
             // and https://en.wikipedia.org/wiki/Local_regression
             interpolator = new LoessInterpolator(this.loess_bandwidth, this.loess_robustness);
-            double[] smoothed_esf;
+            //double[] smoothed_esf;
 
             try {
-                smoothed_esf = new LoessInterpolator(this.loess_bandwidth, this.loess_robustness).smooth(raw_esf_pos, raw_esf_val);
-                function = interpolator.interpolate(raw_esf_pos, smoothed_esf);
+                //smoothed_esf = new LoessInterpolator(this.loess_bandwidth, this.loess_robustness).smooth(raw_esf_pos, raw_esf_val);
+                //function = interpolator.interpolate(raw_esf_pos, smoothed_esf);
+                function = interpolator.interpolate(raw_esf_pos, raw_esf_val);
             }
             catch (Exception e) {
                 IJ.error("There was an error when interpolating the raw ESF:\n" + e);
