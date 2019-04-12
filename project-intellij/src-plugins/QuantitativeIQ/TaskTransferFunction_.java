@@ -442,6 +442,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
             for (i = 0; i < esf_rebinned_val.length; i++) {
                 esf_rebinned_val[i] = function.value(esf_rebinned_pos[i]);
             }
+            // Could apply a loess to the linear regression data at this point
+            //esf_rebinned_val = new LoessInterpolator(this.loess_bandwidth, this.loess_robustness).smooth(esf_rebinned_pos, esf_rebinned_val);
         }
         else {
             // Calculate resampled ESF values using local regression with the Apache Commons Math 3.6 API. See:

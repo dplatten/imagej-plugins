@@ -32,12 +32,12 @@ public class DetectabilityIndex_ implements PlugInFilter {
     private DecimalFormat three_dp = new DecimalFormat("0.000");
 
     private RoiManager roi_manager = RoiManager.getInstance2();
-    private Roi main_roi;
+    //private Roi whole_phantom_roi;
 
     private boolean show_eye_plots = false;
     private boolean show_task_plots = false;
     private boolean show_nps_plots = false;
-    private boolean show_ttf_plots = false;
+    private boolean show_ttf_plots = true; // It's a good idea to review these to ensure the results are OK
 
 
     /** Method to set up the detectability index plugin
@@ -67,27 +67,15 @@ public class DetectabilityIndex_ implements PlugInFilter {
         this.show_nps_plots = gd.getNextBoolean();
         this.show_ttf_plots = gd.getNextBoolean();
 
-        this.main_roi = imp.getRoi();
-        if (this.roi_manager == null && this.main_roi == null) {
-            IJ.error("Please add an ROI around an object or\nadd ROIs to the ROI manager");
+        if (this.roi_manager == null) {
+            this.roi_manager = new RoiManager();
+            IJ.error("Please add at least one ROI to the ROI manager");
             return (0);
         }
 
-        if (this.roi_manager == null) {
-            this.roi_manager = new RoiManager();
-        }
-
-        if (this.main_roi == null) {
-            // There's no ROI drawn, so hopefully there's at least one ROI in the manager
-            if (this.roi_manager.getCount() == 0) {
-                IJ.error("Please add an ROI around an object or\nadd ROIs to the ROI manager");
-                return (0);
-            }
-        }
-        else {
-            // If the ROI that is set is not one of the ones in the ROI manager then
-            // add it to the ROI manager
-            if (this.roi_manager.getSelectedIndexes().length == 0 ) this.roi_manager.addRoi(this.main_roi);
+        if (this.roi_manager.getCount() == 0) {
+            IJ.error("Please add at least one ROI to the ROI manager");
+            return (0);
         }
 
         return DOES_ALL;
@@ -110,7 +98,8 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
 
         // Run the NPS on the image
-        this.imp.deleteRoi(); // Remove any currently set ROI
+        // If the user has set an ROI on the image then the centre of this is used as the centre
+        // of the phantom. If no ROI is present then the centre of the image use used.
         NoisePowerSpectrum_ NPS = new NoisePowerSpectrum_();
         NPS.setPlotting(this.show_nps_plots);
         NPS.setLogging(false); // Switch off writing to the ImageJ log
@@ -152,13 +141,11 @@ public class DetectabilityIndex_ implements PlugInFilter {
         // Ask the user what task size they want to use
         GenericDialog gd = new GenericDialog("Task function settings");
         gd.addNumericField("Task radius (mm)", this.task_radius, 2);
-        //gd.addNumericField("Task contrast (HU)", this.task_contrast, 1);
         gd.showDialog();
         if (gd.wasCanceled()) {
             return;
         } else {
             this.task_radius = gd.getNextNumber();
-            //this.task_contrast = gd.getNextNumber();
         }
 
 
@@ -265,8 +252,22 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
             // Now integrate the numerator and denominator
             UnivariateIntegrator simpson_integrator = new SimpsonIntegrator();
-            double numerator_int = simpson_integrator.integrate(100000, numerator, 0, nyquist);
-            double denominator_int = simpson_integrator.integrate(100000, denominator, 0, nyquist);
+            double numerator_int, denominator_int;
+            try {
+                numerator_int = simpson_integrator.integrate(100000, numerator, 0, nyquist);
+            }
+            catch (Exception e) {
+                IJ.error("There was an error when integrating the numerator\nfor the detectability index calculation:\n" + e);
+                return;
+            }
+            try {
+                denominator_int = simpson_integrator.integrate(100000, denominator, 0, nyquist);
+            }
+            catch (Exception e) {
+                IJ.error("There was an error when integrating the denominator\nfor the detectability index calculation:\n" + e);
+                return;
+            }
+
             double detectability = Math.sqrt(Math.pow(numerator_int, 2.0) / denominator_int);
 
 
