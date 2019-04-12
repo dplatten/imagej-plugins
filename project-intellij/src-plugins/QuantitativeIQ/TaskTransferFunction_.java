@@ -203,8 +203,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
         if (this.use_average_stack) {
             ZProjector z_projector = new ZProjector(this.imp);
             z_projector.setMethod(ZProjector.AVG_METHOD);
-            z_projector.setStartSlice(240);
-            z_projector.setStopSlice(273);
+            z_projector.setStartSlice(this.min_stack_index);
+            z_projector.setStopSlice(this.max_stack_index);
             z_projector.doProjection();
             this.imp.deleteRoi();
             this.imp = z_projector.getProjection();
@@ -439,11 +439,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
             // http://commons.apache.org/proper/commons-math/javadocs/api-3.6/org/apache/commons/math3/analysis/interpolation/LoessInterpolator.html
             // and https://en.wikipedia.org/wiki/Local_regression
             interpolator = new LoessInterpolator(this.loess_bandwidth, this.loess_robustness);
-            //double[] smoothed_esf;
 
             try {
-                //smoothed_esf = new LoessInterpolator(this.loess_bandwidth, this.loess_robustness).smooth(raw_esf_pos, raw_esf_val);
-                //function = interpolator.interpolate(raw_esf_pos, smoothed_esf);
                 function = interpolator.interpolate(raw_esf_pos, raw_esf_val);
             }
             catch (Exception e) {
@@ -489,13 +486,6 @@ public class TaskTransferFunction_ implements PlugInFilter {
         //---------------------------------------------------------------------
         // Differentiate the ESF to obtain line spread function (LSF)
         FiniteDifferencesDifferentiator differentiator = new FiniteDifferencesDifferentiator(2, rebinned_sample_inc);
-        try {
-            function = interpolator.interpolate(esf_rebinned_pos, esf_rebinned_val);
-        }
-        catch (Exception e) {
-            IJ.error("There was an error when interpolating the rebinned ESF:\n" + e);
-            return;
-        }
         UnivariateDifferentiableFunction complete_f = differentiator.differentiate(function);
         double[] lsf_val = differentiate(esf_rebinned_pos, complete_f);
 
