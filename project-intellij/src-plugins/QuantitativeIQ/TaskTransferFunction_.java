@@ -42,6 +42,10 @@ public class TaskTransferFunction_ implements PlugInFilter {
     private int loess_robustness = 10;
     private Roi main_roi;
 
+    private boolean loess_on_lsf = false;
+    private double lsf_loess_bandwidth = 0.04;
+    private int lsf_loess_robustness = 10;
+
     private boolean find_com = true;
     private double[] com = new double[2];
     private boolean use_low_pass = false;
@@ -51,7 +55,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
     private static int LINEAR_REGRESSION = 0;
     private static int LOCAL_REGRESSION = 1;
     private static int MONOTONIC_LOCAL_REGRESSION = 2;
-    private int esf_proc_choice_idx = MONOTONIC_LOCAL_REGRESSION;
+    private int esf_proc_choice_idx = LOCAL_REGRESSION;
     private String esf_proc_choice = esf_proc_choices[esf_proc_choice_idx];
 
     private TTF_result ttf_result;
@@ -170,11 +174,13 @@ public class TaskTransferFunction_ implements PlugInFilter {
         gd.addCheckbox("Use low-pass filter for CoM", this.use_low_pass);
         gd.addNumericField("Low-pass filter factor", this.low_pass_factor, 2);
         gd.addRadioButtonGroup("ESF processing to use", this.esf_proc_choices, 3, 1, this.esf_proc_choices[this.esf_proc_choice_idx]);
-        gd.addMessage("Local regression options");
+        gd.addMessage("ESF local regression options");
         gd.addNumericField("Bandwidth", this.loess_bandwidth, 2);
         gd.addNumericField("Robustness", this.loess_robustness, 0);
+        gd.addCheckbox("Apply local regression to LSF?", this.loess_on_lsf);
+        gd.addNumericField("LSF local regression bandwidth", this.lsf_loess_bandwidth, 2);
+        gd.addNumericField("LSF local regression robustness", this.lsf_loess_robustness, 0);
         if (this.imp.isStack()) {
-            this.use_average_stack = true;
             gd.addCheckbox("Run on the average stack", this.use_average_stack);
             gd.addNumericField("Min slice index", 1, 0);
             gd.addNumericField("to max slice index", this.imp.getImageStackSize(), 0);
@@ -194,6 +200,9 @@ public class TaskTransferFunction_ implements PlugInFilter {
         this.esf_proc_choice_idx = indexOf(this.esf_proc_choices, this.esf_proc_choice);
         this.loess_bandwidth = gd.getNextNumber();
         this.loess_robustness = (int) gd.getNextNumber();
+        this.loess_on_lsf = gd.getNextBoolean();
+        this.lsf_loess_bandwidth = gd.getNextNumber();
+        this.lsf_loess_robustness = (int) gd.getNextNumber();
         if (this.imp.isStack()) {
             this.use_average_stack = gd.getNextBoolean();
             this.min_stack_index = (int) gd.getNextNumber();
@@ -488,6 +497,11 @@ public class TaskTransferFunction_ implements PlugInFilter {
         FiniteDifferencesDifferentiator differentiator = new FiniteDifferencesDifferentiator(2, rebinned_sample_inc);
         UnivariateDifferentiableFunction complete_f = differentiator.differentiate(function);
         double[] lsf_val = differentiate(esf_rebinned_pos, complete_f);
+
+        // Apply local regression to the LSF?
+        if (this.loess_on_lsf) {
+            lsf_val = new LoessInterpolator(this.lsf_loess_bandwidth, this.lsf_loess_robustness).smooth(esf_rebinned_pos, lsf_val);
+        }
 
         if (this.show_plots) {
             // Plot the LSF.
