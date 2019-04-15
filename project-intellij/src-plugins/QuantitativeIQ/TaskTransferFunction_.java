@@ -36,7 +36,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
     private Calibration cal;
 
     private double obj_dia_mm = 25.0;
-    private double pixel_reduction_factor = 5.0;
+    private double pixel_reduction_factor = 3.0;
     private double rebin_f_inc = 0.05; // in mm^-1
     private double loess_bandwidth = 0.02;
     private int loess_robustness = 10;
@@ -51,11 +51,12 @@ public class TaskTransferFunction_ implements PlugInFilter {
     private boolean use_low_pass = false;
     private double low_pass_factor = 0.9;
 
-    private String[] esf_proc_choices = {"Linear regression", "Local regression", "Local regression (monotonic)"};
-    private static int LINEAR_REGRESSION = 0;
-    private static int LOCAL_REGRESSION = 1;
-    private static int MONOTONIC_LOCAL_REGRESSION = 2;
-    private int esf_proc_choice_idx = LOCAL_REGRESSION;
+    private String[] esf_proc_choices = {"Simple rebin", "Linear regression", "Local regression", "Local regression (monotonic)"};
+    private static int REBIN = 0;
+    private static int LINEAR_REGRESSION = 1;
+    private static int LOCAL_REGRESSION = 2;
+    private static int MONOTONIC_LOCAL_REGRESSION = 3;
+    private int esf_proc_choice_idx = REBIN;
     private String esf_proc_choice = esf_proc_choices[esf_proc_choice_idx];
 
     private TTF_result ttf_result;
@@ -419,7 +420,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
         // Define the starting position of the resampled ESF, with an offset of
         // one sample increment, and work out the number of samples.
-        double start_pos = StatUtils.min(raw_esf_pos) + rebinned_sample_inc;
+        double start_pos = StatUtils.min(raw_esf_pos);// + rebinned_sample_inc;
         double num_samples = Math.floor((StatUtils.max(raw_esf_pos) - start_pos) / rebinned_sample_inc);
 
         // Populate an array containing the regularly-spaced locations for the ESF.
@@ -434,16 +435,20 @@ public class TaskTransferFunction_ implements PlugInFilter {
         UnivariateInterpolator interpolator;
         UnivariateFunction function;
 
-        if (this.esf_proc_choice_idx == LINEAR_REGRESSION) {
+        if (this.esf_proc_choice_idx == REBIN) {
+            ESF_result temp = rebinESF(raw_esf_pos, raw_esf_val, rebinned_sample_inc, rebinned_sample_inc);
+            esf_rebinned_pos = temp.pos;
+            esf_rebinned_val = temp.val;
+            interpolator = new LinearInterpolator();
+            function = interpolator.interpolate(esf_rebinned_pos, esf_rebinned_val);
+        }
+        else if (this.esf_proc_choice_idx == LINEAR_REGRESSION) {
             // Calculate resampled ESF values using linear interpolation
             interpolator = new LinearInterpolator();
             function = interpolator.interpolate(raw_esf_pos, raw_esf_val);
-            //double[] esf_rebinned_val = new double[esf_rebinned_pos.length];
             for (i = 0; i < esf_rebinned_val.length; i++) {
                 esf_rebinned_val[i] = function.value(esf_rebinned_pos[i]);
             }
-            // Could apply a loess to the linear regression data at this point
-            //esf_rebinned_val = new LoessInterpolator(this.loess_bandwidth, this.loess_robustness).smooth(esf_rebinned_pos, esf_rebinned_val);
         }
         else {
             // Calculate resampled ESF values using local regression with the Apache Commons Math 3.6 API. See:
@@ -1061,6 +1066,56 @@ public class TaskTransferFunction_ implements PlugInFilter {
                 }
             }
             rebinned[1][i] = sum / count;
+        }
+
+        // Check for NaN values, and interpolate if any are found
+        for (int i = 0; i < num_intervals; i++) {
+            if (Double.isNaN(rebinned[1][i])) {
+                double upper_pos = Double.NaN;
+                double upper_val = Double.NaN;
+                double lower_pos = Double.NaN;
+                double lower_val = Double.NaN;
+
+                // Find first value above i that has a value
+                for (int upper_i = i+1; upper_i < num_intervals; upper_i++) {
+                    if (!Double.isNaN(rebinned[1][upper_i])) {
+                        upper_pos = rebinned[0][upper_i];
+                        upper_val = rebinned[1][upper_i];
+                        break;
+                    }
+                }
+
+                // Find first value below i that has a value
+                for (int lower_i = i-1; lower_i >= 0; lower_i--) {
+                    if (!Double.isNaN(rebinned[1][lower_i])) {
+                        lower_pos = rebinned[0][lower_i];
+                        lower_val = rebinned[1][lower_i];
+                        break;
+                    }
+                }
+
+                // If upper_val is still NaN then we've got to the end and not found a value
+                // so set the upper data to be equal to the lower data
+                if (Double.isNaN(upper_val)) {
+                    if (!Double.isNaN(lower_val)) {
+                        upper_pos = lower_pos;
+                        upper_val = lower_val;
+                    }
+                }
+
+                // If lower_val is still NaN then we've got to the end and not found a value
+                // so set the lower data to be equal to the upper data
+                if (Double.isNaN(lower_val)) {
+                    if (!Double.isNaN(upper_val)) {
+                        lower_pos = upper_pos;
+                        lower_val = upper_val;
+                    }
+                }
+
+                // Interpolate between the upper and lower values
+                double gradient = (upper_val - lower_val) / (upper_pos - lower_pos);
+                rebinned[1][i] = lower_val + ((rebinned[0][i] - lower_pos) * gradient);
+            }
         }
 
         return rebinned;
