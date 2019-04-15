@@ -269,6 +269,11 @@ public class TaskTransferFunction_ implements PlugInFilter {
         Roi outer_roi = new OvalRoi(this.cal.getRawX(this.com[0]) - outer_dia/2.0, this.cal.getRawY(this.com[1]) - outer_dia/2.0, outer_dia, outer_dia);
         Roi annular_roi = new ShapeRoi(outer_roi).xor(new ShapeRoi(inner_roi));
 
+        // Define an ROI that is 4 pixels larger in diameter than the object diameter
+        // to use for the final calculation of the centre of mass
+        int com_roi_dia = (int) Math.ceil(this.obj_dia_mm / pixel_size_in_mm) + 4;
+        Roi com_roi = new OvalRoi(this.cal.getRawX(this.com[0]) - com_roi_dia/2.0, this.cal.getRawY(this.com[1]) - com_roi_dia/2.0, com_roi_dia, com_roi_dia);
+
         if (this.find_com) {
             //---------------------------------------------------------------------
             // Obtain the centre of mass of the ROI set by the user.
@@ -297,15 +302,16 @@ public class TaskTransferFunction_ implements PlugInFilter {
             this.com = centreOfMass(ip, inner_roi, this.cal, -bgd_mean);
             if (this.log_results) IJ.log("Adjusted CoM:," + this.three_dp.format(this.com[0]) + "," + this.three_dp.format(this.com[1]));
 
-            // Recentre the annualar roi on the new CoM and recalculate CoM  for a final time
-            //annular_roi.setLocation(this.cal.getRawX(com[0]) - obj_dia_pix, this.cal.getRawY(com[1]) - obj_dia_pix);
+            // Recentre the annualar roi on the new CoM and recalculate CoM for a final time
             annular_roi.setLocation(this.cal.getRawX(this.com[0]) - annular_roi.getFloatWidth()/2.0, this.cal.getRawY(this.com[1]) - annular_roi.getFloatHeight()/2.0);
             this.imp.setRoi(annular_roi);
             annular_stats = this.imp.getAllStatistics();
             bgd_mean = annular_stats.mean;
-            this.imp.setRoi(outer_roi);
-            //this.com = centreOfMass(ip, outer_roi, cal, -bgd_mean);
-            this.com = centreOfMass(ip, inner_roi, cal, -bgd_mean);
+
+            // Set the tightly-fitting com ROI and use this for the final calculation of the centre of mass
+            com_roi.setLocation(this.cal.getRawX(this.com[0]) - com_roi.getFloatWidth()/2.0, this.cal.getRawY(this.com[1]) - com_roi.getFloatHeight()/2.0);
+            this.imp.setRoi(com_roi);
+            this.com = centreOfMass(ip, com_roi, cal, -bgd_mean);
 
             // Use the low-pass filter method if selected
             if (this.use_low_pass) {
@@ -323,22 +329,17 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
         if (this.log_results) IJ.log("Final CoM:," + this.three_dp.format(this.com[0]) + "," + this.three_dp.format(this.com[1]));
 
-        // Add a marker to the image showing the location of the CoM
-        Roi com_marker = new PointRoi(this.cal.getRawX(this.com[0]), this.cal.getRawY(this.com[1]));
-        Overlay com_overlay = new Overlay(com_marker);
-        com_overlay.setStrokeColor(Color.red);
-        this.imp.setOverlay(com_overlay);
-
         // Recentre the outer_roi and annular_roi using the centre of mass.
         outer_roi.setLocation(this.cal.getRawX(this.com[0]) - outer_roi.getFloatWidth()/2.0, this.cal.getRawY(this.com[1]) - outer_roi.getFloatHeight()/2.0);
         annular_roi.setLocation(this.cal.getRawX(this.com[0]) - annular_roi.getFloatWidth()/2.0, this.cal.getRawY(this.com[1]) - annular_roi.getFloatHeight()/2.0);
 
-        // Create an overlay to display the annular ROI and CoM on the image.
-        Overlay overlay = new Overlay();
-        this.imp.setOverlay(overlay);
-        overlay.add(this.main_roi);
-        overlay.add(annular_roi);
+        // Add a marker to the image showing the location of the CoM
+        Roi com_marker = new PointRoi(this.cal.getRawX(this.com[0]), this.cal.getRawY(this.com[1]));
+        Overlay overlay = new Overlay(com_marker);
         overlay.add(com_marker);
+        overlay.add(com_roi);
+        overlay.add(annular_roi);
+        this.imp.setOverlay(overlay);
         //---------------------------------------------------------------------
 
 
