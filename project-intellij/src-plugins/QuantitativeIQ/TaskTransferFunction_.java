@@ -293,7 +293,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
             // Recalculate the CoM with background subtracted
             outer_roi.setLocation(this.cal.getRawX(this.com[0]) - outer_roi.getFloatWidth()/2.0, this.cal.getRawY(this.com[1]) - outer_roi.getFloatHeight()/2.0);
             this.imp.setRoi(outer_roi);
-            this.com = centreOfMass(ip, outer_roi, this.cal, -bgd_mean);
+            //this.com = centreOfMass(ip, outer_roi, this.cal, -bgd_mean);
+            this.com = centreOfMass(ip, inner_roi, this.cal, -bgd_mean);
             if (this.log_results) IJ.log("Adjusted CoM:," + this.three_dp.format(this.com[0]) + "," + this.three_dp.format(this.com[1]));
 
             // Recentre the annualar roi on the new CoM and recalculate CoM  for a final time
@@ -303,7 +304,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
             annular_stats = this.imp.getAllStatistics();
             bgd_mean = annular_stats.mean;
             this.imp.setRoi(outer_roi);
-            this.com = centreOfMass(ip, outer_roi, cal, -bgd_mean);
+            //this.com = centreOfMass(ip, outer_roi, cal, -bgd_mean);
+            this.com = centreOfMass(ip, inner_roi, cal, -bgd_mean);
 
             // Use the low-pass filter method if selected
             if (this.use_low_pass) {
