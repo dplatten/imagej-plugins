@@ -295,6 +295,22 @@ public class TaskTransferFunction_ implements PlugInFilter {
             ImageStatistics annular_stats = this.imp.getAllStatistics();
             double bgd_mean = annular_stats.mean;
 
+
+            // TEST using template matching to find where the region is
+            ImagePlus template = createDiscTemplate(this.obj_dia_mm, this.cal.pixelWidth, this.cal);
+            template.show();
+
+            this.imp.setRoi(this.main_roi);
+            ImagePlus image = imp.crop();
+            double[] result = templateMatch(image, template, bgd_mean);
+            double x_centre = result[0] + this.main_roi.getXBase() + template.getWidth()/2.0;
+            double y_centre = result[1] + this.main_roi.getYBase() + template.getHeight()/2.0;
+
+            IJ.log("Centre using template match is: " + x_centre + ", " + y_centre);
+            IJ.log("Centre using template match is: " + cal.getX(x_centre) + ", " + cal.getY(y_centre));
+            // TEST end
+
+
             // Recalculate the CoM with background subtracted
             outer_roi.setLocation(this.cal.getRawX(this.com[0]) - outer_roi.getFloatWidth()/2.0, this.cal.getRawY(this.com[1]) - outer_roi.getFloatHeight()/2.0);
             this.imp.setRoi(outer_roi);
@@ -1265,5 +1281,67 @@ public class TaskTransferFunction_ implements PlugInFilter {
         }
 
         return result;
+    }
+
+
+    private static double[] templateMatch(ImagePlus image, ImagePlus template, double image_bgd) {
+        double max_corr = 0.0;
+
+        int best_x = 0;
+        int best_y = 0;
+
+        ImageProcessor image_ip = image.getProcessor();
+        ImageProcessor template_ip = template.getProcessor();
+
+        // loop through the search image
+        for ( int x = 0; x <= image.getWidth() - template.getWidth(); x++ ) {
+            for ( int y = 0; y <= image.getHeight() - template.getHeight(); y++ ) {
+                double corr = 0.0;
+
+                // loop through the template image
+                for ( int i = 0; i < template.getWidth(); i++ )
+                    for ( int j = 0; j < template.getHeight(); j++ ) {
+                        corr += Math.abs((image_ip.getPixelValue(x+i, y+j) - image_bgd) * template_ip.getPixelValue(i, j));
+                    }
+
+                // save the best found position
+                if ( corr > max_corr ) {
+                    max_corr = corr;
+
+                    // give me min SAD
+                    best_x = x;
+                    best_y = y;
+                }
+            }
+        }
+
+        return new double[] {best_x, best_y};
+    }
+
+
+    private static ImagePlus createDiscTemplate(double disc_diameter_in_mm, double pixel_size_in_mm, Calibration cal) {
+        double radius_sqrd = (disc_diameter_in_mm / 2.0) * (disc_diameter_in_mm / 2.0);
+
+        int pixel_dimensions = (int) Math.ceil(disc_diameter_in_mm / pixel_size_in_mm);
+
+        double[][] tempate_data = new double[pixel_dimensions][pixel_dimensions];
+
+        double x_min = -1.0 * disc_diameter_in_mm / 2.0;
+        double y_min = -1.0 * disc_diameter_in_mm / 2.0;
+        double x_pos, y_pos;
+
+        for (int x=0; x<pixel_dimensions; x++) {
+            x_pos = x_min + ((x+0.5) * pixel_size_in_mm);
+            for (int y=0; y<pixel_dimensions; y++) {
+                y_pos = y_min + ((y+0.5) * pixel_size_in_mm);
+                if (x_pos*x_pos + y_pos*y_pos <= radius_sqrd) tempate_data[x][y] = 1.0;
+            }
+        }
+
+        ImagePlus template = NewImage.createFloatImage("Template", pixel_dimensions, pixel_dimensions, 1, NewImage.FILL_BLACK);
+        template.getProcessor().setFloatArray(convertDoubleToFloat(tempate_data));
+        template.setCalibration(cal);
+
+        return template;
     }
 }
