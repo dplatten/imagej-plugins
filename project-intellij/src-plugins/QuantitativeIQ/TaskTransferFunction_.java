@@ -275,72 +275,41 @@ public class TaskTransferFunction_ implements PlugInFilter {
         Roi com_roi = new OvalRoi(this.cal.getRawX(this.com[0]) - com_roi_dia/2.0, this.cal.getRawY(this.com[1]) - com_roi_dia/2.0, com_roi_dia, com_roi_dia);
 
         if (this.find_com) {
-            //---------------------------------------------------------------------
-            // Obtain the centre of mass of the ROI set by the user.
-            this.imp.setRoi(this.main_roi);
-            this.com = centreOfMass(ip, this.main_roi, this.cal, 0.0);
-            if (this.log_results) IJ.log("Initial CoM:," + this.three_dp.format(this.com[0]) + "," + this.three_dp.format(this.com[1]));
-            //---------------------------------------------------------------------
+            // Determine the mean background value of a 2 pixel wide region just outside the main roi
+            double bgd_mean;
+            String roi_type = this.main_roi.getTypeAsString();
+            Roi bgd_outer;
+            if (roi_type.equals("Rectangle")) bgd_outer = new Roi(this.main_roi.getXBase() - 2, this.main_roi.getYBase() - 2, this.main_roi.getFloatWidth() + 4, this.main_roi.getFloatHeight() + 4);
+            else bgd_outer = new OvalRoi(this.main_roi.getXBase() - 2, this.main_roi.getYBase() - 2, this.main_roi.getFloatWidth() + 4, this.main_roi.getFloatHeight() + 4);
+
+            Roi bgd_roi = new ShapeRoi(bgd_outer).xor(new ShapeRoi(this.main_roi));
+            this.imp.setRoi(bgd_roi);
+            ImageStatistics bgd_stats = this.imp.getAllStatistics();
+            bgd_mean = bgd_stats.mean;
 
 
-            //---------------------------------------------------------------------
-            // Recalculate the CoM after subtracting the background using an
-            // annular region of interest centred on the centre of mass that has an
-            // internal diameter of object diameter + 10 mm and an external
-            // diameter of 2 x object diameter.
-            annular_roi.setLocation(this.cal.getRawX(this.com[0]) - annular_roi.getFloatWidth()/2.0, this.cal.getRawY(this.com[1]) - annular_roi.getFloatHeight()/2.0);
-
-            // Obtain the mean pixel value of the annular ROI
-            this.imp.setRoi(annular_roi);
-            ImageStatistics annular_stats = this.imp.getAllStatistics();
-            double bgd_mean = annular_stats.mean;
-
-
-            // TEST using template matching to find where the region is
+            // Use template matching to find the position of the object
             ImagePlus template = createDiscTemplate(this.obj_dia_mm, this.cal.pixelWidth, this.cal);
             template.show();
 
             this.imp.setRoi(this.main_roi);
             ImagePlus image = imp.crop();
             double[] result = templateMatch(image, template, bgd_mean);
-            double x_centre = result[0] + this.main_roi.getXBase() + template.getWidth()/2.0;
-            double y_centre = result[1] + this.main_roi.getYBase() + template.getHeight()/2.0;
-
-            IJ.log("Centre using template match is: " + x_centre + ", " + y_centre);
-            IJ.log("Centre using template match is: " + cal.getX(x_centre) + ", " + cal.getY(y_centre));
-            // TEST end
+            com[0] = cal.getX(result[0] + this.main_roi.getXBase() + template.getWidth()/2.0);
+            com[1] = cal.getY(result[1] + this.main_roi.getYBase() + template.getHeight()/2.0);
+            IJ.log("Centre using template match is: " + com[0] + ", " + com[1]);
 
 
-            // Recalculate the CoM with background subtracted
-            outer_roi.setLocation(this.cal.getRawX(this.com[0]) - outer_roi.getFloatWidth()/2.0, this.cal.getRawY(this.com[1]) - outer_roi.getFloatHeight()/2.0);
-            this.imp.setRoi(outer_roi);
-            //this.com = centreOfMass(ip, outer_roi, this.cal, -bgd_mean);
-            this.com = centreOfMass(ip, inner_roi, this.cal, -bgd_mean);
-            if (this.log_results) IJ.log("Adjusted CoM:," + this.three_dp.format(this.com[0]) + "," + this.three_dp.format(this.com[1]));
-
-            // Recentre the annualar roi on the new CoM and recalculate CoM for a final time
+            // Recentre the annualar roi on the CoM and recalculate CoM using a tightly-fitting ROI around the current CoM
             annular_roi.setLocation(this.cal.getRawX(this.com[0]) - annular_roi.getFloatWidth()/2.0, this.cal.getRawY(this.com[1]) - annular_roi.getFloatHeight()/2.0);
             this.imp.setRoi(annular_roi);
-            annular_stats = this.imp.getAllStatistics();
+            ImageStatistics annular_stats = this.imp.getAllStatistics();
             bgd_mean = annular_stats.mean;
 
             // Set the tightly-fitting com ROI and use this for the final calculation of the centre of mass
             com_roi.setLocation(this.cal.getRawX(this.com[0]) - com_roi.getFloatWidth()/2.0, this.cal.getRawY(this.com[1]) - com_roi.getFloatHeight()/2.0);
             this.imp.setRoi(com_roi);
             this.com = centreOfMass(ip, com_roi, cal, -bgd_mean);
-
-            // Use the low-pass filter method if selected
-            if (this.use_low_pass) {
-                this.main_roi.setLocation(this.cal.getRawX(this.com[0]) - this.main_roi.getFloatWidth()/2.0, this.cal.getRawY(this.com[1]) - this.main_roi.getFloatHeight()/2.0);
-                double[] com_low_pass = centreOfMassLowFreqFilter(ip, this.main_roi, this.cal, this.obj_dia_mm, -bgd_mean);
-                if (com_low_pass != null) {
-                    this.com = com_low_pass;
-                    if (this.log_results)
-                        IJ.log("CoM after low-pass filter:," + this.three_dp.format(com[0]) + "," + this.three_dp.format(com[1]));
-                } else {
-                    IJ.error("Could not work out centre of mass using low-pass filter.\nUsing existing centre of mass.");
-                }
-            }
         }
 
         if (this.log_results) IJ.log("Final CoM:," + this.three_dp.format(this.com[0]) + "," + this.three_dp.format(this.com[1]));
