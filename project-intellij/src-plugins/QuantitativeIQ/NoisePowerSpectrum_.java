@@ -353,8 +353,8 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
      * @return Two-dimensional array of the same dimensions as the input
      */
     private static double[][] multiply2dDoubleArray(final double[][] values, final double mult_val) {
-        int width = values[0].length;
-        int height = values.length;
+        int width = values.length;
+        int height = values[0].length;
 
         final double[][] result = new double[width][height];
 
@@ -373,13 +373,13 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
      * @return Two-dimensional array of Float values
      */
     private static float[][] convertDoubleToFloat(final double[][] values) {
-        int width = values[0].length;
-        int height = values.length;
+        int width = values.length;
+        int height = values[0].length;
 
         final float[][] result = new float[width][height];
 
         for (int i=0; i<width; i++) {
-            for (int j=0; j<width; j++) {
+            for (int j=0; j<height; j++) {
                 result[i][j] = (float) values[i][j];
             }
         }
@@ -393,8 +393,8 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
      * @return Two-dimensional array of Complex values
      */
     private static Complex[][] convertDoubleToComplex(final double[][] values) {
-        int width = values[0].length;
-        int height = values.length;
+        int width = values.length;
+        int height = values[0].length;
 
         final Complex[][] result = new Complex[width][height];
 

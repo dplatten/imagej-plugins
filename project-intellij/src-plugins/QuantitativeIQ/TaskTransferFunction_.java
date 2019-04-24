@@ -294,7 +294,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
             this.imp.setRoi(this.main_roi);
             ImagePlus image = imp.crop();
-            double[] result = templateMatch(image, template, bgd_mean);
+            double[] result = templateMatch(image, template, bgd_mean, true);
             com[0] = cal.getX(result[0] + this.main_roi.getXBase() + template.getWidth()/2.0);
             com[1] = cal.getY(result[1] + this.main_roi.getYBase() + template.getHeight()/2.0);
             IJ.log("Centre using template match is: " + com[0] + ", " + com[1]);
@@ -1175,13 +1175,13 @@ public class TaskTransferFunction_ implements PlugInFilter {
      * @return Two-dimensional array of Double values
      */
     private static double[][] convertFloatToDouble(final float[][] values) {
-        int width = values[0].length;
-        int height = values.length;
+        int width = values.length;
+        int height = values[0].length;
 
         final double[][] result = new double[width][height];
 
         for (int i=0; i<width; i++) {
-            for (int j=0; j<width; j++) {
+            for (int j=0; j<height; j++) {
                 result[i][j] = (double) values[i][j];
             }
         }
@@ -1195,13 +1195,13 @@ public class TaskTransferFunction_ implements PlugInFilter {
      * @return Two-dimensional array of Float values
      */
     private static float[][] convertDoubleToFloat(final double[][] values) {
-        int width = values[0].length;
-        int height = values.length;
+        int width = values.length;
+        int height = values[0].length;
 
         final float[][] result = new float[width][height];
 
         for (int i=0; i<width; i++) {
-            for (int j=0; j<width; j++) {
+            for (int j=0; j<height; j++) {
                 result[i][j] = (float) values[i][j];
             }
         }
@@ -1214,13 +1214,13 @@ public class TaskTransferFunction_ implements PlugInFilter {
      * @return Two-dimensional array of Complex values
      */
     private static float[][] convertComplexToFloat(final Complex[][] values) {
-        int width = values[0].length;
-        int height = values.length;
+        int width = values.length;
+        int height = values[0].length;
 
         final float[][] result = new float[width][height];
 
         for (int i=0; i<width; i++) {
-            for (int j=0; j<width; j++) {
+            for (int j=0; j<height; j++) {
                 result[i][j] = (float) values[i][j].abs();
             }
         }
@@ -1253,7 +1253,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
     }
 
 
-    private static double[] templateMatch(ImagePlus image, ImagePlus template, double image_bgd) {
+    private static double[] templateMatch(ImagePlus image, ImagePlus template, double image_bgd, boolean show_corr_map) {
         double max_corr = 0.0;
 
         int best_x = 0;
@@ -1262,10 +1262,15 @@ public class TaskTransferFunction_ implements PlugInFilter {
         ImageProcessor image_ip = image.getProcessor();
         ImageProcessor template_ip = template.getProcessor();
 
+        double[][] corr_data = new double[1][1];
+        if (show_corr_map) corr_data = new double[image.getWidth() - template.getWidth()+1][image.getHeight() - template.getHeight()+1];
+
         // loop through the search image
         for ( int x = 0; x <= image.getWidth() - template.getWidth(); x++ ) {
-            for ( int y = 0; y <= image.getHeight() - template.getHeight(); y++ ) {
-                double corr = 0.0;
+            int y;
+            double corr = 0.0;
+            for ( y = 0; y <= image.getHeight() - template.getHeight(); y++ ) {
+                corr = 0.0;
 
                 // loop through the template image
                 for ( int i = 0; i < template.getWidth(); i++ )
@@ -1281,7 +1286,18 @@ public class TaskTransferFunction_ implements PlugInFilter {
                     best_x = x;
                     best_y = y;
                 }
+
+                if (show_corr_map) corr_data[x][y] = corr;
             }
+        }
+
+        if (show_corr_map) {
+            ImagePlus corr_image = NewImage.createFloatImage("Correlation", corr_data.length, corr_data[0].length, 1, NewImage.FILL_BLACK);
+            corr_image.getProcessor().setFloatArray(convertDoubleToFloat(corr_data));
+            corr_image.show();
+            corr_image.updateAndDraw();
+            IJ.run(corr_image, "Enhance Contrast", "saturated=0.35");
+            IJ.run("Set... ", "zoom=800");
         }
 
         return new double[] {best_x, best_y};
