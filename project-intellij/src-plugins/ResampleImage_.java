@@ -2,16 +2,14 @@
 //
 // David Platten, 2019
 //
-//package ij.plugin;
 import ij.*;
-import ij.gui.*;
 import ij.measure.Calibration;
 import ij.plugin.Duplicator;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.*;
 
 public class ResampleImage_ implements PlugInFilter {
-    protected ImagePlus imp;
+    private ImagePlus imp;
     private Calibration cal;
     private int mask_value = -2048;
     private float p = 0.5f;
@@ -55,15 +53,13 @@ public class ResampleImage_ implements PlugInFilter {
                     img_copy_ip.putPixel(x, y, (int) (count / this.p));
                 }
     		}
+            // Update the image each time a row is complete
             img_copy.updateAndDraw();
 
             // Update the progress bar
     		float progress = (float)y / (float)height;
-        	IJ.showStatus("Calculating column " + y + " of " + height);
+        	IJ.showStatus("Calculating row " + y + " of " + height);
     		IJ.showProgress(progress);
     	}
-
-    	// Auto window and level a bit.
-    	IJ.run("Enhance Contrast", "saturated=0.35");
     }
 }
