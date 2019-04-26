@@ -3,6 +3,7 @@
 // David Platten, 2019
 //
 import ij.*;
+import ij.gui.GenericDialog;
 import ij.measure.Calibration;
 import ij.plugin.Duplicator;
 import ij.plugin.filter.PlugInFilter;
@@ -13,19 +14,26 @@ public class ResampleImage_ implements PlugInFilter {
     private Calibration cal;
     private int mask_value = -2048;
     private float p = 0.5f;
+    private boolean rescale_values = false;
 
     public int setup(String arg, ImagePlus imp) {
     	this.imp = imp;
     	this.cal = imp.getCalibration();
 
-        if ((arg != null) && (arg.length() > 0)) {
-            this.p = Float.parseFloat(arg);
-            this.mask_value = (int) IJ.getNumber("Enter mask value", this.mask_value);
+        GenericDialog gd = new GenericDialog("Processing options");
+        gd.addNumericField("Resampling factor (0.0 - 1.0", this.p, 2);
+        gd.addNumericField("Enter mask value (pixels with this value will be ignored)", this.mask_value, 0);
+        gd.addCheckbox("Re-scale results to maintain mean values?", this.rescale_values);
+
+        gd.showDialog();
+        if(gd.wasCanceled()) {
+            IJ.error("Plugin cancelled");
+            return(0);
         }
-        else {
-            this.p = (float) IJ.getNumber("Enter resampling fraction", this.p);
-            this.mask_value = (int) IJ.getNumber("Enter mask value", this.mask_value);
-        }
+
+        this.p = (float) gd.getNextNumber();
+        this.mask_value = (int) gd.getNextNumber();
+        this.rescale_values = gd.getNextBoolean();
 
     	return DOES_ALL;
     }
@@ -49,8 +57,12 @@ public class ResampleImage_ implements PlugInFilter {
                     for (int n = 0; n < current_val; n++) {
                         if (Math.random() < this.p) count++;
                     }
+
+                    // Rescale count back to the original value if required
+                    if (this.rescale_values) count /= this.p;
+
                     // Set this pixel location to be the value of count
-                    img_copy_ip.putPixel(x, y, (int) (count / this.p));
+                    img_copy_ip.putPixel(x, y, (int) count);
                 }
     		}
             // Update the image each time a row is complete
