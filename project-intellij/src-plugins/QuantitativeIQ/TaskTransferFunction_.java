@@ -297,7 +297,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
             double[] result = templateMatch(image, template, bgd_mean, true);
             com[0] = cal.getX(result[0] + this.main_roi.getXBase() + template.getWidth()/2.0);
             com[1] = cal.getY(result[1] + this.main_roi.getYBase() + template.getHeight()/2.0);
-            IJ.log("Centre using template match is: " + com[0] + ", " + com[1]);
+            if (this.log_results) IJ.log("Centre using template match is: " + com[0] + ", " + com[1]);
 
 
             // Recentre the annualar roi on the CoM and recalculate CoM using a tightly-fitting ROI around the current CoM
