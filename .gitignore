@@ -1,9 +1,11 @@
+project-intellij/jars/QuantitativeIQ_.jar
 project-intellij/.idea/*
 project-intellij/.idea/workspace.xml
 *.class
 .idea*
 project-intellij/.idea
 project-intellij/plugins
+project-intellij/plugins/*
+project-intellij/plugins/Filters/*
 project-intellij/jars/DRIQ_.jar
 project-intellij/plugins/DRIQ_.jar
-
