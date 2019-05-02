@@ -3,3 +3,5 @@ project-intellij/.idea/workspace.xml
 *.class
 .idea*
 project-intellij/.idea
+project-intellij/plugins/*
+project-intellij/plugins/Filters/*
