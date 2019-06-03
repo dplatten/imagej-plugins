@@ -1,4 +1,3 @@
-package QuantitativeIQ;// ImageJ plugin to calculate the noise power spectrum
 //
 // The routine will run on a user-selected oval region of interest (ROI). If no
 // ROI is selected then the routine uses the whole image.
@@ -142,6 +141,12 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
      * @param ip The ImageProcessor that is passed to this method
      */
     public void run(ImageProcessor ip) {
+        // Requires at least ImageJ version 1.52b as this is when the isStack()
+        // method of the ImagePlus class was introduced:
+        // https://imagej.nih.gov/ij/developer/api/ij/ImagePlus.html#isStack--
+        if (IJ.versionLessThan("1.52b")) return;
+
+
         //---------------------------------------------------------------------
         // Obtain the pixel size of the image. This will return 1.0 if ImageJ
         // isn't able to read the pixel size from the DICOM tags.

@@ -1,4 +1,3 @@
-package QuantitativeIQ;
 // ImageJ plugin to calculate the task transfer function of a circular object present in an image.
 //
 // The routine will run on a user-selected oval region of interest (ROI). If no
@@ -244,6 +243,12 @@ public class TaskTransferFunction_ implements PlugInFilter {
      * @param ip The ImageProcessor
      */
     public void run(ImageProcessor ip) {
+        // Requires at least ImageJ version 1.52b as this is when the isStack()
+        // method of the ImagePlus class was introduced:
+        // https://imagej.nih.gov/ij/developer/api/ij/ImagePlus.html#isStack--
+        if (IJ.versionLessThan("1.52b")) return;
+
+
         if (this.use_average_stack) {
             ip = this.imp.getProcessor();
         }

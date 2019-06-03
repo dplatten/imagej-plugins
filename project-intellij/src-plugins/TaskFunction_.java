@@ -1,4 +1,3 @@
-package QuantitativeIQ;
 // ImageJ plugin to calculate the task transfer function of a circular object
 // present in an image.
 //
@@ -145,6 +144,11 @@ public class TaskFunction_ implements PlugIn {
      * @param arg Not currently in use
      */
     public void run(String arg) {
+        // Requires at least ImageJ version 1.49v as this is when the ij.gui.Plot
+        // class was introduced:
+        // https://imagej.nih.gov/ij/developer/api/ij/gui/Plot.html
+        if (IJ.versionLessThan("1.49v")) return;
+
         // Produce a task function for the user, but don't do anything with it
         double pixel_size = 0.5;
 

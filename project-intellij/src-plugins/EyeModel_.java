@@ -1,4 +1,3 @@
-package QuantitativeIQ;
 import ij.IJ;
 import ij.gui.*;
 import ij.plugin.PlugIn;
@@ -251,6 +250,11 @@ public class EyeModel_ implements PlugIn {
      * @param arg If present then create the model; if missing then call the setup method then run
      */
     public void run(String arg) {
+        // Requires at least ImageJ version 1.49v as this is when the ij.gui.Plot
+        // class was introduced:
+        // https://imagej.nih.gov/ij/developer/api/ij/gui/Plot.html
+        if (IJ.versionLessThan("1.49v")) return;
+
         if ((arg != null) && (arg.length() > 0)) {
             if (this.model_choice == SOLOMON_ET_AL) {
                 this.SolomonEtAl();

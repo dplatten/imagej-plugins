@@ -1,4 +1,3 @@
-package QuantitativeIQ;
 // ImageJ plugin to calculate the detectability index of a circular object present in an image.
 //
 import ij.IJ;
@@ -87,6 +86,12 @@ public class DetectabilityIndex_ implements PlugInFilter {
      * @param ip The ImageProcessor to use
      */
     public void run(ImageProcessor ip) {
+        // Requires at least ImageJ version 1.52b as this is when the isStack()
+        // method of the ImagePlus class was introduced:
+        // https://imagej.nih.gov/ij/developer/api/ij/ImagePlus.html#isStack--
+        if (IJ.versionLessThan("1.52b")) return;
+
+
         // Calculate the detectability index according to equation 2 in http://dx.doi.org/10.1118/1.4923172,
         // adapted for radial frequency rather than u, v.
         //
