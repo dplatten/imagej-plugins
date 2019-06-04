@@ -27,8 +27,7 @@ public class ResampleImage_ implements PlugInFilter {
 
         gd.showDialog();
         if(gd.wasCanceled()) {
-            IJ.error("Plugin cancelled");
-            return(0);
+            return(DONE);
         }
 
         this.p = (float) gd.getNextNumber();

@@ -77,6 +77,17 @@ public class TaskTransferFunction_ implements PlugInFilter {
     private DecimalFormat two_dp = new DecimalFormat("0.00");
     private DecimalFormat three_dp = new DecimalFormat("0.000");
 
+    private static double TEMPLATE_ERROR = 99999.9;
+
+    private boolean ttf_success;
+
+    /** Method to enable other plugins to access the TTF status
+     *
+     * @return the status of the TTF calculation
+     */
+    boolean getTTFsuccess() {
+        return this.ttf_success;
+    }
 
     /** Method to enable or disable the display of plots
      *
@@ -150,7 +161,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
         this.imp = imp;
 
         if(this.imp == null) {
-            return(0);
+            return(DONE);
         }
 
         // Obtain the calibration for the ImagePlus, as this is lost if we use a z-projection of a stack
@@ -163,7 +174,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
         this.main_roi = imp.getRoi();
         if(this.main_roi == null) {
             IJ.error("Please draw an ROI around an object");
-            return(0);
+            return(DONE);
         }
 
         GenericDialog gd = new GenericDialog("Task transfer function options");
@@ -187,7 +198,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
         }
         gd.showDialog();
         if(gd.wasCanceled()) {
-            return(0);
+            return(DONE);
         }
 
         this.obj_dia_mm = gd.getNextNumber();
@@ -299,7 +310,13 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
             this.imp.setRoi(this.main_roi);
             ImagePlus image = imp.crop();
+
             double[] result = templateMatch(image, template, bgd_mean, true);
+            if (result[0] == TEMPLATE_ERROR) {
+                this.ttf_success = false;
+                return;
+            }
+
             com[0] = cal.getX(result[0] + this.main_roi.getXBase() + template.getWidth()/2.0);
             com[1] = cal.getY(result[1] + this.main_roi.getYBase() + template.getHeight()/2.0);
             if (this.log_results) IJ.log("Centre using template match is: " + com[0] + ", " + com[1]);
@@ -563,6 +580,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
         this.ttf_50 = ttf_50;
         this.ttf_10 = ttf_10;
         //---------------------------------------------------------------------
+
+        this.ttf_success = true;
     }
 
 
@@ -1280,8 +1299,15 @@ public class TaskTransferFunction_ implements PlugInFilter {
         ImageProcessor image_ip = image.getProcessor();
         ImageProcessor template_ip = template.getProcessor();
 
-        double[][] corr_data = new double[1][1];
-        if (show_corr_map) corr_data = new double[image.getWidth() - template.getWidth()+1][image.getHeight() - template.getHeight()+1];
+        double[][] corr_data = new double[0][0];
+
+        if (show_corr_map) {
+            if (image.getWidth() - template.getWidth()+1 < 0 || image.getHeight() - template.getHeight()+1 < 0) {
+                IJ.error("The object template is larger than the ROI, cannot carry out the match");
+                return new double[] {TEMPLATE_ERROR};
+            }
+            corr_data = new double[image.getWidth() - template.getWidth()+1][image.getHeight() - template.getHeight()+1];
+        }
 
         // loop through the search image
         for ( int x=0; x<=image.getWidth()-template.getWidth(); x++) {

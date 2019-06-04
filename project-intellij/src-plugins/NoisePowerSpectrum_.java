@@ -81,7 +81,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
         this.imp = imp;
 
         if(this.imp == null) {
-            return(0);
+            return(DONE);
         }
 
         // Remove any overlays that are present
@@ -119,7 +119,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
             }
             gd.showDialog();
             if(gd.wasCanceled()) {
-                return(1);
+                return(DONE);
             }
 
             this.record_radius = gd.getNextNumber();

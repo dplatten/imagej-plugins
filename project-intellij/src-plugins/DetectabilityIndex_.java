@@ -49,7 +49,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
         this.imp = imp;
         if (this.imp == null) {
             IJ.error("Please open an image");
-            return(0);
+            return(DONE);
         }
 
         GenericDialog gd = new GenericDialog("Plotting options");
@@ -69,12 +69,12 @@ public class DetectabilityIndex_ implements PlugInFilter {
         if (this.roi_manager == null) {
             this.roi_manager = new RoiManager();
             IJ.error("Please add at least one ROI to the ROI manager");
-            return (0);
+            return (DONE);
         }
 
         if (this.roi_manager.getCount() == 0) {
             IJ.error("Please add at least one ROI to the ROI manager");
-            return (0);
+            return (DONE);
         }
 
         return DOES_ALL;
@@ -172,6 +172,10 @@ public class DetectabilityIndex_ implements PlugInFilter {
             }
 
             TTF.run(ip);
+            if (TTF.getTTFsuccess() == false) {
+                IJ.error("There was a problem calculating the TTF.");
+                return;
+            }
             TaskTransferFunction_.TTF_result ttf_result = TTF.getTTFResult();
             double[] ttf_com = TTF.getCentreOfMass();
             TaskTransferFunction_.CNR_result cnr_result = TTF.getCNRResult();

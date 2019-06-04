@@ -47,8 +47,7 @@ public class TextureMap_ implements PlugInFilter {
     		 gd.addChoice("Processing:", items, "variance");
     		 gd.showDialog();
     		 if(gd.wasCanceled()) {
-    			 IJ.error("Plugin cancelled");
-    			 return(0);
+    			 return(DONE);
     		 }
     		 int index = Arrays.binarySearch(items, gd.getNextChoice());
     		 processingType = index;
