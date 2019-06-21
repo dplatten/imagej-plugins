@@ -5,10 +5,13 @@
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
+import ij.WindowManager;
 import ij.gui.*;
 import ij.measure.Calibration;
+import ij.plugin.FFT;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
+import ij.util.DicomTools;
 import org.apache.commons.math3.complex.Complex;
 import org.apache.commons.math3.complex.ComplexUtils;
 import org.apache.commons.math3.stat.StatUtils;
@@ -43,6 +46,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
     private DecimalFormat two_dp = new DecimalFormat("0.00");
     private DecimalFormat three_dp = new DecimalFormat("0.000");
 
+    private String recon_filter = "";
 
     /** Method to enable or disable the display of plots
      *
@@ -58,6 +62,34 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
     void setLogging(boolean log_contition) {
         this.log_results = log_contition;
     }
+
+
+    /** Method to return the average stack status
+     *
+     * @return The average stack setting
+     */
+    boolean getAverageStackStatus() { return this.use_average_stack; }
+
+
+    /** Method to return the minimum stack index that was used
+     *
+     * @return The minimum stack index
+     */
+    int getMinStackIndex() { return this.min_stack_index; }
+
+
+    /** Method to return the maximum stack index that was used
+     *
+     * @return The maximum stack index
+     */
+    int getMaxStackIndex() { return this.max_stack_index; }
+
+
+    /** Method to return the reconstruction filter
+     *
+     * @return The reconstruction filter
+     */
+    String getReconFilter() { return this.recon_filter; }
 
 
     /** Method to obtain the NPS results
@@ -83,6 +115,8 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
         if(this.imp == null) {
             return(DONE);
         }
+
+        this.recon_filter = DicomTools.getTag(this.imp, "0018,1210");
 
         // Remove any overlays that are present
         imp.setOverlay(null);
@@ -343,6 +377,20 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
             // Calculate the magnitude and square it
             double[][] nps_abs_sqrd = absSqrdOfComplex2dArray(nps);
+
+
+/*
+            IJ.run("FFT Options...", "raw");
+            FFT.forward(record);
+
+            // What you're currently doing, which gives the FFT results as a one-dimensional array:
+            float[] record_fft = (float[]) WindowManager.getCurrentImage().getProcessor().getPixels();
+
+            // What you could do instead, which gives the TTF results as a two-dimensional array:
+            float[][] record_fft_v2 = WindowManager.getCurrentImage().getProcessor().getFloatArray();
+*/
+
+
 
             // Add the current nps_abs_squared to the ensemble
             ensemble_nps = add2dArrays(ensemble_nps, nps_abs_sqrd);

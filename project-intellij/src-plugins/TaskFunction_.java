@@ -153,7 +153,7 @@ public class TaskFunction_ implements PlugIn {
         double pixel_size = 0.5;
 
         GenericDialog gd = new GenericDialog("Task function options");
-        gd.addNumericField("Task radius (mm)", this.task_radius, 2);
+        gd.addNumericField("Task diameter (mm)", this.task_radius * 2.0, 2);
         gd.addNumericField("Task contrast (HU)", this.task_contrast, 1);
         gd.addNumericField("Image pixel size (mm)", pixel_size, 3);
 
@@ -162,7 +162,7 @@ public class TaskFunction_ implements PlugIn {
             return;
         }
 
-        this.task_radius = gd.getNextNumber();
+        this.task_radius = gd.getNextNumber() / 2.0;
         this.task_contrast = gd.getNextNumber();
         pixel_size = gd.getNextNumber();
 
@@ -270,7 +270,7 @@ public class TaskFunction_ implements PlugIn {
     /** Method to produce a function of the sinc function of the current task function
      *
      */
-    void disc_function_sinc() {
+    private void disc_function_sinc() {
         // The Fourier transform of a rectangular function is a sinc function with
         // the height scaled by the height of the rectangular function multiplied
         // by the width. In this case height = task_contrast, and width = 2*task_radius

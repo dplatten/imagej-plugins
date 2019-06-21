@@ -14,6 +14,7 @@ import org.apache.commons.math3.analysis.integration.SimpsonIntegrator;
 import org.apache.commons.math3.analysis.integration.UnivariateIntegrator;
 import org.apache.commons.math3.analysis.interpolation.LinearInterpolator;
 import org.apache.commons.math3.analysis.interpolation.UnivariateInterpolator;
+
 import java.text.DecimalFormat;
 import ij.gui.Plot;
 
@@ -38,6 +39,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
     private boolean show_nps_plots = false;
     private boolean show_ttf_plots = true; // It's a good idea to review these to ensure the results are OK
 
+    private String results_filename = "results.csv";
 
     /** Method to set up the detectability index plugin
      *
@@ -145,12 +147,12 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
         // Ask the user what task size they want to use
         GenericDialog gd = new GenericDialog("Task function settings");
-        gd.addNumericField("Task radius (mm)", this.task_radius, 2);
+        gd.addNumericField("Task diameter (mm)", this.task_radius * 2.0, 2);
         gd.showDialog();
         if (gd.wasCanceled()) {
             return;
         } else {
-            this.task_radius = gd.getNextNumber();
+            this.task_radius = gd.getNextNumber() / 2.0;
         }
 
 
@@ -172,7 +174,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
             }
 
             TTF.run(ip);
-            if (TTF.getTTFsuccess() == false) {
+            if (!TTF.getTTFsuccess()) {
                 IJ.error("There was a problem calculating the TTF.");
                 return;
             }
@@ -282,15 +284,43 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
             // Log the results
             IJ.log("Detectability results" +
+                    "\nReconstruction filter," + TTF.getReconFilter() +
                     "\nDetectability," + this.two_dp.format(detectability) +
-                    "\nTask radius (mm)," + this.two_dp.format(this.task_radius) +
+                    "\nTask diameter (mm)," + this.two_dp.format(this.task_radius * 2.0) +
                     "\nContrast (HU)," + this.two_dp.format(cnr_result.contrast) +
                     "\nCNR," + this.two_dp.format(cnr_result.cnr) +
                     "\nNoise (HU)," + this.two_dp.format(cnr_result.noise) +
                     "\nTTF 50 (1/mm)," + this.two_dp.format(TTF.getTTF50()) +
                     "\nTTF 10 (1/mm)," + this.two_dp.format(TTF.getTTF10()) +
-                    "\nTTF centre of mass," + this.two_dp.format(ttf_com[0]) + "," + this.two_dp.format(ttf_com[1])
+                    "\nTTF centre of mass (x)," + this.two_dp.format(ttf_com[0]) +
+                    "\nTTF centre of mass (y)," + this.two_dp.format(ttf_com[1])
             );
+
+            if(TTF.getAverageStackStatus()) {
+                IJ.log("\nTTF average stack used,Yes" +
+                        "\nTTF min stack index," + TTF.getMinStackIndex() +
+                        "\nTTF max stack index," + TTF.getMaxStackIndex()
+                );
+            }
+            else {
+                IJ.log("\nTTF average stack used,No" +
+                        "\nTTF min stack index,N/A" +
+                        "\nTTF max stack index,N/A"
+                );
+            }
+
+            if(NPS.getAverageStackStatus()) {
+                IJ.log("\nNPS average stack used,Yes" +
+                        "\nNPS min stack index," + NPS.getMinStackIndex() +
+                        "\nNPS max stack index," + NPS.getMaxStackIndex()
+                );
+            }
+            else {
+                IJ.log("\nNPS average stack used,No" +
+                        "\nNPS min stack index,N/A" +
+                        "\nNPS max stack index,N/A"
+                );
+            }
 
             IJ.log("\nEye model settings used" +
                     "\nViewing distance (mm)," + this.one_dp.format(eye_model.getViewingDistance()) +
@@ -318,6 +348,22 @@ public class DetectabilityIndex_ implements PlugInFilter {
                 f += 0.01;
             }
             IJ.log("\n");
+
+            // See if the results filename needs to be updated.
+            if(this.results_filename.equals("results.csv") && !TTF.getReconFilter().equals("")) {
+                this.results_filename = TTF.getReconFilter() + " results.csv";
+            }
+        }
+
+        // Save the log file
+        IJ.selectWindow("Log");
+        String image_path = this.imp.getOriginalFileInfo().directory;
+
+        try {
+            IJ.saveAs("Text", image_path + this.results_filename);
+        }
+        catch(Exception e) {
+            IJ.error("There was an error when saving the results file:\n" + e);
         }
     }
 }

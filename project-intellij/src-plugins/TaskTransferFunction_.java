@@ -11,6 +11,7 @@ import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
 import ij.measure.Calibration;
 import ij.process.ImageStatistics;
+import ij.util.DicomTools;
 import org.apache.commons.math3.analysis.UnivariateFunction;
 import org.apache.commons.math3.analysis.differentiation.*;
 import org.apache.commons.math3.analysis.interpolation.*;
@@ -77,6 +78,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
     private DecimalFormat two_dp = new DecimalFormat("0.00");
     private DecimalFormat three_dp = new DecimalFormat("0.000");
 
+    private String recon_filter = "";
+
     private static double TEMPLATE_ERROR = 99999.9;
 
     private boolean ttf_success;
@@ -103,6 +106,34 @@ public class TaskTransferFunction_ implements PlugInFilter {
     void setAverageStack(boolean average_stack) {
         this.use_average_stack = average_stack;
     }
+
+
+    /** Method to return the average stack status
+     *
+     * @return The average stack setting
+     */
+    boolean getAverageStackStatus() { return this.use_average_stack; }
+
+
+    /** Method to return the minimum stack index that was used
+     *
+     * @return The minimum stack index
+     */
+    int getMinStackIndex() { return this.min_stack_index; }
+
+
+    /** Method to return the maximum stack index that was used
+     *
+     * @return The maximum stack index
+     */
+    int getMaxStackIndex() { return this.max_stack_index; }
+
+
+    /** Method to return the reconstruction filter
+     *
+     * @return
+     */
+    String getReconFilter() { return this.recon_filter; }
 
 
     /** Method to enable or disable writing to the ImageJ log
@@ -163,6 +194,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
         if(this.imp == null) {
             return(DONE);
         }
+
+        this.recon_filter = DicomTools.getTag(this.imp, "0018,1210");
 
         // Obtain the calibration for the ImagePlus, as this is lost if we use a z-projection of a stack
         this.cal = this.imp.getCalibration();
