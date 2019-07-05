@@ -45,7 +45,7 @@ of interest in a uniform image.
 This calculates the radial frequency response of the human eye according to one of two
 theoretical models.
 
-Richard and Siewerdsen 2008, http://dx.doi.org/10.1118/1.2988161:
+Equation 5 in Richard and Siewerdsen 2008, http://dx.doi.org/10.1118/1.2988161:
 
 E(f) = f^n.exp(-c.f^2)
 
@@ -54,7 +54,7 @@ where
 * n = 1.3
 * c = 3.093 for a 50 cm viewing distance for E(f) to peak at 4 cycles/degree
 
-or Solomon et al 2015, http://dx.doi.org/10.1118/1.4923172:
+or equation 3 in Solomon et al 2015, http://dx.doi.org/10.1118/1.4923172:
 
 E(p) = |n.p^(a1).exp(-a2.p^a3)|^2
 
@@ -66,7 +66,8 @@ where
 * n is a normalisation constant to make max E(p) = 1.0
 * p (rho, really) is angular spatial frequency expressed in cycles per degree
 
-p can be calculated from radial spatial frequency using:
+p can be calculated from radial spatial frequency using equation 4 in the
+Solomon et al paper:
 
 p = (f.FOV.R.pi) / (D.180)
 
@@ -90,9 +91,9 @@ diameter and contrast.
 ## DetectabilityIndex
 Uses the TaskTransferFunction, NoisePowerSpectrum, EyeModel and TaskFunction
 to calculate a numerical index that relates to the detectability of an object.
-The detectability index is calculated according to equation 2 in
+The detectability index (d') is calculated according to equation 2 in
 http://dx.doi.org/10.1118/1.4923172 adapted for radial frequency rather than u, v.
-
+The integration limits for calculating d' are 0 to the Nyquist frequency.
 
 
 # Using this repository
