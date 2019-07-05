@@ -49,11 +49,6 @@ Richard and Siewerdsen 2008, http://dx.doi.org/10.1118/1.2988161:
 
 E(f) = f^n.exp(-c.f^2)
 
-
-E(f) = f\ :sup:`n`\ .e\ :sup:`-c.f^2`
-
-
-
 where
 
 * n = 1.3
