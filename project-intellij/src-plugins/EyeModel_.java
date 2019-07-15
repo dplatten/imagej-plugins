@@ -7,29 +7,40 @@ import org.apache.commons.math3.util.MathArrays;
 import java.text.DecimalFormat;
 
 /**
+ *
  * ImageJ plugin to calculate eye frequency response using either
- * Richard and Siewerdsen 2008, http://dx.doi.org/10.1118/1.2988161:
- * E(f) = f^n.exp(-c.f^2)
- * where n = 1.3
- *       c = 3.093 for a 50 cm viewing distance for E(f) to peak at 4 cycles/degree
+ * Richard and Siewerdsen 2008, <a href="http://dx.doi.org/10.1118/1.2988161">http://dx.doi.org/10.1118/1.2988161</a>:
+ * <br><br>
+ * E(f) = f<sup>n</sup>.exp(-c.f<sup>2</sup>)
+ * <pre>
  *
- * or Solomon et al 2015, http://dx.doi.org/10.1118/1.4923172:
- * E(p) = |n.p^(a1).exp(-a2.p^a3)|^2
- * where a1 = 1.5
- *       a2 = 0.98
- *       a3 = 0.68
- *       n is a normalisation constant to make max E(p) = 1.0
- *       p (rho, really) is angular spatial frequency expressed in cycles per degree
+ * where f = radial spatial frequency (mm<sup>-1</sup>)
+ *       n = 1.3
+ *       c = 3.093 for a 50 cm viewing distance for E(f) to peak at 4 degree<sup>-1</sup>
+ * </pre>
+ * or Solomon et al 2015, <a href="http://dx.doi.org/10.1118/1.4923172">http://dx.doi.org/10.1118/1.4923172</a>:
+ * <br><br>
+ * E(&rho;) = |n.&rho;<sup>a<sub>1</sub></sup>.exp(-a<sub>2</sub>.&rho;<sup>a<sub>3</sub></sup>)|<sup>2</sup>
+ * <pre>
  *
- * p can be calculated from radial spatial frequency using:
- * p = (f.FOV.R.pi) / (D.180)
- * where f is radial spatial frequency
- *       FOV is the reconstructed field of view of the image
- *       R is the viewing distance
- *       D is the display size (assumed to be 30.5 cm in the Solomon paper)
+ * where a<sub>1</sub> = 1.5
+ *       a<sub>2</sub> = 0.98
+ *       a<sub>3</sub> = 0.68
+ *       n is a normalisation constant to make max E(&rho;) = 1.0
+ *       &rho; is angular spatial frequency (degree<sup>-1</sup>)
+ *
+ * &rho; can be calculated from radial spatial frequency using:
+ *
+ * &rho; = (f.FOV.R.&pi;) / (D.180)
+ *
+ * where f is radial spatial frequency (mm<sup>-1</sup>)
+ *       FOV is the reconstructed field of view of the image (mm)
+ *       R is the viewing distance (mm)
+ *       D is the display size (mm) (assumed to be 305 mm in the Solomon paper)
  *       Note to self: is D the physical size of the full image as displayed on the screen?
  *                     If so, can calculate this if know the pixel pitch in mm, the pixel
  *                     dimensions of the image and the zoom factor... this is what ImaQuest asks for
+ * </pre>
  */
 public class EyeModel_ implements PlugIn {
 
@@ -271,7 +282,7 @@ public class EyeModel_ implements PlugIn {
     }
 
 
-    /** Method to setup the  Richard and Siewerdsen model
+    /** Method to setup the <a href="http://dx.doi.org/10.1118/1.2988161">Richard and Siewerdsen</a> model
      *
      * @return 0 if all is well; 1 if the routine is cancelled
      */
@@ -311,7 +322,7 @@ public class EyeModel_ implements PlugIn {
     }
 
 
-    /** Method to calculate the eye model using Richard and Siewerdsen
+    /** Method to calculate the eye model using <a href="http://dx.doi.org/10.1118/1.2988161">Richard and Siewerdsen</a>
      *
      */
     private void RichardAndSiewerdsen() {
@@ -342,7 +353,7 @@ public class EyeModel_ implements PlugIn {
     }
 
 
-    /** Method to setup the Solomon et al eye model
+    /** Method to setup the Solomon et al eye model (<a href="http://dx.doi.org/10.1118/1.4923172">http://dx.doi.org/10.1118/1.4923172</a>)
      *
      * @return 0 if all is well; 1 if the routine was cancelled
      */
@@ -379,8 +390,8 @@ public class EyeModel_ implements PlugIn {
     }
 
 
-    /** Method to calculate the eye model using Solomon et al 2015 (http://dx.doi.org/10.1118/1.4923172). This
-     * method implements equation 3 in the Solomon et al 2015 work.
+    /** Method to calculate the eye model using Solomon et al 2015. This
+     * method implements equation 3 in the <a href="http://dx.doi.org/10.1118/1.4923172">Solomon et al 2015</a> work.
      */
     private void SolomonEtAl() {
         double a1 = 1.5;
@@ -449,17 +460,19 @@ public class EyeModel_ implements PlugIn {
 
 
     /** Method to calculate the conversion from radial frequency (per mm) to angular frequency (cycles per degree).
-     * This method uses equation 4 in http://dx.doi.org/10.1118/1.4923172 to calculate this factor:
-     *     rho = r.FOV.R.pi / (D.180)
+     * This method uses equation 4 in <a href="http://dx.doi.org/10.1118/1.4923172">http://dx.doi.org/10.1118/1.4923172</a> to calculate this factor:
+     * <br><br>
+     * &rho; = r.FOV.R.&pi; / (D.180)
      *
+     * <pre>
      * where:
-     *     rho is angular spatial frequency
-     *     r   is radial spatial frequency
-     *     FOV is the reconstructed field of view of the image
-     *     R   is the viewing distance
-     *     D   is the display size (I'm assuming this is the physical size of the image on the display)
-     *
-     * This method calculates FOV.R.pi / (D.180), so that values of radial frequency can be multiplied by this
+     *     &rho;   is angular spatial frequency (degree<sup>-1</sup>)
+     *     r   is radial spatial frequency in (mm<sup>-1</sup>)
+     *     FOV is the reconstructed field of view of the image (mm)
+     *     R   is the viewing distance (mm)
+     *     D   is the display size (mm) (I'm assuming this is the physical size of the image on the display)
+     * </pre>
+     * This method calculates FOV.R.&pi; / (D.180), so that values of radial frequency can be multiplied by this
      * factor to obtain values of angular spatial frequency.
      *
      * @return The conversion factor
