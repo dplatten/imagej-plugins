@@ -7,7 +7,6 @@ import org.apache.commons.math3.util.MathArrays;
 import java.text.DecimalFormat;
 
 /**
- *
  * ImageJ plugin to calculate eye frequency response using either
  * Richard and Siewerdsen 2008, <a href="http://dx.doi.org/10.1118/1.2988161">http://dx.doi.org/10.1118/1.2988161</a>:
  * <br><br>
@@ -113,7 +112,7 @@ public class EyeModel_ implements PlugIn {
 
     /** Method to set the frequency cut off
      *
-     * @param new_freq The new frequency cut off (per mm)
+     * @param new_freq The new frequency cut off (mm<sup>-1</sup>)
      */
     void setFreqCutoff(double new_freq) {
         this.cutoff_f = new_freq;
@@ -122,7 +121,7 @@ public class EyeModel_ implements PlugIn {
 
     /** Method to set the image reconstruction field of view
      *
-     * @param new_recon_fov The value of the image reconstruction field of view in mm.
+     * @param new_recon_fov The value of the image reconstruction field of view (mm).
      */
     void setReconFOV(double new_recon_fov) {
         this.recon_fov = new_recon_fov;
@@ -141,7 +140,7 @@ public class EyeModel_ implements PlugIn {
 
     /** Method to set the pixel pitch of the display monitor being used to view the image
      *
-     * @param new_display_pixel_pitch The physical size of single pixel of the display monitor in mm
+     * @param new_display_pixel_pitch The physical size of single pixel of the display monitor (mm)
      */
     void setDisplayPixelPitch(double new_display_pixel_pitch) {
         this.display_pixel_pitch = new_display_pixel_pitch;
@@ -152,7 +151,7 @@ public class EyeModel_ implements PlugIn {
 
     /** Method to get the pixel pitch of the display monitor being used to view the image
      *
-     * @return Returns the physical size of single pixel of the display monitor in mm
+     * @return Returns the physical size of single pixel of the display monitor (mm)
      */
     double getDisplayPixelPitch() {
         return this.display_pixel_pitch;
@@ -161,7 +160,7 @@ public class EyeModel_ implements PlugIn {
 
     /** Method to get the physical size of the image on the display screen
      *
-     * @return Returns the physical size of the image on the display screen
+     * @return Returns the physical size of the image on the display screen (mm)
      */
     double getDisplayedImageSize() {
         return this.display_size;
@@ -170,7 +169,7 @@ public class EyeModel_ implements PlugIn {
 
     /** Method to get the conversion factor from radial frequency to angular frequency.
      *
-     * @return Returns the conversion factor to go from radial (1/mm) to angular frequency (cycles/degree)
+     * @return Returns the conversion factor to go from radial (mm<sup>-1</sup>) to angular frequency (degree<sup>-1</sup>)
      */
     double getFreqToAngFreqFactor() {
         return this.f_to_rho;

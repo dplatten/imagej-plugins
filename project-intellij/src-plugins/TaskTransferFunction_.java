@@ -1,8 +1,3 @@
-// ImageJ plugin to calculate the task transfer function of a circular object present in an image.
-//
-// The routine will run on a user-selected oval region of interest (ROI). If no
-// ROI is selected then the routine exits.
-//
 import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.*;
@@ -29,7 +24,28 @@ import java.util.ArrayList;
 import java.util.Arrays;
 
 /**
- *
+ * ImageJ plugin to calculate the task transfer function (TTF) of a circular object present in an image. The routine
+ * will run on a user-selected region of interest (ROI). If no ROI is selected then the routine exits.
+ * <br><br>
+ * The main steps of the routine are:
+ * <ul>
+ *     <li>Set the centre of mass of the object to the centre of the ROI</li>
+ *     <li>If the user has chosen to find the centre of the object:
+ *     <ul>
+ *         <li>Calculate background using an annular ROI 2 pixels wide positioned outside the main ROI</li>
+ *         <li>Use template matching to find the centre of the circular object in a background-subtracted copy of the main ROI</li>
+ *         <li>Reposition the main ROI using the object centre determined above</li>
+ *         <li>Calculate the centre of mass using an ROI that is 4 pixels wider than the specified object diameter</li>
+ *     </ul>
+ *     </li>
+ *     <li>Centre the main ROI on the object centre of mass</li>
+ *     <li>Calculate contrast-to-noise ratio using a circular ROI with a diameter 50&nbsp;% of the object diameter and
+ *         an annular background ROI with inner and outer diameters of 150 and 200&nbsp;% of the object diameter</li>
+ *     <li>Construct an edge spread function (ESF) from the value of each pixel in a circular ROI twice the diameter of
+ *         the object vs. its distance from the object centre of mass</li>
+ *     <li>Differentiate the ESF to obtain the line spread function (LSF)</li>
+ *     <li>Fourier transform the LSF to obtain the TTF</li>
+ * </ul>
  */
 public class TaskTransferFunction_ implements PlugInFilter {
     private ImagePlus imp;
