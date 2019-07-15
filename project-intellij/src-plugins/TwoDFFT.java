@@ -96,10 +96,12 @@ class TwoDFFT {
 
 
     /** Method to transpose a 2d array of complex numbers: the row and column indices are swapped.
-     *   1   2   3   4                 1   5   9  13
-     *   5   6   7   8    Transpose    2   6  10  14
-     *   9  10  11  12  <----------->  3   7  11  15
-     *  13  14  15  16                 4   8  12  16
+     *   <pre>
+     *    1   2   3   4    Transpose       1   5   9  13
+     *    5   6   7   8    moves between   2   6  10  14
+     *    9  10  11  12    these two       3   7  11  15
+     *   13  14  15  16    arrays          4   8  12  16
+     *  </pre>
      *
      * @param input A two-dimensional array of complex numbers
      * @return The transpose of the input, also a two-dimensional array of complex numbers

@@ -132,7 +132,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
     /** Method to return the reconstruction filter
      *
-     * @return
+     * @return The reconstruction filter
      */
     String getReconFilter() { return this.recon_filter; }
 
@@ -1008,7 +1008,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
      *
      * @param pos The positions of the ESF and LSF data
      * @param esf The ESF values
-     * @param esf The LSF values
+     * @param lsf The LSF values
      */
     private void logESFAndLSF(double[] pos, double[] esf, double[] lsf) {
         IJ.log("Position (mm),ESF,LSF");
