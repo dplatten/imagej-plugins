@@ -70,6 +70,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
     private int max_stack_index;
 
     private boolean log_results = true;
+    private boolean log_esf_and_lsf_results = false;
     private boolean show_plots = true;
 
     private Plot plot_esf;
@@ -224,6 +225,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
         gd.addCheckbox("Apply local regression to LSF?", this.loess_on_lsf);
         gd.addNumericField("LSF local regression bandwidth", this.lsf_loess_bandwidth, 2);
         gd.addNumericField("LSF local regression robustness", this.lsf_loess_robustness, 0);
+        gd.addCheckbox("Log ESF and LSF results?", this.log_esf_and_lsf_results);
         if (this.imp.isStack()) {
             gd.addCheckbox("Run on the average stack", this.use_average_stack);
             gd.addNumericField("Min slice index", 1, 0);
@@ -247,6 +249,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
         this.loess_on_lsf = gd.getNextBoolean();
         this.lsf_loess_bandwidth = gd.getNextNumber();
         this.lsf_loess_robustness = (int) gd.getNextNumber();
+        this.log_esf_and_lsf_results = gd.getNextBoolean();
         if (this.imp.isStack()) {
             this.use_average_stack = gd.getNextBoolean();
             this.min_stack_index = (int) gd.getNextNumber();
@@ -367,7 +370,10 @@ public class TaskTransferFunction_ implements PlugInFilter {
             this.com = centreOfMass(ip, com_roi, cal, -bgd_mean);
         }
 
-        if (this.log_results) IJ.log("Final CoM:," + this.three_dp.format(this.com[0]) + "," + this.three_dp.format(this.com[1]));
+        if (this.log_results) {
+            IJ.log("Final CoM (x)," + this.three_dp.format(this.com[0]));
+            IJ.log("Final CoM (y)," + this.three_dp.format(this.com[1]));
+        }
 
         // Recentre the outer_roi and annular_roi using the centre of mass.
         outer_roi.setLocation(this.cal.getRawX(this.com[0]) - outer_roi.getFloatWidth()/2.0, this.cal.getRawY(this.com[1]) - outer_roi.getFloatHeight()/2.0);
@@ -389,12 +395,14 @@ public class TaskTransferFunction_ implements PlugInFilter {
         Roi obj_roi = new OvalRoi(this.cal.getRawX(this.com[0])-obj_roi_dia/2.0, this.cal.getRawY(this.com[1])-obj_roi_dia/2.0, obj_roi_dia, obj_roi_dia);
         CNR_result cnr_results = contrastToNoiseRatio(this.imp, obj_roi, annular_roi);
 
-        if (this.log_results) IJ.log("CNR is: " + this.three_dp.format(cnr_results.cnr));
-        if (this.log_results) IJ.log("Contrast is: " + this.three_dp.format(cnr_results.contrast));
-        if (this.log_results) IJ.log("Noise is: " + this.three_dp.format(cnr_results.noise));
-        if (this.log_results) IJ.log("Background is: " + this.three_dp.format(cnr_results.background));
-        if (this.log_results) IJ.log("Signal is: " + this.three_dp.format(cnr_results.signal));
-
+        if (this.log_results) {
+            IJ.log("CNR," + this.three_dp.format(cnr_results.cnr));
+            IJ.log("Contrast," + this.three_dp.format(cnr_results.contrast));
+            IJ.log("Noise," + this.three_dp.format(cnr_results.noise));
+            IJ.log("Background," + this.three_dp.format(cnr_results.background));
+            IJ.log("Signal," + this.three_dp.format(cnr_results.signal));
+            IJ.log("\n");
+        }
         overlay.add(obj_roi);
         overlay.setStrokeColor(Color.green);
 
@@ -566,6 +574,12 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
 
         //---------------------------------------------------------------------
+        // Log the ESF and LSF results
+        if (this.log_esf_and_lsf_results) logESFAndLSF(esf_rebinned_pos, esf_rebinned_val, lsf_val);
+        //---------------------------------------------------------------------
+
+
+        //---------------------------------------------------------------------
         // Fourier transform the LSF to obtain TTF
         TTF_result ttf_data = TTF(lsf_val, rebinned_sample_inc, pixel_size_in_mm);
 
@@ -585,7 +599,6 @@ public class TaskTransferFunction_ implements PlugInFilter {
         // Work out TTF 50 and TTF 10
         double ttf_50 = freqAtSpecificTTF(ttf_data, 0.5);
         double ttf_10 = freqAtSpecificTTF(ttf_data, 0.1);
-        if (this.log_results) IJ.log("MTF 50 and 10 are: " + this.three_dp.format(ttf_50) + ", " + this.three_dp.format(ttf_10));
         //---------------------------------------------------------------------
 
 
@@ -596,8 +609,12 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
 
         //---------------------------------------------------------------------
-        // Write the resampled TTF data to the ImageJ log
-        if (this.log_results) logTTF(resampled_ttf, "TTF ("+this.esf_proc_choice+")");
+        // Write the TTF 50, 10 and resampled TTF data to the ImageJ log
+        if (this.log_results) {
+            IJ.log("MTF 50," + this.three_dp.format(ttf_50));
+            IJ.log("MTF 10," + this.three_dp.format(ttf_10));
+            logTTF(resampled_ttf, "TTF ("+this.esf_proc_choice+")");
+        }
         //---------------------------------------------------------------------
 
 
@@ -981,7 +998,23 @@ public class TaskTransferFunction_ implements PlugInFilter {
         IJ.log("Freq (mm^-1)," + ttf_label);
 
         for (int i=0; i<ttf.freq.length; i++) {
-            IJ.log("" + this.two_dp.format(ttf.freq[i]) + ", " + this.three_dp.format(ttf.val[i]));
+            IJ.log("" + this.two_dp.format(ttf.freq[i]) + "," + this.three_dp.format(ttf.val[i]));
+        }
+        IJ.log("\n");
+    }
+
+
+    /** Method to log the ESF and LSF results to the ImageJ log
+     *
+     * @param pos The positions of the ESF and LSF data
+     * @param esf The ESF values
+     * @param esf The LSF values
+     */
+    private void logESFAndLSF(double[] pos, double[] esf, double[] lsf) {
+        IJ.log("Position (mm),ESF,LSF");
+
+        for (int i=0; i<pos.length; i++) {
+            IJ.log("" + this.three_dp.format(pos[i]) + "," + this.three_dp.format(esf[i]) + "," + this.three_dp.format(lsf[i]));
         }
         IJ.log("\n");
     }
