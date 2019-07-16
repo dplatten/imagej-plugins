@@ -161,36 +161,53 @@ public class TaskTransferFunction_ implements PlugInFilter {
         this.log_results = log_contition;
     }
 
-    // Defined to enable other plugins to access the TTF results
+
+    /** Method to enable other plugins to access the TTF results
+     *
+     * @return The TTF result
+     */
     TTF_result getTTFResult() {
         return this.ttf_result;
     }
 
 
-    // Defined to enable other plugins to access the TTF results
+    /** Method to return the frequency of the TTF at 50 %
+     *
+     * @return The frequency of the TTF at 50 %
+     */
     double getTTF50() {
         return this.ttf_50;
     }
 
 
-    // Defined to enable other plugins to access the TTF results
+    /** Method to return the frequency of the TTF at 10 %
+     *
+     * @return The frequency of the TTF at 10 %
+     */
     double getTTF10() {
         return this.ttf_10;
     }
 
 
-    // Defined to enable other plugins to access the CNR results
+    /** Method to return the CNR result
+     *
+     * @return The CNR result
+     */
     CNR_result getCNRResult() {
         return this.cnr_result;
     }
 
-    // Defined to enable retrieval of centre of mass
+
+    /** Method to return the centre of mass
+     *
+     * @return The centre of mass of the circular object
+     */
     double[] getCentreOfMass() {
         return this.com;
     }
 
 
-    /** Method to get the current frequency binning increment in 1/mm
+    /** Method to return the current frequency binning increment (mm<sup>-1</sup>)
      *
      * @return The current frequency binning increment
      */

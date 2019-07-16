@@ -1,35 +1,38 @@
-// ImageJ plugin to calculate a variance or signal-to-noise map of a
-// digital x-ray image.
-//
-// The routine will run on a user-selected rectangular region of
-// interest (ROI). If no ROI is selected then the whole image is
-// selected and analysed.
-//
-// It breaks the large ROI into smaller square ROIs, and calculates
-// the chosen statistical parameter for each region. The user is
-// asked to supply the side-length of the smaller ROIs (in mm).
-//
-// The routine calculates variance as:
-// 		sum[x - mean(x)] / n
-//
-// The routine calculates standard deviation as:
-// 		sqrt(variance)
-//
-// The routine calculates signal-to-noise as:
-// 		mean(x) / standard deviation(x)
-//
-//package ij.plugin;
 import ij.*;
 import ij.gui.*;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.*;
 import java.util.Arrays;
 
+/**
+ * ImageJ plugin to calculate a variance or signal-to-noise map of a
+ * digital x-ray image.
+ * <br><br>
+ * The routine will run on a user-selected rectangular region of
+ * interest (ROI). If no ROI is selected then the whole image is
+ * selected and analysed.
+ * <br><br>
+ * It breaks the large ROI into smaller square ROIs, and calculates
+ * the chosen statistical parameter for each region. The user is
+ * asked to supply the side-length of the smaller ROIs (in mm).
+ * <br><br>
+ * The routine calculates variance as:
+ * <br><br>
+ * sum[x - mean(x)] / n
+ * <br><br>
+ * The routine calculates standard deviation as:
+ * <br><br>
+ * sqrt(variance)
+ * <br><br>
+ * The routine calculates signal-to-noise as:
+ * <br><br>
+ * mean(x) / standard deviation(x)
+ */
 public class TextureMap_ implements PlugInFilter {
-    protected ImagePlus imp;
+    private ImagePlus imp;
     // It is important that the constants below are in alphabetical order
     // so that the binarySearch that is used later works correctly.
-    public static final int  SNR=0, STANDARD_DEV=1, VARIANCE=2;
+    private static final int  SNR=0, STANDARD_DEV=1, VARIANCE=2;
     private int processingType = VARIANCE;
     private String processingText;
 
@@ -49,14 +52,13 @@ public class TextureMap_ implements PlugInFilter {
     		 if(gd.wasCanceled()) {
     			 return(DONE);
     		 }
-    		 int index = Arrays.binarySearch(items, gd.getNextChoice());
-    		 processingType = index;
+    		 processingType = Arrays.binarySearch(items, gd.getNextChoice());
     	}
     	return DOES_ALL;
     }
 
     public void run(ImageProcessor ip) {
-    	float progress = 0;	// Used to update the ImageJ progress bar
+    	float progress;	// Used to update the ImageJ progress bar
 
     	// Ask the user what size blocks they want the image broken into.
     	float sub_sample_size_in_mm = (float) IJ.getNumber("Enter sub-sample size in mm", 2);
@@ -100,9 +102,9 @@ public class TextureMap_ implements PlugInFilter {
     	float[][] pixels = ip.getFloatArray();
 
     	// Initiate some variables for the main loop
-    	double current_texture=0, total_texture=0, total_value=0, mean=0, previous_mean=0;
+    	double current_texture=0, total_texture=0, total_value=0, mean;
     	int x, y, sub_x, sub_y, sub_end_x, sub_end_y;
-    	double total_diff_from_mean_sqr=0, value=0, variance=0;
+    	double total_diff_from_mean_sqr, value, variance;
 
     	// Main loop that steps through the large ROI
     	for(x=start_x; x<end_x; x++) {
@@ -125,7 +127,6 @@ public class TextureMap_ implements PlugInFilter {
 
     				// Calculate the variance of the current block
     				total_diff_from_mean_sqr = 0;
-    				value = 0;
     				for(sub_x=x; sub_x<sub_end_x; sub_x++) {
     					for(sub_y=y; sub_y<sub_end_y; sub_y++) {
     						value = (double) pixels[sub_x][sub_y];
@@ -136,8 +137,6 @@ public class TextureMap_ implements PlugInFilter {
     			}
 
     			else {
-    				previous_mean = mean;
-
     				for(sub_x=x; sub_x<sub_end_x; sub_x++) {
     					total_value -= (double) pixels[sub_x][y-1];
     					total_value += (double) pixels[sub_x][sub_end_y-1];
@@ -146,7 +145,6 @@ public class TextureMap_ implements PlugInFilter {
 
     				// Calculate the variance of the current block
     				total_diff_from_mean_sqr = 0;
-    				value = 0;
     				for(sub_x=x; sub_x<sub_end_x; sub_x++) {
     					for(sub_y=y; sub_y<sub_end_y; sub_y++) {
     						value = (double) pixels[sub_x][sub_y];
