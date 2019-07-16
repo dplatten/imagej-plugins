@@ -1,7 +1,3 @@
-//
-// The routine will run on a user-selected oval region of interest (ROI). If no
-// ROI is selected then the routine uses the whole image.
-//
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
@@ -21,8 +17,9 @@ import org.apache.commons.math3.util.MathArrays;
 import java.awt.*;
 import java.text.DecimalFormat;
 
+
 /**
- *
+ * An ImageJ plugin to calculate the noise power spectrum of a CT image or stack of images.
  */
 public class NoisePowerSpectrum_ implements PlugInFilter {
     private ImagePlus imp;
@@ -104,9 +101,12 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
 
     /**
+     * This method is automatically run by ImageJ when the plugin is called.
+     * If there is no ROI set then the whole image is selected as an ROI.
      *
-     * @param arg Setup argument; not in current use.
-     * @param imp The image
+     * @param arg If <i>default</i> then analysis is run with default options. If a value then this is used as the
+     *            radius of the ROIs. If empty then the user is prompted for the calculation options.
+     * @param imp Passed to the routine automatically by ImageJ.
      * @return 0 if successful; 1 if not
      */
     public int setup(String arg, ImagePlus imp) {
@@ -171,8 +171,20 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
 
     /**
+     * This method is called automatically by ImageJ once the <i>setup</i> method has completed.
+     * The centre of the main ROI set in the <i>setup</i> method is used as a reference location.
+     * The <i>ensembleNPS</i> method is run on either the stack or single image depending on the
+     * options the user has chosen. The 2D ensemble NPS is multiplied by:
+     * <br><br>
+     * d<sub>x</sub> * d<sub>y</sub> / (M * N<sub>x</sub> * N<sub>y</sub>)
+     * <br><br>
+     * where d<sub>x</sub> and d<sub>y</sub> are the pixel dimensions in the x and y directions (mm),
+     * M is the number if records and N<sub>x</sub> and N<sub>y</sub> the x, y pixel dimensions of the record.
+     * <br><br>
+     * The ensemble NPS is displayed and a one-dimensional radial NPS calculated, plotted and written to the
+     * ImageJ log.
      *
-     * @param ip The ImageProcessor that is passed to this method
+     * @param ip The ImageProcessor that is passed to this method automatically by ImageJ
      */
     public void run(ImageProcessor ip) {
         // Requires at least ImageJ version 1.52b as this is when the isStack()
@@ -339,6 +351,24 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
     }
 
 
+    /**
+     * Method to calculate the ensemble 2D NPS from an image using a series of square
+     * record ROIs arranged around the perimeter of a circle with specified centre and radius.
+     * For each of these records:
+     * <ul>
+     *     <li>A 2D second-order polynomial fit is carried out and subtracted to remove any signal</li>
+     *     <li>The record is Fourier transformed, resulting in a 2D array of complex numbers</li>
+     *     <li>The magnitude of each complex value is calculated and squared</li>
+     *     <li>This result is added to the ensemble</li>
+     * </ul>
+     *
+     * @param im_proc The image data for analysis
+     * @param radius_px The radius to use when positioning the record ROIs
+     * @param cal The pixel calibration of the image
+     * @param centre The coordinates of the centre of the circle on the perimeter of which the record ROIs are to be placed
+     * @param overlay The overlay that will display each record ROI
+     * @return The ensemble 2D NPS
+     */
     private double[][] ensembleNPS(ImageProcessor im_proc, double radius_px, Calibration cal, double[] centre, Overlay overlay) {
 
         ImagePlus imp = new ImagePlus();
@@ -400,6 +430,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
 
     /**
+     * Method to multiply every element in a 2D double array by a value.
      *
      * @param values Two-dimensional array whose elements are to be changed
      * @param mult_val The factor to change the array values by
@@ -421,6 +452,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
 
     /**
+     * Method to convert a 2d double array to a 2d float array.
      *
      * @param values Two-dimensional array of Double values
      * @return Two-dimensional array of Float values
@@ -441,6 +473,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
 
     /**
+     * Method to convert a 2d double array to a 2d complex array
      *
      * @param values Two-dimensional array of Double values
      * @return Two-dimensional array of Complex values
@@ -459,6 +492,8 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
 
     /**
+     * Method to obtain the calibrated pixel values contained in an ROI positioned
+     * on an ImageProcessor.
      *
      * @param ip The ImageProcessor from which to get the values from
      * @param roi The Roi to use to obtain the values - assumed to be rectangular
@@ -485,6 +520,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
 
     /**
+     * Method to calculate the square of the absolute value of a 2D array of complex numbers
      *
      * @param values Two-dimensional Complex array to be worked ou
      * @return Two-dimensional Double array with the resulting values
@@ -505,6 +541,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
 
     /**
+     * Method to add together a pair of 2D double arrays.
      *
      * @param arr1 Two-dimensional array
      * @param arr2 Two-dimensional array to be added to arr1. Must be same dimensions as arr1.
@@ -526,6 +563,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
 
     /**
+     * Method to calculate the distance between two cartesian coordinates
      *
      * @param x1 X location of point 1
      * @param y1 Y location of point 2
@@ -540,6 +578,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
 
     /**
+     * Method to rebin NPS data to a regular frequency spacing.
      *
      * @param freq The raw frequency data
      * @param val The raw value data
@@ -581,6 +620,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
 
     /**
+     * Method to write NPS data out to the ImageJ log.
      *
      * @param nps The NPS data to be written to the log
      * @param nps_label The label to use for the NPS value column
@@ -596,7 +636,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
 
     /**
-     *
+     * Definition of a NPS_result class used to store NPS results
      */
     static class NPS_result {
         double[] freq;
