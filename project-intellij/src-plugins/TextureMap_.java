@@ -126,60 +126,61 @@ public class TextureMap_ implements PlugInFilter {
 		float[][] pixels = ip.getFloatArray();
 
 		// Initiate some variables for the main loop
-		double current_texture=0, total_texture=0, total_value=0, mean;
-		int x, y, sub_x, sub_y, sub_end_x, sub_end_y;
-		double total_diff_from_mean_sqr, value, variance;
+		float total_texture=0;
+		long start_time = System.currentTimeMillis();
 
 		// Main loop that steps through the large ROI
-		for(x=start_x; x<end_x; x++) {
+		for(int x=start_x; x<end_x; x++) {
 
-			sub_end_x = x + sub_sample_size;
+			int sub_end_x = x + sub_sample_size;
 
-			for(y=start_y; y<end_y; y++) {
+			for(int y=start_y; y<end_y; y++) {
 
-				sub_end_y = y + sub_sample_size;
+				int sub_end_y = y + sub_sample_size;
+				float mean, variance;
 
 				if(y==start_y) {
 					// Calculate the mean of the current block
-					total_value = 0;
-					for(sub_x=x; sub_x<sub_end_x; sub_x++) {
-						for(sub_y=y; sub_y<sub_end_y; sub_y++) {
-							total_value += (double) pixels[sub_x][sub_y];
+					float total_value = 0;
+					for(int sub_x=x; sub_x<sub_end_x; sub_x++) {
+						for(int sub_y=y; sub_y<sub_end_y; sub_y++) {
+							total_value += pixels[sub_x][sub_y];
 						}
 					}
-					mean = total_value / ((double)sub_sample_size*(double)sub_sample_size);
+					mean = total_value / (sub_sample_size*sub_sample_size);
 
 					// Calculate the variance of the current block
-					total_diff_from_mean_sqr = 0;
-					for(sub_x=x; sub_x<sub_end_x; sub_x++) {
-						for(sub_y=y; sub_y<sub_end_y; sub_y++) {
-							value = (double) pixels[sub_x][sub_y];
+					float total_diff_from_mean_sqr = 0;
+					for(int sub_x=x; sub_x<sub_end_x; sub_x++) {
+						for(int sub_y=y; sub_y<sub_end_y; sub_y++) {
+							float value = pixels[sub_x][sub_y];
 							total_diff_from_mean_sqr += (value - mean) * (value - mean);
 						}
 					}
-					variance = total_diff_from_mean_sqr / ((double)sub_sample_size*(double)sub_sample_size);
+					variance = total_diff_from_mean_sqr / (sub_sample_size*sub_sample_size);
 				}
 
 				else {
-					for(sub_x=x; sub_x<sub_end_x; sub_x++) {
-						total_value -= (double) pixels[sub_x][y-1];
-						total_value += (double) pixels[sub_x][sub_end_y-1];
+					float total_value = 0;
+					for(int sub_x=x; sub_x<sub_end_x; sub_x++) {
+						total_value -= pixels[sub_x][y-1];
+						total_value += pixels[sub_x][sub_end_y-1];
 					}
-					mean = total_value / ((double)sub_sample_size*(double)sub_sample_size);
+					mean = total_value / (sub_sample_size*sub_sample_size);
 
 					// Calculate the variance of the current block
-					total_diff_from_mean_sqr = 0;
-					for(sub_x=x; sub_x<sub_end_x; sub_x++) {
-						for(sub_y=y; sub_y<sub_end_y; sub_y++) {
-							value = (double) pixels[sub_x][sub_y];
+					float total_diff_from_mean_sqr = 0;
+					for(int sub_x=x; sub_x<sub_end_x; sub_x++) {
+						for(int sub_y=y; sub_y<sub_end_y; sub_y++) {
+							float value = pixels[sub_x][sub_y];
 							total_diff_from_mean_sqr += (value - mean) * (value - mean);
 						}
 					}
-					variance = total_diff_from_mean_sqr / ((double)sub_sample_size*(double)sub_sample_size);
+					variance = total_diff_from_mean_sqr / (sub_sample_size*sub_sample_size);
 				}
 
-
 				// Calculate the appropriate statistic
+				double current_texture=0;
 				if(processingType == VARIANCE) {
 					processingText = "Variance";
 					current_texture = variance;
@@ -197,10 +198,12 @@ public class TextureMap_ implements PlugInFilter {
 				texture_map[x-start_x][y-start_y] = current_texture;
 				total_texture += current_texture;
 			}
-			progress = ((float)x-(float)start_x) / (float)x_size;
+			progress = (float)(x-start_x) / (float)x_size;
 			IJ.showStatus("Calculating row " + (x-start_x) + " of " + x_size);
 			IJ.showProgress(progress);
 		}
+
+		IJ.log("Elapsed time is " + (System.currentTimeMillis() - start_time) / 1000.0 + " s");
 
 		// Create new Short (16-bit signed integer) image to display the results. All numerical variables are
 		// signed in Java. I'd prefer to use a Byte (8-bit signed integer), but in Java Bytes
@@ -215,11 +218,10 @@ public class TextureMap_ implements PlugInFilter {
 		// the known maximum and minimum figures and then allocating the
 		// value to the appropriate pixel in the results image.
 		double mean_texture = total_texture / (double) ( x_size * y_size);
-		int offset, i;
-		for(y=0; y<=y_size-1; y++) {
-			offset = y * x_size;
-			for(x=0; x<=x_size-1; x++) {
-				i = offset + x;
+		for(int y=0; y<=y_size-1; y++) {
+			int offset = y * x_size;
+			for(int x=0; x<=x_size-1; x++) {
+				int i = offset + x;
 				results_pixels[i] = (short) (texture_map[x][y] / (mean_texture*3) * (double) Short.MAX_VALUE);
 			}
 		}
