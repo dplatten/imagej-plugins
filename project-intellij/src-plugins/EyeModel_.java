@@ -338,7 +338,7 @@ public class EyeModel_ implements PlugIn {
         }
 
         if (this.show_plots) {
-            Plot plot_eye = new Plot("Richard and Siewerdsen eye response", "Frequency (mm^-1)", "Eye response");
+            Plot plot_eye = new Plot("Richard and Siewerdsen eye response", "Radial spatial frequency (mm^-1)", "Eye response");
             plot_eye.add("line", E.freq, E.val);
             String eye_labels = "Richard and Siewerdsen eye response\t";
             plot_eye.addLegend(eye_labels);
@@ -359,8 +359,8 @@ public class EyeModel_ implements PlugIn {
     private int SolomonEtAlSetup() {
         // Entirely ignoring arg at the moment and showing the dialogue
         GenericDialog gd = new GenericDialog("Solomon et al eye model options");
-        gd.addNumericField("Frequency cutoff (mm^-1)", this.cutoff_f, 2);
-        gd.addNumericField("Frequency increment (mm^-1)", this.f_inc, 2);
+        gd.addNumericField("Radial spatial frequency cutoff (mm^-1)", this.cutoff_f, 2);
+        gd.addNumericField("Radial spatial frequency increment (mm^-1)", this.f_inc, 2);
         gd.addNumericField("Viewing distance (mm)", this.viewing_dist, 0);
         gd.addNumericField("Image reconstructed field of view (mm)", this.recon_fov, 0);
         gd.addMessage("Physical image size on the display monitor:");
@@ -423,7 +423,7 @@ public class EyeModel_ implements PlugIn {
         E.val = MathArrays.ebeMultiply(E.val, E.val);
 
         if (this.show_plots) {
-            Plot plot_eye = new Plot("Solomon et al eye response", "Frequency (mm^-1)", "Relative eye response");
+            Plot plot_eye = new Plot("Solomon et al eye response", "Radial spatial frequency (mm^-1)", "Relative eye response");
             plot_eye.add("line", E.freq, E.val);
             plot_eye.addLabel(0.5, 0.2, "Solomon et al 2015 eye response\n" +
                     this.zero_dp.format(viewing_dist) + " mm viewing distance\n" +
@@ -448,13 +448,33 @@ public class EyeModel_ implements PlugIn {
      * @param label The label for the eye model values
      */
     private void logResults(Eye_result E, String label) {
-        IJ.log("Eye model using " + this.three_dp.format(this.cutoff_f) + " mm^-1 cutoff  frequency");
-        IJ.log("Freq (mm^-1)," + label);
-
-        for (int i=0; i<E.freq.length; i++) {
-            IJ.log("" + this.three_dp.format(E.freq[i]) + ", " + this.three_dp.format(E.val[i]));
+        if (this.model_choice == RICHARD_AND_SIEWERDSEN) {
+            IJ.log("Eye model,Richard and Siewerdsen");
+            IJ.log("Viewing distance (mm),Assumed 500");
+            IJ.log("Radial spatial frequency cutoff (mm^-1)," + this.three_dp.format(this.cutoff_f));
+            IJ.log("n," + this.three_dp.format(this.n));
+            IJ.log("c," + this.three_dp.format(this.c));
+            IJ.log("Radial spatial frequency (mm^-1)," + label);
+            for (int i = 0; i < E.freq.length; i++) {
+                IJ.log("" + this.three_dp.format(E.freq[i]) + ", " + this.three_dp.format(E.val[i]));
+            }
+            IJ.log("\n");
         }
-        IJ.log("\n");
+        else {
+            IJ.log("Eye model,Solomon et al");
+            IJ.log("Viewing distance (mm)," + this.viewing_dist);
+            IJ.log("Radial spatial frequency cutoff (mm^-1)," + this.three_dp.format(this.cutoff_f));
+            IJ.log("Image reconstructed field of view (mm)," + this.recon_fov);
+            IJ.log("Dispaly pixel pitch (mm)," + this.display_pixel_pitch);
+            IJ.log("Display zoom factor," + this.display_zoom_factor);
+            IJ.log("Image pixel width (mm)," + this.image_pixel_width);
+            IJ.log("Conversion from radial to angular frequency," + this.f_to_rho);
+            IJ.log("Angular frequency (deg^-1),Radial spatial frequency (mm^-1)," + label);
+            for (int i = 0; i < E.freq.length; i++) {
+                IJ.log("" + this.three_dp.format(E.freq[i]*this.f_to_rho) + "," + this.three_dp.format(E.freq[i]) + "," + this.three_dp.format(E.val[i]));
+            }
+            IJ.log("\n");
+        }
     }
 
 
