@@ -30,14 +30,70 @@ mean(x) / standard deviation(x)
 Nuclear Medicine. This re-samples an existing image to simulate a new image that would
 have been acquired using a lower number of counts.
 
+
 ## TaskTransferFunction
 Diagnostic Radiology. This calculates the task transfer function of a circular
 object within an image.
 
+
+## NoisePowerSpectrum
+Diagnostic Radiology. This calculates the noise power spectrum from a series of regions
+of interest in a uniform image.
+
+
+## EyeModel
+This calculates the radial frequency response of the human eye according to one of two
+theoretical models.
+
+Equation 5 in Richard and Siewerdsen 2008, http://dx.doi.org/10.1118/1.2988161:
+
+E(f) = f^n.exp(-c.f^2)
+
+where
+
+* n = 1.3
+* c = 3.093 for a 50 cm viewing distance for E(f) to peak at 4 cycles/degree
+
+or equation 3 in Solomon et al 2015, http://dx.doi.org/10.1118/1.4923172:
+
+E(p) = |n.p^(a1).exp(-a2.p^a3)|^2
+
+where
+
+* a1 = 1.5
+* a2 = 0.98
+* a3 = 0.68
+* n is a normalisation constant to make max E(p) = 1.0
+* p (rho, really) is angular spatial frequency expressed in cycles per degree
+
+p can be calculated from radial spatial frequency using equation 4 in the
+Solomon et al paper:
+
+p = (f.FOV.R.pi) / (D.180)
+
+where
+
+* f is radial spatial frequency
+* FOV is the reconstructed field of view of the image
+* R is the viewing distance
+* D is the display size (assumed to be 30.5 cm in the Solomon paper)
+
+Note to self: is D the physical size of the full image as displayed on the screen?
+If so, can calculate this if know the pixel pitch in mm, the pixel dimensions of
+the image and the zoom factor.
+
+
+## TaskFunction
+This calculates the radial frequency response of a disc-shaped object of a user-specified
+diameter and contrast.
+
+
 ## DetectabilityIndex
-Uses the TaskTransferFunction, NoisePowerSpectrum, human eye model and task function
-to calculate a numerical index that relates to the detectability of an object. Note
-that only the TaskTransferFunction part of this is written so far.
+Uses the TaskTransferFunction, NoisePowerSpectrum, EyeModel and TaskFunction
+to calculate a numerical index that relates to the detectability of an object.
+The detectability index (d') is calculated according to equation 2 in
+http://dx.doi.org/10.1118/1.4923172 adapted for radial frequency rather than u, v.
+The integration limits for calculating d' are 0 to the Nyquist frequency.
 
 
 # Using this repository

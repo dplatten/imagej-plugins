@@ -17,8 +17,8 @@ public class ResampleImage_ implements PlugInFilter {
     private boolean rescale_values = false;
 
     public int setup(String arg, ImagePlus imp) {
-    	this.imp = imp;
-    	this.cal = imp.getCalibration();
+        this.imp = imp;
+        this.cal = imp.getCalibration();
 
         GenericDialog gd = new GenericDialog("Processing options");
         gd.addNumericField("Resampling factor (0.0 - 1.0", this.p, 2);
@@ -27,29 +27,28 @@ public class ResampleImage_ implements PlugInFilter {
 
         gd.showDialog();
         if(gd.wasCanceled()) {
-            IJ.error("Plugin cancelled");
-            return(0);
+            return(DONE);
         }
 
         this.p = (float) gd.getNextNumber();
         this.mask_value = (int) gd.getNextNumber();
         this.rescale_values = gd.getNextBoolean();
 
-    	return DOES_ALL;
+        return DOES_ALL;
     }
 
     public void run(ImageProcessor ip) {
-    	// Obtain the width and height of the image.
-    	int width  = ip.getWidth();
-    	int height = ip.getHeight();
+        // Obtain the width and height of the image.
+        int width  = ip.getWidth();
+        int height = ip.getHeight();
 
         // Create a duplicate of the image
-    	ImagePlus img_copy = new Duplicator().run(this.imp);
+        ImagePlus img_copy = new Duplicator().run(this.imp);
         img_copy.show();
 
-    	// Main loop that steps through each pixel in the duplicate image
+        // Main loop that steps through each pixel in the duplicate image
         ImageProcessor img_copy_ip = img_copy.getProcessor();
-    	for(int y=0; y<height; y++) {
+        for(int y=0; y<height; y++) {
             for(int x=0; x<width; x++) {
                 int current_val = img_copy_ip.getPixel(x, y);
                 if (this.cal.getCValue(current_val) != this.mask_value) {
@@ -64,14 +63,14 @@ public class ResampleImage_ implements PlugInFilter {
                     // Set this pixel location to be the value of count
                     img_copy_ip.putPixel(x, y, (int) count);
                 }
-    		}
+            }
             // Update the image each time a row is complete
             img_copy.updateAndDraw();
 
             // Update the progress bar
-    		float progress = (float)y / (float)height;
-        	IJ.showStatus("Calculating row " + y + " of " + height);
-    		IJ.showProgress(progress);
-    	}
+            float progress = (float)y / (float)height;
+            IJ.showStatus("Calculating row " + y + " of " + height);
+            IJ.showProgress(progress);
+        }
     }
 }
