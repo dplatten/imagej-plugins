@@ -293,7 +293,10 @@ public class DetectabilityIndex_ implements PlugInFilter {
                     "\nTTF 50 (1/mm)," + this.two_dp.format(TTF.getTTF50()) +
                     "\nTTF 10 (1/mm)," + this.two_dp.format(TTF.getTTF10()) +
                     "\nTTF centre of mass (x)," + this.two_dp.format(ttf_com[0]) +
-                    "\nTTF centre of mass (y)," + this.two_dp.format(ttf_com[1])
+                    "\nTTF centre of mass (y)," + this.two_dp.format(ttf_com[1]) +
+                    "\nLower integration limit (1/mm),0" +
+                    "\nUpper integration limit (1/mm)," + this.two_dp.format(nyquist) +
+                    "\nImage pixel size (mm)," + this.two_dp.format(cal.pixelWidth)
             );
 
             if(TTF.getAverageStackStatus()) {

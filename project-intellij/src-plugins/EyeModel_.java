@@ -334,7 +334,7 @@ public class EyeModel_ implements PlugIn {
 
         for (int i=0; i<num_elements; i++) {
             E.freq[i] = this.f_inc * i;
-            E.val[i] = Math.pow(E.freq[i], n) * Math.exp(-1.0 * c * E.freq[i] * E.freq[i]);
+            E.val[i] = Math.pow(E.freq[i], this.n) * Math.exp(-1.0 * this.c * E.freq[i] * E.freq[i]);
         }
 
         if (this.show_plots) {
