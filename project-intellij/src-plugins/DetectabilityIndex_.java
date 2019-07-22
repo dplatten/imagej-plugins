@@ -34,6 +34,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
     private RoiManager roi_manager = RoiManager.getInstance2();
     //private Roi whole_phantom_roi;
 
+    private int eye_model = EyeModel_.SOLOMON_ET_AL;
     private boolean show_eye_plots = false;
     private boolean show_task_plots = false;
     private boolean show_nps_plots = false;
@@ -140,7 +141,8 @@ public class DetectabilityIndex_ implements PlugInFilter {
         eye_model.setImagePixelWidth(imp.getWidth());
         eye_model.setDisplayZoomFactor(3.0);
         eye_model.setDisplayPixelPitch(0.2);
-        eye_model.setup(EyeModel_.SOLOMON_ET_AL);
+        //eye_model.setup(EyeModel_.SOLOMON_ET_AL);
+        eye_model.setup(999);
         eye_model.run("normal");
         EyeModel_.Eye_result E = eye_model.getEyeResult();
 
@@ -326,6 +328,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
             }
 
             IJ.log("\nEye model settings used" +
+                    "\nEye model," + eye_model.getModelDescription() +
                     "\nViewing distance (mm)," + this.one_dp.format(eye_model.getViewingDistance()) +
                     "\nRecon field of view (mm)," + this.two_dp.format(eye_model.getReconFOV()) +
                     "\nImage pixel width," + this.three_dp.format(eye_model.getImagePixelWidth()) +

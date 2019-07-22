@@ -40,7 +40,15 @@ import java.text.DecimalFormat;
  *                     If so, can calculate this if know the pixel pitch in mm, the pixel
  *                     dimensions of the image and the zoom factor... this is what ImaQuest asks for
  * </pre>
+ * or Saunders et al 2006 (<a href="http://dx.doi.org/10.1118/1.2150777">http://dx.doi.org/10.1118/1.2150777</a>) which
+ * is the same as <i>Solomon et al 2015</i> except the <i>a<sub>2</sub></i> coefficient has the value 3.22. This matches
+ * the <i>Saunders</i> option in the imquest software.
+ * <br><br>
+ * The <i>Solomon et al 2015</i> section above is mathematically the same as that used by
+ * the imquest software <i>Eckstein</i> option except that  the original Eckstein work did not
+ * normalise the function, nor did it square the result (<a href="http://dx.doi.org/10.1364/OE.11.000460">http://dx.doi.org/10.1364/OE.11.000460</a>).
  */
+
 public class EyeModel_ implements PlugIn {
 
     // Richard and Siewerdsen 2008, http://dx.doi.org/10.1118/1.2988161, assuming a 50 cm viewing distance
@@ -70,9 +78,18 @@ public class EyeModel_ implements PlugIn {
     private DecimalFormat two_dp = new DecimalFormat("0.00");
     private DecimalFormat three_dp = new DecimalFormat("0.000");
 
-    static int SOLOMON_ET_AL = 0;
-    static int RICHARD_AND_SIEWERDSEN = 1;
+    static int SAUNDERS_ET_AL = 0;
+    static int SOLOMON_ET_AL = 1;
+    static int RICHARD_AND_SIEWERDSEN = 2;
     private int model_choice = SOLOMON_ET_AL;
+    private String model_description = "Solomon et al 2015,http://dx.doi.org/10.1118/1.4923172";
+
+
+    /** Method to obtain a text description of the eye model used
+     *
+     * @return A brief text string with the eye model used
+     */
+    String getModelDescription() { return this.model_description; }
 
 
     /** Method to enable or disable the display of plots
@@ -222,18 +239,26 @@ public class EyeModel_ implements PlugIn {
      * @return 0 if all is well, 1 if the routine is cancelled
      */
     int setup(int model_type) {
+
+        if (model_type == SAUNDERS_ET_AL) {
+            if (this.log_results) IJ.log("Using Saunders et al model");
+            this.model_description = "Modified Saunders et al 2006 (normalised then squared), http://dx.doi.org/10.1364/OE.11.000460";
+            this.model_choice = SAUNDERS_ET_AL;
+        }
         if (model_type == SOLOMON_ET_AL) {
             if (this.log_results) IJ.log("Using Solomon et al model");
+            this.model_description = "Solomon et al 2015,http://dx.doi.org/10.1118/1.4923172";
             this.model_choice = SOLOMON_ET_AL;
         }
         else if (model_type == RICHARD_AND_SIEWERDSEN) {
             if (this.log_results) IJ.log("Using Richard and Siewerdsen model");
+            this.model_description = "Richard and Siewerdsen 2008,http://dx.doi.org/10.1118/1.2988161";
             this.model_choice = RICHARD_AND_SIEWERDSEN;
         }
         else {
             GenericDialog gd = new GenericDialog("Choose which eye model to use");
-            String[] choices = {"Solomon et al", "Richard and Siewerdsen"};
-            gd.addChoice("Eye model", choices, choices[0]);
+            String[] choices = {"Saunders et al 2006", "Solomon et al 2015", "Richard and Siewerdsen 2008"};
+            gd.addChoice("Eye model", choices, choices[1]);
             gd.showDialog();
             if(gd.wasCanceled()) {
                 return(1); // Return to the calling method with a non-zero result
@@ -241,8 +266,11 @@ public class EyeModel_ implements PlugIn {
             this.model_choice = gd.getNextChoiceIndex();
         }
 
-        int result;
-        if (this.model_choice == SOLOMON_ET_AL) {
+        int result = 1;
+        if (this.model_choice == SAUNDERS_ET_AL) {
+            result = this.SolomonEtAlSetup();
+        }
+        else if (this.model_choice == SOLOMON_ET_AL) {
             result = this.SolomonEtAlSetup();
         }
         else {
@@ -266,7 +294,9 @@ public class EyeModel_ implements PlugIn {
         if (IJ.versionLessThan("1.49v")) return;
 
         if ((arg != null) && (arg.length() > 0)) {
-            if (this.model_choice == SOLOMON_ET_AL) {
+            if (this.model_choice == SAUNDERS_ET_AL) {
+                this.SolomonEtAl();
+            } else if (this.model_choice == SOLOMON_ET_AL) {
                 this.SolomonEtAl();
             } else if (this.model_choice == RICHARD_AND_SIEWERDSEN) {
                 this.RichardAndSiewerdsen();
@@ -358,7 +388,8 @@ public class EyeModel_ implements PlugIn {
      */
     private int SolomonEtAlSetup() {
         // Entirely ignoring arg at the moment and showing the dialogue
-        GenericDialog gd = new GenericDialog("Solomon et al eye model options");
+
+        GenericDialog gd = new GenericDialog("Eye model options");
         gd.addNumericField("Radial spatial frequency cutoff (mm^-1)", this.cutoff_f, 2);
         gd.addNumericField("Radial spatial frequency increment (mm^-1)", this.f_inc, 2);
         gd.addNumericField("Viewing distance (mm)", this.viewing_dist, 0);
@@ -397,6 +428,8 @@ public class EyeModel_ implements PlugIn {
         double a2 = 0.98;
         double a3 = 0.68;
 
+        if (this.model_choice == SAUNDERS_ET_AL) a2 = 3.22;
+
         int num_elements = (int) Math.ceil(this.cutoff_f / this.f_inc) + 1;
 
         Eye_result E = new Eye_result();
@@ -422,10 +455,17 @@ public class EyeModel_ implements PlugIn {
         // value first, as the squaring will render any negative values positive anyway.
         E.val = MathArrays.ebeMultiply(E.val, E.val);
 
+        String plot_title = "";
+        if (this.model_choice == SAUNDERS_ET_AL) {
+            plot_title = "Saunders et al eye response";
+        }
+        else {
+            plot_title = "Solomon et al eye response";
+        }
         if (this.show_plots) {
-            Plot plot_eye = new Plot("Solomon et al eye response", "Radial spatial frequency (mm^-1)", "Relative eye response");
+            Plot plot_eye = new Plot(plot_title, "Radial spatial frequency (mm^-1)", "Relative eye response");
             plot_eye.add("line", E.freq, E.val);
-            plot_eye.addLabel(0.5, 0.2, "Solomon et al 2015 eye response\n" +
+            plot_eye.addLabel(0.5, 0.2,  plot_title+"\n" +
                     this.zero_dp.format(viewing_dist) + " mm viewing distance\n" +
                     this.zero_dp.format(recon_fov) + " mm recon field of view\n" +
                     this.zero_dp.format(image_pixel_width) + " image pixel width\n" +
@@ -436,7 +476,7 @@ public class EyeModel_ implements PlugIn {
         }
 
         // Write the results to the ImageJ log
-        if (this.log_results) logResults(E, "Solomon et al eye response");
+        if (this.log_results) logResults(E, plot_title);
 
         eye_result = E;
     }
@@ -461,7 +501,12 @@ public class EyeModel_ implements PlugIn {
             IJ.log("\n");
         }
         else {
-            IJ.log("Eye model,Solomon et al");
+            if (this.model_choice == SAUNDERS_ET_AL) {
+                IJ.log("Eye model,Saunders et al");
+            }
+            else {
+                IJ.log("Eye model,Solomon et al");
+            }
             IJ.log("Viewing distance (mm)," + this.viewing_dist);
             IJ.log("Radial spatial frequency cutoff (mm^-1)," + this.three_dp.format(this.cutoff_f));
             IJ.log("Image reconstructed field of view (mm)," + this.recon_fov);
