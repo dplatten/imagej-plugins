@@ -4,7 +4,7 @@ A jar file called "QuantitativeIQ.jar" contains all of the plugins.
 It can be downloaded from the project-intellij/jars folder and dropped into the plugins folder of your ImageJ installation.
 These plugins depend on the Apache commons maths library version 3.6.1. You'll need to put a copy of the commons-math3-3.6.1.jar file in your ImageJ plugins folder.
 You will find a copy of commons-math3-3.6.1.jar in this project's project-intellij/jars folder.
-If you would rather download it from Apache then you'll find it in the binary zip file on this site: https://commons.apache.org/proper/commons-math/
+If you would rather download it from Apache then you can extract it from the commons-math3-3.6.1-bin.zip file that you can download from this page: https://commons.apache.org/proper/commons-math/download_math.cgi
 
 
 # The plugins
