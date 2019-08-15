@@ -1,7 +1,3 @@
-// ImageJ plugin to resample an image to a lower number of counts.
-//
-// David Platten, 2019
-//
 import ij.*;
 import ij.gui.GenericDialog;
 import ij.measure.Calibration;
@@ -9,6 +5,12 @@ import ij.plugin.Duplicator;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.*;
 
+/**
+ * ImageJ plugin to resample an image to a lower number of counts. Assumes that the pixel
+ * values in the image correspond to the number of photons detected at that pixel.
+ * <br><br>
+ * David Platten, 2019
+ */
 public class ResampleImage_ implements PlugInFilter {
     private ImagePlus imp;
     private Calibration cal;
@@ -16,6 +18,13 @@ public class ResampleImage_ implements PlugInFilter {
     private float p = 0.5f;
     private boolean rescale_values = false;
 
+    /**
+     * This method is automatically run by ImageJ when the plugin is called.
+     *
+     * @param arg Not used by this plugin
+     * @param imp Passed to the routine automatically by ImageJ.
+     * @return DOES_ALL, indicating that the plugin will run on any image type
+     */
     public int setup(String arg, ImagePlus imp) {
         this.imp = imp;
         this.cal = imp.getCalibration();
@@ -37,6 +46,11 @@ public class ResampleImage_ implements PlugInFilter {
         return DOES_ALL;
     }
 
+    /**
+     * This method is called automatically by ImageJ once the <i>setup</i> method has completed.
+     *
+     * @param ip The ImageProcessor that is passed to this method automatically by ImageJ
+     */
     public void run(ImageProcessor ip) {
         // Obtain the width and height of the image.
         int width  = ip.getWidth();
