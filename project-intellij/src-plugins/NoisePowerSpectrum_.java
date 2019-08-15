@@ -107,7 +107,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
      * @param arg If <i>default</i> then analysis is run with default options. If a value then this is used as the
      *            radius of the ROIs. If empty then the user is prompted for the calculation options.
      * @param imp Passed to the routine automatically by ImageJ.
-     * @return 0 if successful; 1 if not
+     * @return DONE if unsuccessful; DOES_ALL if complete
      */
     public int setup(String arg, ImagePlus imp) {
         this.imp = imp;
@@ -275,11 +275,11 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
 
         // ---------------------------------------------------------------------
-        // Work out the radial NPS
-        //
+        // Calculate the radial NPS.
         // The frequency increment between values in the i or j direction is calculated as:
         //     1/(record_size * pixel_size_in_mm)
         //
+        // By default the 2d ensemble_nps is arranged in a slightly non-obvious way:
         // The top-left quadrant of the nps ensemble contains frequencies:
         //     0 ≤ i ≤ i_max
         //     0 ≤ j ≤ j_max
@@ -296,48 +296,41 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
         //     -i_max ≤ i < 0
         //     -j_max ≥ j > 0
         //
-        // In our use-case we only need to use the top half of the FFT as there is symmetry
-        // between the top and bottom halves because our image data has a zero imaginary
-        // component.
-        //
-        double[] radial_nps = new double[(int)(this.record_size * this.record_size / 2.0)];
+        // The quadrants can be swapped so that zero frequency is near the centre.
+        // Then loop through every location in the ensemble_nps:
+        //      Write the frequency at this location to the nth position in a 1d freq array
+        //      Write the value at this location to the nth position in a 1d noise array
+        // Then sort the two arrays by ascending frequency and finally rebin into a regular frequency.
 
-        double[] radial_freq = new double[(int)(this.record_size * this.record_size / 2.0)];
+        // Swap the quadrants of the ensemble_nps to put zero frequency at the centre
+        TwoDFFT twod_transformer = new TwoDFFT();
+        ensemble_nps = twod_transformer.swapQuadrants(ensemble_nps);
+
+        // Loop through every element in ensemble_nps
+        int zero_u = record_size/2; // u location of zero frequency element
+        int zero_v = record_size/2; // v location of zero frequency element
+        double[] radial_freq = new double[record_size*record_size];
+        double[] radial_noise = new double[record_size*record_size];
         double freq_inc = 1.0 / (this.record_size * pixel_size_in_mm);
-        int current_point = 0;
-
-        // First the +i and +j quadrant
-        for(int i=0; i<this.record_size/2.0; i++) {
-            for(int j=0; j<this.record_size/2.0; j++) {
-                radial_nps[current_point] = ensemble_nps[i][j];
-                double dist = calculateDistanceBetweenPoints(0,0, i, j);
-                radial_freq[current_point] = dist * freq_inc;
-                current_point++;
+        for (int u=0; u<ensemble_nps.length; u++) {
+            for (int v=0; v<ensemble_nps[0].length; v++) {
+                radial_noise[(u*record_size)+v] = ensemble_nps[u][v];
+                radial_freq[(u*record_size)+v] = freq_inc * calculateDistanceBetweenPoints(zero_u, zero_v, u, v);
             }
         }
+        // Sort the frequency array in ascending order; sort the values in the same order at the same time
+        MathArrays.sortInPlace(radial_freq, radial_noise);
 
-        // Next the -i and +j quadrant
-        int i_start = (int) (this.record_size/2.0);
-        for(int i=i_start; i<this.record_size; i++) {
-            for(int j=0; j<this.record_size/2.0; j++) {
-                radial_nps[current_point] = ensemble_nps[i][j];
-                double dist = calculateDistanceBetweenPoints(this.record_size, 0, i, j);
-                radial_freq[current_point] = dist * freq_inc;
-                current_point++;
-            }
-        }
-
-        // Sort the radial array data into ascending order of frequency
-        MathArrays.sortInPlace(radial_freq, radial_nps);
-
+        // Rebin the results
         double IEC_f_bin = 0.01 / pixel_size_in_mm;
-        NPS_result rebinned_NPS = rebinNPS(radial_freq, radial_nps, rebin_f_inc, IEC_f_bin);
+        NPS_result rebinned_NPS = rebinNPS(radial_freq, radial_noise, rebin_f_inc, IEC_f_bin);
+
 
         if (this.show_plots) {
             // Plot the radial frequency
             Plot plot_nps = new Plot("Noise power spectrum", "Frequency (mm^-1)", "Noise power (HU^2.mm^2)");
             plot_nps.setAxisYLog(true);
-            plot_nps.add("dot", radial_freq, radial_nps);
+            plot_nps.add("dot", radial_freq, radial_noise);
             plot_nps.add("line", rebinned_NPS.freq, rebinned_NPS.val);
             plot_nps.show();
         }
