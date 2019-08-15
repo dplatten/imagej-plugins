@@ -1,6 +1,6 @@
 This repository contains my ImageJ plugins to help with some medical physics tasks. The skeleton I have used was taken from https://github.com/imagingbook/imagej1-plugins-ide-setup. I have stripped out the netbeans and Eclipse folders.
 
-A jar file can be downloaded from the
+A jar file can be downloaded from the project-intellij/jars folder and dropped into the plugins folder of your ImageJ installation.
 
 
 # The plugins
