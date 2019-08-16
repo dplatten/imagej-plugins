@@ -564,7 +564,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
      * @param y2 y location of point 2
      * @return The straight-line distance between point 1 and 2
      */
-    private double calculateDistanceBetweenPoints(double x1, double y1, double x2,double y2) {
+    public static double calculateDistanceBetweenPoints(double x1, double y1, double x2,double y2) {
         // Calculate the distance between two points in cartesian space.
         return Math.sqrt( (y2 - y1) * (y2 - y1) + (x2 - x1) * (x2 - x1));
     }
