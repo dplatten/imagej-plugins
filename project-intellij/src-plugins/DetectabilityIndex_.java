@@ -289,7 +289,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
 
             // Create an image of the task including the effect of the TTF and NPS
-            calcTaskImageIncTTFandNPS(W_fn, TTF_fn, NPS_fn, this.imp.getWidth(), cal.pixelWidth);
+            calcTaskImageIncTTFandNPS(W_fn, TTF_fn, NPS_fn, this.imp.getWidth(), cal.pixelWidth, cnr_result.background, cnr_result.noise, detectability);
 
 
             // Log the results
@@ -382,7 +382,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
     }
 
 
-    public void calcTaskImageIncTTFandNPS(UnivariateFunction task_fn, UnivariateFunction ttf_fn, UnivariateFunction nps_fn, int imageSize, double pixelSize) {
+    private void calcTaskImageIncTTFandNPS(UnivariateFunction task_fn, UnivariateFunction ttf_fn, UnivariateFunction nps_fn, int imageSize, double pixelSize, double meanValue, double sdValue, double d) {
         double freq_inc = 1.0 / (imageSize*pixelSize);
         double[][] freqImage = new double[imageSize][imageSize];
 
@@ -399,15 +399,37 @@ public class DetectabilityIndex_ implements PlugInFilter {
             }
         }
 
-        // How do I add noise that matches the NPS?
-
         TwoDFFT twod_fourier_transformer = new TwoDFFT();
         freqImage = twod_fourier_transformer.swapQuadrants(freqImage);
         Complex[][] task_image = twod_fourier_transformer.transform(freqImage, DftNormalization.STANDARD, TransformType.INVERSE);
         task_image = twod_fourier_transformer.swapQuadrants(task_image);
 
-        // ---------------------------------------------------------------------
-        // Display the task image in the frequency and spatial domain
+        // Create noise image
+        CreateNoiseImage_ noiseImage = new CreateNoiseImage_();
+        noiseImage.setImageSize(imageSize);
+        noiseImage.setPixelSize(pixelSize);
+        noiseImage.setMean(meanValue);
+        noiseImage.setSd(sdValue);
+        noiseImage.createWhiteNoiseImage();
+        //noiseImage.showNoiseImage();
+        noiseImage.setNoisePowerFn(nps_fn);
+        noiseImage.applyNoisePowerFn();
+
+        // Add the noise to the task_image
+        float[][] taskNoiseImage = noiseImage.getNoiseImage().getProcessor().getFloatArray();
+        for (int x=0; x<imageSize; x++) {
+            for (int y=0; y<imageSize; y++) {
+                taskNoiseImage[x][y] = taskNoiseImage[x][y] + (float)task_image[x][y].abs();
+            }
+        }
+
+        // Display the task image
+        ImagePlus temp3 = NewImage.createFloatImage("Task inc. noise (d'=" + this.two_dp.format(d) + ")", imageSize, imageSize, 1, NewImage.FILL_BLACK);
+        temp3.getProcessor().setFloatArray(taskNoiseImage);
+        temp3.show();
+        temp3.updateAndDraw();
+        IJ.run(temp3, "Enhance Contrast", "saturated=0.35");
+/*
         ImagePlus temp = NewImage.createFloatImage("Task (spatial domain)", imageSize, imageSize, 1, NewImage.FILL_BLACK);
         temp.getProcessor().setFloatArray(convertComplexToFloat(task_image));
         temp.show();
@@ -419,7 +441,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
         temp2.show();
         temp2.updateAndDraw();
         IJ.run(temp2, "Enhance Contrast", "saturated=0.35");
-        // ---------------------------------------------------------------------
+*/
     }
 
 
@@ -432,48 +454,8 @@ public class DetectabilityIndex_ implements PlugInFilter {
      * @param y2 y location of point 2
      * @return The straight-line distance between point 1 and 2
      */
-    public static double calculateDistanceBetweenPoints(double x1, double y1, double x2,double y2) {
+    private static double calculateDistanceBetweenPoints(double x1, double y1, double x2,double y2) {
         // Calculate the distance between two points in cartesian space.
         return Math.sqrt( (y2 - y1) * (y2 - y1) + (x2 - x1) * (x2 - x1));
-    }
-
-
-    /**
-     *
-     * @param values Two-dimensional array of Double values
-     * @return Two-dimensional array of Float values
-     */
-    private static float[][] convertDoubleToFloat(final double[][] values) {
-        int width = values.length;
-        int height = values[0].length;
-
-        final float[][] result = new float[width][height];
-
-        for (int i=0; i<width; i++) {
-            for (int j=0; j<height; j++) {
-                result[i][j] = (float) values[i][j];
-            }
-        }
-        return result;
-    }
-
-
-    /**
-     *
-     * @param values Two-dimensional array of Double values
-     * @return Two-dimensional array of Complex values
-     */
-    private static float[][] convertComplexToFloat(final Complex[][] values) {
-        int width = values.length;
-        int height = values[0].length;
-
-        final float[][] result = new float[width][height];
-
-        for (int i=0; i<width; i++) {
-            for (int j=0; j<height; j++) {
-                result[i][j] = (float) values[i][j].abs();
-            }
-        }
-        return result;
     }
 }
