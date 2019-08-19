@@ -385,6 +385,12 @@ public class DetectabilityIndex_ implements PlugInFilter {
     private void calcTaskImageIncTTFandNPS(double task_diameter, UnivariateFunction ttf_fn, UnivariateFunction nps_fn, int imageSize, double pixelSize, double bgdStdev, double d) {
         double freq_inc = 1.0 / (imageSize*pixelSize);
 
+        // Check that imageSize is a power of two to prevent the 2D Fourier transform from failing
+        if (!isPowerOfTwo(imageSize)) {
+            // Set imageSize to the next power of two if it wasn't already a power of two
+            imageSize = getNextPowerOfTwo(imageSize);
+        }
+
         //------------------------------------
         // Create perfect disc task image
         ImagePlus discImage = TaskTransferFunction_.createDiscTemplate(task_diameter, pixelSize, this.imp.getCalibration());
@@ -485,5 +491,20 @@ public class DetectabilityIndex_ implements PlugInFilter {
     private static double calculateDistanceBetweenPoints(double x1, double y1, double x2,double y2) {
         // Calculate the distance between two points in cartesian space.
         return Math.sqrt( (y2 - y1) * (y2 - y1) + (x2 - x1) * (x2 - x1));
+    }
+
+
+    boolean isPowerOfTwo(int n) {
+        if (n==0) return false;
+
+        return (int)(Math.ceil((Math.log(n) / Math.log(2)))) == (int)(Math.floor(((Math.log(n) / Math.log(2)))));
+    }
+
+
+    int getNextPowerOfTwo(int n) {
+        int highestOneBit = Integer.highestOneBit(n);
+        if (n == highestOneBit) return n;
+
+        return highestOneBit << 1;
     }
 }
