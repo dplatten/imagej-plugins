@@ -1,5 +1,6 @@
 import ij.IJ;
 import ij.ImagePlus;
+import ij.ImageStack;
 import ij.gui.*;
 import ij.plugin.ZProjector;
 import ij.plugin.filter.PlugInFilter;
@@ -49,6 +50,7 @@ import java.util.Arrays;
  */
 public class TaskTransferFunction_ implements PlugInFilter {
     private ImagePlus imp;
+    private ImageStack imageStack;
     private Calibration cal;
 
     private double obj_dia_mm = 25.0;
@@ -263,6 +265,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
             gd.addCheckbox("Run on the average stack", this.use_average_stack);
             gd.addNumericField("Min slice index", 1, 0);
             gd.addNumericField("to max slice index", this.imp.getImageStackSize(), 0);
+            this.imageStack = this.imp.getImageStack();
         }
         gd.showDialog();
         if(gd.wasCanceled()) {
@@ -426,7 +429,14 @@ public class TaskTransferFunction_ implements PlugInFilter {
         // Calculate the CNR of the object
         double obj_roi_dia = obj_dia_pix * 0.5; // - (3.0 / pixel_size_in_mm);
         Roi obj_roi = new OvalRoi(this.cal.getRawX(this.com[0])-obj_roi_dia/2.0, this.cal.getRawY(this.com[1])-obj_roi_dia/2.0, obj_roi_dia, obj_roi_dia);
-        CNR_result cnr_results = contrastToNoiseRatio(this.imp, obj_roi, annular_roi);
+        CNR_result cnr_results;
+        if (this.use_average_stack) {
+            // Obtain CNR from the first image of the stack, rather than from the mean of the stack
+            cnr_results = contrastToNoiseRatio(this.imp, obj_roi, annular_roi);
+        }
+        else {
+            cnr_results = contrastToNoiseRatio(this.imp, obj_roi, annular_roi);
+        }
 
         if (this.log_results) {
             IJ.log("CNR," + this.three_dp.format(cnr_results.cnr));
@@ -832,11 +842,21 @@ public class TaskTransferFunction_ implements PlugInFilter {
         // Calculate the contrast to noise ratio between the two regions of interest.
         // CNR calculated as (obj_mean - bgd_mean) / bgd_stdDev as show in equation
         // 1 of Christianson et al, https://doi.org/10.1148/radiol.15132091
-        imp.setRoi(obj_roi);
-        ImageStatistics obj_stats = imp.getAllStatistics();
+        ImageStatistics obj_stats, bgd_stats;
 
-        imp.setRoi(bgd_roi);
-        ImageStatistics bgd_stats = imp.getAllStatistics();
+        if (this.use_average_stack) {
+            ImageProcessor stackSliceIp = this.imageStack.getProcessor(this.min_stack_index);
+            stackSliceIp.setRoi(obj_roi);
+            obj_stats = stackSliceIp.getStatistics();
+            stackSliceIp.setRoi(bgd_roi);
+            bgd_stats = stackSliceIp.getStatistics();
+        }
+        else {
+            imp.setRoi(obj_roi);
+            obj_stats = imp.getAllStatistics();
+            imp.setRoi(bgd_roi);
+            bgd_stats = imp.getAllStatistics();
+        }
 
         CNR_result result = new CNR_result();
         result.signal = obj_stats.mean;
