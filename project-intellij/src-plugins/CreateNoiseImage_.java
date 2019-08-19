@@ -1,7 +1,9 @@
+import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.NewImage;
 import ij.plugin.PlugIn;
 import ij.process.ImageProcessor;
+import ij.process.ImageStatistics;
 import org.apache.commons.math3.analysis.UnivariateFunction;
 import org.apache.commons.math3.complex.Complex;
 import org.apache.commons.math3.transform.DftNormalization;
@@ -11,14 +13,14 @@ public class CreateNoiseImage_  implements PlugIn {
 
     private int imageSize = 512;
     private double pixelSize = 0.5;
-    private double meanValue = 100.0;
+    private double meanValue = 0.0;
     private double sdValue = 50.0;
     private ImagePlus noiseImage;
     private UnivariateFunction noisePowerFn;
 
     void setImageSize(int newSize) { this.imageSize = newSize; }
     void setPixelSize(double newSize) { this.pixelSize = newSize; }
-    void setMean(double newMean) { this.meanValue = newMean; }
+    //void setMean(double newMean) { this.meanValue = newMean; }
     void setSd(double newSd) { this.sdValue = newSd; }
     void setNoisePowerFn(UnivariateFunction newNoisePowerFn) { this.noisePowerFn = newNoisePowerFn; }
 
@@ -31,20 +33,22 @@ public class CreateNoiseImage_  implements PlugIn {
     public void run(String arg) {
     }
 
+
     void createWhiteNoiseImage() {
         this.noiseImage = NewImage.createImage("NoiseImage", this.imageSize, this.imageSize, 1, 32, NewImage.FILL_RANDOM);
         ImageProcessor data = this.noiseImage.getProcessor();
 
         data.multiply(this.sdValue);
-        data.add(this.meanValue);
     }
+
 
     void showNoiseImage() {
         this.noiseImage.show();
     }
 
+
     void applyNoisePowerFn() {
-        double[][] noiseValues = convertFloatToDouble(this.noiseImage.getProcessor().getFloatArray());
+        double[][] noiseValues = ArrayConversions.convertFloatToDouble(this.noiseImage.getProcessor().getFloatArray());
         TwoDFFT twod_fourier_transformer = new TwoDFFT();
         Complex[][] freqImage = twod_fourier_transformer.transform(noiseValues, DftNormalization.STANDARD, TransformType.FORWARD);
         freqImage = twod_fourier_transformer.swapQuadrants(freqImage);
@@ -81,50 +85,13 @@ public class CreateNoiseImage_  implements PlugIn {
         }
 
         // Replace the noiseImage data with the filtered data.
-        this.noiseImage.getProcessor().setFloatArray(convertDoubleToFloat(noiseValues));
-        //ImagePlus filteredNoiseImage = NewImage.createImage("NoiseImage", this.imageSize, this.imageSize, 1, 32, NewImage.FILL_BLACK);
-        //filteredNoiseImage.getProcessor().setFloatArray(convertDoubleToFloat(noiseValues));
-        //filteredNoiseImage.show();
-    }
+        this.noiseImage.getProcessor().setFloatArray(ArrayConversions.convertDoubleToFloat(noiseValues));
 
-
-    /**
-     *
-     * @param values Two-dimensional array of float values
-     * @return Two-dimensional array of double values
-     */
-    private static double[][] convertFloatToDouble(final float[][] values) {
-        int width = values.length;
-        int height = values[0].length;
-
-        final double[][] result = new double[width][height];
-
-        for (int i=0; i<width; i++) {
-            for (int j=0; j<height; j++) {
-                result[i][j] = values[i][j];
-            }
-        }
-        return result;
-    }
-
-
-    /**
-     *
-     * @param values Two-dimensional array of Double values
-     * @return Two-dimensional array of Float values
-     */
-    private static float[][] convertDoubleToFloat(final double[][] values) {
-        int width = values.length;
-        int height = values[0].length;
-
-        final float[][] result = new float[width][height];
-
-        for (int i=0; i<width; i++) {
-            for (int j=0; j<height; j++) {
-                result[i][j] = (float) values[i][j];
-            }
-        }
-        return result;
+        // Ensure resulting noise has mean of zero and required SD
+        ImageStatistics noiseImageStats = this.noiseImage.getStatistics();
+        IJ.run(this.noiseImage, "Subtract...", "value="+noiseImageStats.mean);
+        IJ.run(this.noiseImage, "Divide...", "value="+noiseImageStats.stdDev);
+        IJ.run(this.noiseImage, "Multiply...", "value="+this.sdValue);
     }
 
 

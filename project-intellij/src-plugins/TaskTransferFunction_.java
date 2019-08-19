@@ -714,19 +714,6 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
         double[][] roi_pixels = getCalibratedPixelValues(ip, roi);
 
-/*
-        // ---------------------------------------------------------------------
-        // Display the ROI
-        ImagePlus temp = NewImage.createFloatImage("Roi pixels", roi_pixels.length, roi_pixels[0].length, 1, NewImage.FILL_BLACK);
-        temp.getProcessor().setFloatArray(convertDoubleToFloat(roi_pixels));
-        //IJ.run(nps_2d, "Swap Quadrants", "");
-        temp.show();
-        temp.updateAndDraw();
-        IJ.run(temp, "Enhance Contrast", "saturated=0.35");
-        IJ.run("Set... ", "zoom=800");
-        // ---------------------------------------------------------------------
-*/
-
         TwoDFFT twod_fourier_transformer = new TwoDFFT();
         Complex[][] fft;
         try {
@@ -737,18 +724,6 @@ public class TaskTransferFunction_ implements PlugInFilter {
             return(null);
         }
 
-/*
-        // ---------------------------------------------------------------------
-        // Display the ROI
-        temp = NewImage.createFloatImage("Roi FFT", fft.length, fft[0].length, 1, NewImage.FILL_BLACK);
-        temp.getProcessor().setFloatArray(convertComplexToFloat(fft));
-        //IJ.run(nps_2d, "Swap Quadrants", "");
-        temp.show();
-        temp.updateAndDraw();
-        IJ.run(temp, "Enhance Contrast", "saturated=0.35");
-        IJ.run("Set... ", "zoom=800");
-        // ---------------------------------------------------------------------
-*/
 
         double freq_inc = 1.0 / (roi_pixels.length * cal.pixelWidth);
 
@@ -810,24 +785,13 @@ public class TaskTransferFunction_ implements PlugInFilter {
         // Now shift the quadrants so that zero is at the centre
         fft = twod_fourier_transformer.swapQuadrants(fft);
 
-/*
-        // ---------------------------------------------------------------------
-        temp = NewImage.createFloatImage("Roi shifted FFT", shifted_fft.length, shifted_fft[0].length, 1, NewImage.FILL_BLACK);
-        temp.getProcessor().setFloatArray(convertComplexToFloat(shifted_fft));
-        temp.show();
-        temp.updateAndDraw();
-        IJ.run(temp, "Enhance Contrast", "saturated=0.35");
-        IJ.run("Set... ", "zoom=800");
-        // ---------------------------------------------------------------------
-*/
-
         // Now inverse Fourier transform the fft to obtain image space again
         fft = twod_fourier_transformer.transform(fft, DftNormalization.STANDARD, TransformType.INVERSE);
 
 
         // ---------------------------------------------------------------------
         ImagePlus temp = NewImage.createFloatImage("Inverse FFT", fft.length, fft[0].length, 1, NewImage.FILL_BLACK);
-        temp.getProcessor().setFloatArray(convertComplexToFloat(fft));
+        temp.getProcessor().setFloatArray(ArrayConversions.convertComplexToFloat(fft));
         temp.show();
         temp.updateAndDraw();
         IJ.run(temp, "Enhance Contrast", "saturated=0.35");
@@ -1294,64 +1258,6 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
     /**
      *
-     * @param values Two-dimensional array of Float values
-     * @return Two-dimensional array of Double values
-     */
-    private static double[][] convertFloatToDouble(final float[][] values) {
-        int width = values.length;
-        int height = values[0].length;
-
-        final double[][] result = new double[width][height];
-
-        for (int i=0; i<width; i++) {
-            for (int j=0; j<height; j++) {
-                result[i][j] = (double) values[i][j];
-            }
-        }
-        return result;
-    }
-
-
-    /**
-     *
-     * @param values Two-dimensional array of Double values
-     * @return Two-dimensional array of Float values
-     */
-    private static float[][] convertDoubleToFloat(final double[][] values) {
-        int width = values.length;
-        int height = values[0].length;
-
-        final float[][] result = new float[width][height];
-
-        for (int i=0; i<width; i++) {
-            for (int j=0; j<height; j++) {
-                result[i][j] = (float) values[i][j];
-            }
-        }
-        return result;
-    }
-
-    /**
-     *
-     * @param values Two-dimensional array of Double values
-     * @return Two-dimensional array of Complex values
-     */
-    private static float[][] convertComplexToFloat(final Complex[][] values) {
-        int width = values.length;
-        int height = values[0].length;
-
-        final float[][] result = new float[width][height];
-
-        for (int i=0; i<width; i++) {
-            for (int j=0; j<height; j++) {
-                result[i][j] = (float) values[i][j].abs();
-            }
-        }
-        return result;
-    }
-
-    /**
-     *
      * @param ip The ImageProcessor from which to get the values from
      * @param roi The Roi to use to obtain the values - assumed to be rectangular
      * @return Two-dimensional array containing the calibrated pixel values of the Roi
@@ -1435,7 +1341,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
         if (show_corr_map) {
             ImagePlus corr_image = NewImage.createFloatImage("Correlation for each template position (top-left corner)", corr_data.length, corr_data[0].length, 1, NewImage.FILL_BLACK);
-            corr_image.getProcessor().setFloatArray(convertDoubleToFloat(corr_data));
+            corr_image.getProcessor().setFloatArray(ArrayConversions.convertDoubleToFloat(corr_data));
             corr_image.show();
             corr_image.updateAndDraw();
             IJ.run(corr_image, "Enhance Contrast", "saturated=0.35");
@@ -1474,7 +1380,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
         }
 
         ImagePlus template = NewImage.createFloatImage("Template", pixel_dimensions, pixel_dimensions, 1, NewImage.FILL_BLACK);
-        template.getProcessor().setFloatArray(convertDoubleToFloat(tempate_data));
+        template.getProcessor().setFloatArray(ArrayConversions.convertDoubleToFloat(tempate_data));
         template.setCalibration(cal);
 
         return template;
@@ -1490,7 +1396,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
      * @param cal The Calibration to apply to the template
      * @return The disc template
      */
-    private static ImagePlus createDiscTemplate(double disc_diameter_in_mm, double pixel_size_in_mm, Calibration cal) {
+    public static ImagePlus createDiscTemplate(double disc_diameter_in_mm, double pixel_size_in_mm, Calibration cal) {
         double radius_sqrd = (disc_diameter_in_mm / 2.0) * (disc_diameter_in_mm / 2.0);
 
         int pixel_dimensions = (int) Math.ceil(disc_diameter_in_mm / pixel_size_in_mm);
@@ -1532,7 +1438,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
         }
 
         ImagePlus template = NewImage.createFloatImage("Template", pixel_dimensions, pixel_dimensions, 1, NewImage.FILL_BLACK);
-        template.getProcessor().setFloatArray(convertDoubleToFloat(template_data));
+        template.getProcessor().setFloatArray(ArrayConversions.convertDoubleToFloat(template_data));
         template.setCalibration(cal);
 
         return template;

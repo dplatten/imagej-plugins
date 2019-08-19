@@ -264,7 +264,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
         if (this.show_plots) {
             // Display the resulting 2d NPS
             ImagePlus nps_2d = NewImage.createFloatImage("2d NPS", this.record_size, this.record_size, 1, NewImage.FILL_BLACK);
-            nps_2d.getProcessor().setFloatArray(convertDoubleToFloat(ensemble_nps));
+            nps_2d.getProcessor().setFloatArray(ArrayConversions.convertDoubleToFloat(ensemble_nps));
             IJ.run(nps_2d, "Swap Quadrants", "");
             nps_2d.show();
             nps_2d.updateAndDraw();
@@ -439,46 +439,6 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
             for (int j=0; j<height; j++) {
                 result[i][j] = values[i][j] * mult_val;
             }
-        }
-        return result;
-    }
-
-
-    /**
-     * Method to convert a 2d double array to a 2d float array.
-     *
-     * @param values Two-dimensional array of Double values
-     * @return Two-dimensional array of Float values
-     */
-    private static float[][] convertDoubleToFloat(final double[][] values) {
-        int width = values.length;
-        int height = values[0].length;
-
-        final float[][] result = new float[width][height];
-
-        for (int i=0; i<width; i++) {
-            for (int j=0; j<height; j++) {
-                result[i][j] = (float) values[i][j];
-            }
-        }
-        return result;
-    }
-
-
-    /**
-     * Method to convert a 2d double array to a 2d complex array
-     *
-     * @param values Two-dimensional array of Double values
-     * @return Two-dimensional array of Complex values
-     */
-    private static Complex[][] convertDoubleToComplex(final double[][] values) {
-        int width = values.length;
-        int height = values[0].length;
-
-        final Complex[][] result = new Complex[width][height];
-
-        for (int i=0; i<width; i++) {
-            result[i] = ComplexUtils.convertToComplex(values[i]);
         }
         return result;
     }

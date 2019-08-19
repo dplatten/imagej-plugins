@@ -289,7 +289,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
 
             // Create an image of the task including the effect of the TTF and NPS
-            calcTaskImageIncTTFandNPS(W_fn, TTF_fn, NPS_fn, this.imp.getWidth(), cal.pixelWidth, cnr_result.background, cnr_result.noise, detectability);
+            calcTaskImageIncTTFandNPS(this.task_radius*2.0, TTF_fn, NPS_fn, this.imp.getWidth(), cal.pixelWidth, cnr_result.noise, detectability);
 
 
             // Log the results
@@ -382,66 +382,94 @@ public class DetectabilityIndex_ implements PlugInFilter {
     }
 
 
-    private void calcTaskImageIncTTFandNPS(UnivariateFunction task_fn, UnivariateFunction ttf_fn, UnivariateFunction nps_fn, int imageSize, double pixelSize, double meanValue, double sdValue, double d) {
+    private void calcTaskImageIncTTFandNPS(double task_diameter, UnivariateFunction ttf_fn, UnivariateFunction nps_fn, int imageSize, double pixelSize, double bgdStdev, double d) {
         double freq_inc = 1.0 / (imageSize*pixelSize);
-        double[][] freqImage = new double[imageSize][imageSize];
 
+        //------------------------------------
+        // Create perfect disc task image
+        ImagePlus discImage = TaskTransferFunction_.createDiscTemplate(task_diameter, pixelSize, this.imp.getCalibration());
+
+        // Pad out the discImage to the correct image size; assuming a square image
+        float[][] discImageData = discImage.getProcessor().getFloatArray();
+        double[][] fullDiscImageData = new double[imageSize][imageSize];
+        if (discImageData.length < imageSize) {
+            int offset = (imageSize - discImageData.length)/2;
+            int discImageData_row = 0;
+            for (int row=offset; row<offset+discImageData.length; row++) {
+                int discImageData_col = 0;
+                for (int col=offset; col<offset+discImageData.length; col++) {
+                    fullDiscImageData[row][col] = discImageData[discImageData_row][discImageData_col];
+                    discImageData_col++;
+                }
+                discImageData_row++;
+            }
+        }
+        //------------------------------------
+
+
+        //------------------------------------
+        // Convolve perfect disc with the task transfer function
+        TwoDFFT twod_fourier_transformer = new TwoDFFT();
+        Complex[][] discFreqImage = twod_fourier_transformer.transform(fullDiscImageData, DftNormalization.STANDARD, TransformType.FORWARD);
+        discFreqImage = twod_fourier_transformer.swapQuadrants(discFreqImage);
         int zero_u = imageSize/2; // u location of zero frequency element
         int zero_v = imageSize/2; // v location of zero frequency element
         for (int u=0; u<imageSize; u++) {
             for (int v=0; v<imageSize; v++) {
                 double freq = freq_inc * calculateDistanceBetweenPoints(zero_u, zero_v, u, v);
                 try {
-                    freqImage[u][v] = task_fn.value(freq) * ttf_fn.value(freq);
+                    discFreqImage[u][v] = discFreqImage[u][v].multiply(ttf_fn.value(freq));
                 } catch (Exception e) {
-                    freqImage[u][v] = 0.0;
+                    discFreqImage[u][v] = Complex.ZERO;
                 }
             }
         }
+        //------------------------------------
 
-        TwoDFFT twod_fourier_transformer = new TwoDFFT();
-        freqImage = twod_fourier_transformer.swapQuadrants(freqImage);
-        Complex[][] task_image = twod_fourier_transformer.transform(freqImage, DftNormalization.STANDARD, TransformType.INVERSE);
-        task_image = twod_fourier_transformer.swapQuadrants(task_image);
 
-        // Create noise image
+        //------------------------------------
+        // FT the frequency image back to the spatial domain and take abs of the values; scale by the required contrast
+        discFreqImage = twod_fourier_transformer.swapQuadrants(discFreqImage);
+        Complex[][] discImageIncTTF = twod_fourier_transformer.transform(discFreqImage, DftNormalization.STANDARD, TransformType.INVERSE);
+        for (int x=0; x<imageSize; x++) {
+            for (int y=0; y<imageSize; y++) {
+                fullDiscImageData[x][y] = discImageIncTTF[x][y].abs() * this.task_contrast;
+            }
+        }
+        //------------------------------------
+
+
+        //------------------------------------
+        // Create a noise image with zero mean, appropriate standard deviation and power spectrum
         CreateNoiseImage_ noiseImage = new CreateNoiseImage_();
         noiseImage.setImageSize(imageSize);
         noiseImage.setPixelSize(pixelSize);
-        noiseImage.setMean(meanValue);
-        noiseImage.setSd(sdValue);
+        noiseImage.setSd(bgdStdev);
         noiseImage.createWhiteNoiseImage();
-        //noiseImage.showNoiseImage();
         noiseImage.setNoisePowerFn(nps_fn);
         noiseImage.applyNoisePowerFn();
+        //------------------------------------
 
+
+        //------------------------------------
         // Add the noise to the task_image
         float[][] taskNoiseImage = noiseImage.getNoiseImage().getProcessor().getFloatArray();
         for (int x=0; x<imageSize; x++) {
             for (int y=0; y<imageSize; y++) {
-                taskNoiseImage[x][y] = taskNoiseImage[x][y] + (float)task_image[x][y].abs();
+                taskNoiseImage[x][y] = taskNoiseImage[x][y] + (float)fullDiscImageData[x][y];
             }
         }
+        //------------------------------------
 
+
+        //------------------------------------
         // Display the task image
-        ImagePlus temp3 = NewImage.createFloatImage("Task inc. noise (d'=" + this.two_dp.format(d) + ")", imageSize, imageSize, 1, NewImage.FILL_BLACK);
-        temp3.getProcessor().setFloatArray(taskNoiseImage);
-        temp3.show();
-        temp3.updateAndDraw();
-        IJ.run(temp3, "Enhance Contrast", "saturated=0.35");
-/*
-        ImagePlus temp = NewImage.createFloatImage("Task (spatial domain)", imageSize, imageSize, 1, NewImage.FILL_BLACK);
-        temp.getProcessor().setFloatArray(convertComplexToFloat(task_image));
-        temp.show();
-        temp.updateAndDraw();
-        IJ.run(temp, "Enhance Contrast", "saturated=0.35");
-
-        ImagePlus temp2 = NewImage.createFloatImage("Task (frequency domain)", imageSize, imageSize, 1, NewImage.FILL_BLACK);
-        temp2.getProcessor().setFloatArray(convertDoubleToFloat(twod_fourier_transformer.swapQuadrants(freqImage)));
-        temp2.show();
-        temp2.updateAndDraw();
-        IJ.run(temp2, "Enhance Contrast", "saturated=0.35");
-*/
+        ImagePlus finalTaskImage = NewImage.createFloatImage("Task image (d'=" + this.three_dp.format(d), imageSize, imageSize, 1, NewImage.FILL_BLACK);
+        finalTaskImage.getProcessor().setFloatArray(taskNoiseImage);
+        finalTaskImage.show();
+        finalTaskImage.updateAndDraw();
+        IJ.run(finalTaskImage, "Enhance Contrast", "saturated=0.35");
+        //------------------------------------
     }
 
 
