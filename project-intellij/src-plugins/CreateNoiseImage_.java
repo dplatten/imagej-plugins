@@ -1,6 +1,7 @@
 import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.NewImage;
+import ij.plugin.FFT;
 import ij.plugin.PlugIn;
 import ij.process.ImageProcessor;
 import ij.process.ImageStatistics;
@@ -8,6 +9,7 @@ import org.apache.commons.math3.analysis.UnivariateFunction;
 import org.apache.commons.math3.complex.Complex;
 import org.apache.commons.math3.transform.DftNormalization;
 import org.apache.commons.math3.transform.TransformType;
+import java.util.Random;
 
 public class CreateNoiseImage_  implements PlugIn {
 
@@ -34,11 +36,37 @@ public class CreateNoiseImage_  implements PlugIn {
     }
 
 
-    void createWhiteNoiseImage() {
+    void createGaussianNoiseImage() {
         this.noiseImage = NewImage.createImage("NoiseImage", this.imageSize, this.imageSize, 1, 32, NewImage.FILL_RANDOM);
         ImageProcessor data = this.noiseImage.getProcessor();
 
+        //data.subtract(data.minValue()); // Make the lowest value zero, preventing any negative values
         data.multiply(this.sdValue);
+    }
+
+
+    void createWhiteNoiseImage() {
+        Random random = new Random(System.currentTimeMillis());
+
+        float[][] noiseData = new float[this.imageSize][this.imageSize];
+
+        for (int x=0; x<this.imageSize; x++) {
+            for (int y=0; y<this.imageSize; y++) {
+                noiseData[x][y] = random.nextFloat(); // Random number between 0.0 and 1.0
+            }
+        }
+
+        this.noiseImage = NewImage.createImage("RandomNoiseImage", this.imageSize, this.imageSize, 1, 32, NewImage.FILL_BLACK);
+        this.noiseImage.getProcessor().setFloatArray(noiseData);
+
+
+        // Make the standard deviation the required value and the mean zero
+        ImageProcessor data = this.noiseImage.getProcessor();
+        ImageStatistics stats = data.getStatistics();
+
+        data.multiply(1.0 / stats.stdDev); // Makes the standard deviation 1.0
+        data.subtract(stats.mean); // Makes the mean zero
+        data.multiply(this.sdValue); // Makes the standard deviation the required value
     }
 
 
@@ -48,44 +76,27 @@ public class CreateNoiseImage_  implements PlugIn {
 
 
     void applyNoisePowerFn() {
-        double[][] noiseValues = ArrayConversions.convertFloatToDouble(this.noiseImage.getProcessor().getFloatArray());
-        TwoDFFT twod_fourier_transformer = new TwoDFFT();
-        Complex[][] freqImage = twod_fourier_transformer.transform(noiseValues, DftNormalization.STANDARD, TransformType.FORWARD);
-        freqImage = twod_fourier_transformer.swapQuadrants(freqImage);
+        ImagePlus noiseFilter = NewImage.createFloatImage("NoiseFilter", imageSize, imageSize, 1, NewImage.FILL_BLACK);
+
+        float[][] noiseFilterValues = noiseFilter.getProcessor().getFloatArray();
 
         double freq_inc = 1.0 / (this.imageSize*this.pixelSize);
         int zero_u = this.imageSize/2; // u location of zero frequency element
         int zero_v = this.imageSize/2; // v location of zero frequency element
-        double maxNpsValue = 0.0;
+
         for (int u=0; u<this.imageSize; u++) {
             for (int v=0; v<this.imageSize; v++) {
                 double freq = freq_inc * calculateDistanceBetweenPoints(zero_u, zero_v, u, v);
                 try {
-                    double currentNoisePower = this.noisePowerFn.value(freq);
-                    freqImage[u][v] = freqImage[u][v].multiply(currentNoisePower);
-                    if (currentNoisePower > maxNpsValue) maxNpsValue = currentNoisePower;
+                    noiseFilterValues[u][v] = (float) this.noisePowerFn.value(freq);
                 } catch (Exception e) {
-                    freqImage[u][v] = freqImage[u][v].multiply(0.0);
+                    noiseFilterValues[u][v] = 0;
                 }
             }
         }
-        for (int u=0; u<this.imageSize; u++) {
-            for (int v=0; v<this.imageSize; v++) {
-                freqImage[u][v] = freqImage[u][v].divide(maxNpsValue);
-            }
-        }
+        noiseFilter.getProcessor().setFloatArray(noiseFilterValues);
 
-        freqImage = twod_fourier_transformer.swapQuadrants(freqImage);
-        Complex[][] filteredNoiseValues = twod_fourier_transformer.transform(freqImage, DftNormalization.STANDARD, TransformType.INVERSE);
-
-        for (int x=0; x<this.imageSize; x++) {
-            for (int y=0; y<this.imageSize; y++) {
-                noiseValues[x][y] = filteredNoiseValues[x][y].abs();
-            }
-        }
-
-        // Replace the noiseImage data with the filtered data.
-        this.noiseImage.getProcessor().setFloatArray(ArrayConversions.convertDoubleToFloat(noiseValues));
+        FFT.filter(this.noiseImage, noiseFilter);
 
         // Ensure resulting noise has mean of zero and required SD
         ImageStatistics noiseImageStats = this.noiseImage.getStatistics();

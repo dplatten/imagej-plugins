@@ -401,20 +401,6 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
             // Calculate the magnitude and square it
             double[][] nps_abs_sqrd = absSqrdOfComplex2dArray(nps);
 
-
-/*
-            IJ.run("FFT Options...", "raw");
-            FFT.forward(record);
-
-            // What you're currently doing, which gives the FFT results as a one-dimensional array:
-            float[] record_fft = (float[]) WindowManager.getCurrentImage().getProcessor().getPixels();
-
-            // What you could do instead, which gives the TTF results as a two-dimensional array:
-            float[][] record_fft_v2 = WindowManager.getCurrentImage().getProcessor().getFloatArray();
-*/
-
-
-
             // Add the current nps_abs_squared to the ensemble
             ensemble_nps = add2dArrays(ensemble_nps, nps_abs_sqrd);
         }
