@@ -37,11 +37,21 @@ public class CreateNoiseImage_  implements PlugIn {
 
 
     void createGaussianNoiseImage() {
-        this.noiseImage = NewImage.createImage("NoiseImage", this.imageSize, this.imageSize, 1, 32, NewImage.FILL_RANDOM);
-        ImageProcessor data = this.noiseImage.getProcessor();
+        Random random = new Random(System.currentTimeMillis());
 
-        //data.subtract(data.minValue()); // Make the lowest value zero, preventing any negative values
-        data.multiply(this.sdValue);
+        float[][] noiseData = new float[this.imageSize][this.imageSize];
+
+        for (int x=0; x<this.imageSize; x++) {
+            for (int y=0; y<this.imageSize; y++) {
+                // nextGaussian values have mean of 0.0 and standard deviation of 1.0
+                // Multiply by the required standard deviation
+                // https://www.javamex.com/tutorials/random_numbers/gaussian_distribution_2.shtml
+                noiseData[x][y] = (float)(random.nextGaussian());// * this.sdValue);
+            }
+        }
+
+        this.noiseImage = NewImage.createImage("GaussianNoiseImage", this.imageSize, this.imageSize, 1, 32, NewImage.FILL_BLACK);
+        this.noiseImage.getProcessor().setFloatArray(noiseData);
     }
 
 
@@ -56,7 +66,7 @@ public class CreateNoiseImage_  implements PlugIn {
             }
         }
 
-        this.noiseImage = NewImage.createImage("RandomNoiseImage", this.imageSize, this.imageSize, 1, 32, NewImage.FILL_BLACK);
+        this.noiseImage = NewImage.createImage("WhiteNoiseImage", this.imageSize, this.imageSize, 1, 32, NewImage.FILL_BLACK);
         this.noiseImage.getProcessor().setFloatArray(noiseData);
 
 

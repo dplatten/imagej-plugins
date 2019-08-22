@@ -289,7 +289,11 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
 
             // Create an image of the task including the effect of the TTF and NPS
-            calcTaskImageIncTTFandNPS(this.task_radius*2.0, TTF_fn, NPS_fn, this.imp.getWidth(), cal.pixelWidth, cnr_result.noise, detectability);
+            double nps_record_stdev = NPS.getRecordStdevSum() / NPS.getNumRecords();
+            if (NPS.getAverageStackStatus()) nps_record_stdev /= (NPS.getMaxStackIndex() - NPS.getMinStackIndex() + 1);
+
+            calcTaskImageIncTTFandNPS(this.task_radius*2.0, TTF_fn, NPS_fn, this.imp.getWidth(), cal.pixelWidth, nps_record_stdev, detectability);
+            //calcTaskImageIncTTFandNPS(this.task_radius*2.0, TTF_fn, NPS_fn, this.imp.getWidth(), cal.pixelWidth, 12.0, detectability);
 
 
             // Log the results
@@ -451,9 +455,12 @@ public class DetectabilityIndex_ implements PlugInFilter {
         noiseImage.setImageSize(imageSize);
         noiseImage.setPixelSize(pixelSize);
         noiseImage.setSd(bgdStdev);
-        noiseImage.createWhiteNoiseImage();
+        noiseImage.createGaussianNoiseImage();
         noiseImage.setNoisePowerFn(nps_fn);
         noiseImage.applyNoisePowerFn();
+        noiseImage.showNoiseImage();
+
+        System.out.print("Standard deviation for noise image is: " + bgdStdev);
         //------------------------------------
 
 

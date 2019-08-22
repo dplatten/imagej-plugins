@@ -28,6 +28,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
     private int num_records = 16;
     private int record_size = 64;
     private double record_radius = 100.0; // in mm
+    private double record_stdev_sum = 0.0;
 
     private double rebin_f_inc = 0.05; // in mm^-1
 
@@ -66,6 +67,10 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
      * @return The average stack setting
      */
     boolean getAverageStackStatus() { return this.use_average_stack; }
+
+
+    double getRecordStdevSum() { return this.record_stdev_sum; }
+    int getNumRecords() { return this.num_records; }
 
 
     /** Method to return the minimum stack index that was used
@@ -403,6 +408,9 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
             // Add the current nps_abs_squared to the ensemble
             ensemble_nps = add2dArrays(ensemble_nps, nps_abs_sqrd);
+
+
+            this.record_stdev_sum += record.getStatistics().stdDev;
         }
         return ensemble_nps;
     }
