@@ -463,10 +463,12 @@ public class DetectabilityIndex_ implements PlugInFilter {
         CreateNoiseImage_ noiseImage = new CreateNoiseImage_();
         noiseImage.setImageSize(imageSize);
         noiseImage.setPixelSize(pixelSize);
+        noiseImage.setMean(0.0);
         noiseImage.setSd(bgdStdev);
-        noiseImage.createGaussianNoiseImage();
+        noiseImage.createNoiseImage(CreateNoiseImage_.WHITE);
         noiseImage.setNoisePowerFn(nps_fn);
         noiseImage.applyNoisePowerFn();
+        noiseImage.applyStDevAndMean();
         noiseImage.showNoiseImage();
 
         System.out.print("Standard deviation for noise image is: " + bgdStdev);

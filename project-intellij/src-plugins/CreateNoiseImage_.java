@@ -13,6 +13,9 @@ import java.util.Random;
 
 public class CreateNoiseImage_  implements PlugIn {
 
+    static final int WHITE = 0;
+    static final int GAUSSIAN = 1;
+
     private int imageSize = 512;
     private double pixelSize = 0.5;
     private double meanValue = 0.0;
@@ -22,7 +25,7 @@ public class CreateNoiseImage_  implements PlugIn {
 
     void setImageSize(int newSize) { this.imageSize = newSize; }
     void setPixelSize(double newSize) { this.pixelSize = newSize; }
-    //void setMean(double newMean) { this.meanValue = newMean; }
+    void setMean(double newMean) { this.meanValue = newMean; }
     void setSd(double newSd) { this.sdValue = newSd; }
     void setNoisePowerFn(UnivariateFunction newNoisePowerFn) { this.noisePowerFn = newNoisePowerFn; }
 
@@ -36,47 +39,27 @@ public class CreateNoiseImage_  implements PlugIn {
     }
 
 
-    void createGaussianNoiseImage() {
+    void createNoiseImage(int noiseType) {
         Random random = new Random(System.currentTimeMillis());
 
         float[][] noiseData = new float[this.imageSize][this.imageSize];
 
         for (int x=0; x<this.imageSize; x++) {
             for (int y=0; y<this.imageSize; y++) {
-                // nextGaussian values have mean of 0.0 and standard deviation of 1.0
-                // Multiply by the required standard deviation
-                // https://www.javamex.com/tutorials/random_numbers/gaussian_distribution_2.shtml
-                noiseData[x][y] = (float)(random.nextGaussian());// * this.sdValue);
+                if (noiseType == WHITE) {
+                    noiseData[x][y] = random.nextFloat(); // Random number between 0.0 and 1.0
+                }
+                else {
+                    // nextGaussian values have mean of 0.0 and standard deviation of 1.0
+                    // Multiply by the required standard deviation
+                    // https://www.javamex.com/tutorials/random_numbers/gaussian_distribution_2.shtml
+                    noiseData[x][y] = (float) (random.nextGaussian());
+                }
             }
         }
 
-        this.noiseImage = NewImage.createImage("GaussianNoiseImage", this.imageSize, this.imageSize, 1, 32, NewImage.FILL_BLACK);
+        this.noiseImage = NewImage.createImage("NoiseImage", this.imageSize, this.imageSize, 1, 32, NewImage.FILL_BLACK);
         this.noiseImage.getProcessor().setFloatArray(noiseData);
-    }
-
-
-    void createWhiteNoiseImage() {
-        Random random = new Random(System.currentTimeMillis());
-
-        float[][] noiseData = new float[this.imageSize][this.imageSize];
-
-        for (int x=0; x<this.imageSize; x++) {
-            for (int y=0; y<this.imageSize; y++) {
-                noiseData[x][y] = random.nextFloat(); // Random number between 0.0 and 1.0
-            }
-        }
-
-        this.noiseImage = NewImage.createImage("WhiteNoiseImage", this.imageSize, this.imageSize, 1, 32, NewImage.FILL_BLACK);
-        this.noiseImage.getProcessor().setFloatArray(noiseData);
-
-
-        // Make the standard deviation the required value and the mean zero
-        ImageProcessor data = this.noiseImage.getProcessor();
-        ImageStatistics stats = data.getStatistics();
-
-        data.multiply(1.0 / stats.stdDev); // Makes the standard deviation 1.0
-        data.subtract(stats.mean); // Makes the mean zero
-        data.multiply(this.sdValue); // Makes the standard deviation the required value
     }
 
 
@@ -107,12 +90,16 @@ public class CreateNoiseImage_  implements PlugIn {
         noiseFilter.getProcessor().setFloatArray(noiseFilterValues);
 
         FFT.filter(this.noiseImage, noiseFilter);
+    }
 
-        // Ensure resulting noise has mean of zero and required SD
-        ImageStatistics noiseImageStats = this.noiseImage.getStatistics();
-        IJ.run(this.noiseImage, "Subtract...", "value="+noiseImageStats.mean);
-        IJ.run(this.noiseImage, "Divide...", "value="+noiseImageStats.stdDev);
-        IJ.run(this.noiseImage, "Multiply...", "value="+this.sdValue);
+
+    void applyStDevAndMean() {
+        ImageProcessor data = this.noiseImage.getProcessor();
+        ImageStatistics stats = data.getStatistics();
+
+        data.subtract(stats.mean); // Makes the mean zero
+        data.multiply(this.sdValue / stats.stdDev); // Sets the standard deviation to sdValue
+        data.add(this.meanValue); // Sets mean to meanValue
     }
 
 
