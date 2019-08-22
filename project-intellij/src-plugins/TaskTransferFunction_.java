@@ -231,7 +231,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
             return(DONE);
         }
 
-        this.recon_filter = DicomTools.getTag(this.imp, "0018,1210");
+        this.recon_filter = (DicomTools.getTag(this.imp, "0018,1210")).trim();
 
         // Obtain the calibration for the ImagePlus, as this is lost if we use a z-projection of a stack
         this.cal = this.imp.getCalibration();
