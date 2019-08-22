@@ -9,6 +9,7 @@ import ij.measure.Calibration;
 import ij.plugin.filter.PlugInFilter;
 import ij.plugin.frame.RoiManager;
 import ij.process.ImageProcessor;
+import ij.io.DirectoryChooser;
 import org.apache.commons.math3.analysis.FunctionUtils;
 import org.apache.commons.math3.analysis.UnivariateFunction;
 import org.apache.commons.math3.analysis.integration.SimpsonIntegrator;
@@ -375,7 +376,15 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
         // Save the log file
         IJ.selectWindow("Log");
-        String image_path = this.imp.getOriginalFileInfo().directory;
+        String image_path = "";
+        try {
+            image_path = this.imp.getOriginalFileInfo().directory;
+        }
+        catch (NullPointerException e) {
+            DirectoryChooser dirChooser = new DirectoryChooser("Select folder to save results");
+            image_path = dirChooser.getDirectory();
+        }
+
 
         try {
             IJ.saveAs("Text", image_path + this.results_filename);

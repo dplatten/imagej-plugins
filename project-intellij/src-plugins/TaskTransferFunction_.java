@@ -20,6 +20,7 @@ import org.apache.commons.math3.util.MathArrays;
 import org.apache.commons.math3.complex.Complex;
 
 import java.awt.*;
+import java.beans.ExceptionListener;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -231,7 +232,12 @@ public class TaskTransferFunction_ implements PlugInFilter {
             return(DONE);
         }
 
-        this.recon_filter = (DicomTools.getTag(this.imp, "0018,1210")).trim();
+        try {
+            this.recon_filter = (DicomTools.getTag(this.imp, "0018,1210")).trim();
+        }
+        catch (NullPointerException e) {
+            this.recon_filter = "NoReconFilter";
+        }
 
         // Obtain the calibration for the ImagePlus, as this is lost if we use a z-projection of a stack
         this.cal = this.imp.getCalibration();
