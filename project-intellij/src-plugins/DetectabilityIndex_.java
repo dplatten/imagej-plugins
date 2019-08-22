@@ -478,6 +478,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
         //------------------------------------
         // Display the task image
         ImagePlus finalTaskImage = NewImage.createFloatImage("Task image (d'=" + this.three_dp.format(d) + ")", imageSize, imageSize, 1, NewImage.FILL_BLACK);
+        IJ.run(finalTaskImage, "Properties...", "unit=mm pixel_width=" + pixelSize + " pixel_height=" + pixelSize);
         finalTaskImage.getProcessor().setFloatArray(taskNoiseImage);
         finalTaskImage.show();
         finalTaskImage.updateAndDraw();
