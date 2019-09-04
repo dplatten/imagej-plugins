@@ -1,3 +1,4 @@
+import com.sun.org.apache.xpath.internal.operations.Bool;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
@@ -55,7 +56,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
     private Calibration cal;
 
     private double obj_dia_mm = 25.0;
-    private double pixel_reduction_factor = 3.0;
+    private double pixel_reduction_factor = 5.0;
     private double rebin_f_inc = 0.05; // in mm^-1
     private double loess_bandwidth = 0.02;
     private int loess_robustness = 10;
@@ -78,6 +79,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
     private int esf_proc_choice_idx = REBIN;
     private String esf_proc_choice = esf_proc_choices[esf_proc_choice_idx];
 
+    private boolean advanced_options = false;
+
     private TTF_result ttf_result;
     private CNR_result cnr_result;
 
@@ -85,8 +88,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
     private double ttf_10;
 
     private boolean use_average_stack = false;
-    private int min_stack_index;
-    private int max_stack_index;
+    private int min_stack_index = 1;
+    private int max_stack_index = 1;
 
     private boolean log_results = true;
     private boolean log_esf_and_lsf_results = false;
@@ -219,6 +222,102 @@ public class TaskTransferFunction_ implements PlugInFilter {
     }
 
 
+    /**
+     * Method to set advanced processing options
+     * @return integer; either zero (all is well) or DONE - the user clicked "Cancel"
+     */
+    private int advancedOptions() {
+        GenericDialog gd = new GenericDialog("Task transfer function options");
+        gd.addNumericField("Object diameter (mm) [Mercury 25, Catphan 12]", this.obj_dia_mm, 0);
+        gd.addNumericField("Pixel reduction factor", this.pixel_reduction_factor, 0);
+        gd.addNumericField("Frequency rebin increment (mm^-1)", this.rebin_f_inc, 2);
+        gd.addCheckbox("Find centre of mass", this.find_com);
+        gd.addCheckbox("Use low-pass filter for CoM", this.use_low_pass);
+        gd.addNumericField("Low-pass filter factor", this.low_pass_factor, 2);
+        gd.addRadioButtonGroup("ESF processing to use", this.esf_proc_choices, 3, 1, this.esf_proc_choices[this.esf_proc_choice_idx]);
+        gd.addMessage("ESF local regression options");
+        gd.addNumericField("Bandwidth", this.loess_bandwidth, 2);
+        gd.addNumericField("Robustness", this.loess_robustness, 0);
+        gd.addCheckbox("Apply local regression to LSF?", this.loess_on_lsf);
+        gd.addNumericField("LSF local regression bandwidth", this.lsf_loess_bandwidth, 2);
+        gd.addNumericField("LSF local regression robustness", this.lsf_loess_robustness, 0);
+        gd.addCheckbox("Log ESF and LSF results?", this.log_esf_and_lsf_results);
+        if (this.imp.isStack()) {
+            gd.addCheckbox("Run on the average stack", this.use_average_stack);
+            gd.addNumericField("Min slice index", this.min_stack_index, 0);
+            gd.addNumericField("to max slice index", this.max_stack_index, 0);
+            this.imageStack = this.imp.getImageStack();
+        }
+        gd.showDialog();
+        if(gd.wasCanceled()) {
+            return(DONE);
+        }
+
+        this.obj_dia_mm = gd.getNextNumber();
+        this.pixel_reduction_factor = gd.getNextNumber();
+        this.rebin_f_inc = gd.getNextNumber();
+        this.find_com = gd.getNextBoolean();
+        this.use_low_pass = gd.getNextBoolean();
+        this.low_pass_factor = gd.getNextNumber();
+        this.esf_proc_choice = gd.getNextRadioButton();
+        this.esf_proc_choice_idx = indexOf(this.esf_proc_choices, this.esf_proc_choice);
+        this.loess_bandwidth = gd.getNextNumber();
+        this.loess_robustness = (int) gd.getNextNumber();
+        this.loess_on_lsf = gd.getNextBoolean();
+        this.lsf_loess_bandwidth = gd.getNextNumber();
+        this.lsf_loess_robustness = (int) gd.getNextNumber();
+        this.log_esf_and_lsf_results = gd.getNextBoolean();
+        if (this.imp.isStack()) {
+            this.use_average_stack = gd.getNextBoolean();
+            this.min_stack_index = (int) gd.getNextNumber();
+            this.max_stack_index = (int) gd.getNextNumber();
+        }
+
+        return 0;
+    }
+
+
+    /**
+     * Method to set the simple processing options (the default)
+     * @return integer; either zero (all is well) or DONE - the user clicked "Cancel"
+     */
+    private int simpleOptions() {
+        GenericDialog gd = new GenericDialog("Task transfer function options");
+        gd.addNumericField("Object diameter (mm) [Mercury 25, Catphan 12]", this.obj_dia_mm, 0);
+        gd.addNumericField("Pixel reduction factor", this.pixel_reduction_factor, 0);
+        gd.addNumericField("Frequency rebin increment (mm^-1)", this.rebin_f_inc, 2);
+        gd.addCheckbox("Find centre of mass", this.find_com);
+        gd.addCheckbox("Show advanced options", this.advanced_options);
+        if (this.imp.isStack()) {
+            gd.addCheckbox("Run on the average stack", this.use_average_stack);
+            gd.addNumericField("Min slice index", this.min_stack_index, 0);
+            gd.addNumericField("to max slice index", this.max_stack_index, 0);
+            this.imageStack = this.imp.getImageStack();
+        }
+        gd.showDialog();
+        if(gd.wasCanceled()) {
+            return(DONE);
+        }
+
+        this.obj_dia_mm = gd.getNextNumber();
+        this.pixel_reduction_factor = gd.getNextNumber();
+        this.rebin_f_inc = gd.getNextNumber();
+        this.find_com = gd.getNextBoolean();
+        this.advanced_options = gd.getNextBoolean();
+        if (this.imp.isStack()) {
+            this.use_average_stack = gd.getNextBoolean();
+            this.min_stack_index = (int) gd.getNextNumber();
+            this.max_stack_index = (int) gd.getNextNumber();
+        }
+
+        // If the user has ticked the "Show advanced options" box then
+        // show the advanced options.
+        if (this.advanced_options) advancedOptions();
+
+        return 0;
+    }
+
+
     /** Method to set up the TTF
      *
      * @param arg Not currently used
@@ -252,51 +351,19 @@ public class TaskTransferFunction_ implements PlugInFilter {
             return(DONE);
         }
 
-        GenericDialog gd = new GenericDialog("Task transfer function options");
-        gd.addNumericField("Object diameter (mm) [Mercury 25, Catphan 12]", this.obj_dia_mm, 0);
-        gd.addNumericField("Pixel reduction factor", this.pixel_reduction_factor, 0);
-        gd.addNumericField("Frequency rebin increment (mm^-1)", this.rebin_f_inc, 2);
-        gd.addCheckbox("Find centre of mass", this.find_com);
-        gd.addCheckbox("Use low-pass filter for CoM", this.use_low_pass);
-        gd.addNumericField("Low-pass filter factor", this.low_pass_factor, 2);
-        gd.addRadioButtonGroup("ESF processing to use", this.esf_proc_choices, 3, 1, this.esf_proc_choices[this.esf_proc_choice_idx]);
-        gd.addMessage("ESF local regression options");
-        gd.addNumericField("Bandwidth", this.loess_bandwidth, 2);
-        gd.addNumericField("Robustness", this.loess_robustness, 0);
-        gd.addCheckbox("Apply local regression to LSF?", this.loess_on_lsf);
-        gd.addNumericField("LSF local regression bandwidth", this.lsf_loess_bandwidth, 2);
-        gd.addNumericField("LSF local regression robustness", this.lsf_loess_robustness, 0);
-        gd.addCheckbox("Log ESF and LSF results?", this.log_esf_and_lsf_results);
         if (this.imp.isStack()) {
-            gd.addCheckbox("Run on the average stack", this.use_average_stack);
-            gd.addNumericField("Min slice index", 1, 0);
-            gd.addNumericField("to max slice index", this.imp.getImageStackSize(), 0);
-            this.imageStack = this.imp.getImageStack();
-        }
-        gd.showDialog();
-        if(gd.wasCanceled()) {
-            return(DONE);
+            this.max_stack_index = this.imp.getImageStackSize();
         }
 
-        this.obj_dia_mm = gd.getNextNumber();
-        this.pixel_reduction_factor = gd.getNextNumber();
-        this.rebin_f_inc = gd.getNextNumber();
-        this.find_com = gd.getNextBoolean();
-        this.use_low_pass = gd.getNextBoolean();
-        this.low_pass_factor = gd.getNextNumber();
-        this.esf_proc_choice = gd.getNextRadioButton();
-        this.esf_proc_choice_idx = indexOf(this.esf_proc_choices, this.esf_proc_choice);
-        this.loess_bandwidth = gd.getNextNumber();
-        this.loess_robustness = (int) gd.getNextNumber();
-        this.loess_on_lsf = gd.getNextBoolean();
-        this.lsf_loess_bandwidth = gd.getNextNumber();
-        this.lsf_loess_robustness = (int) gd.getNextNumber();
-        this.log_esf_and_lsf_results = gd.getNextBoolean();
-        if (this.imp.isStack()) {
-            this.use_average_stack = gd.getNextBoolean();
-            this.min_stack_index = (int) gd.getNextNumber();
-            this.max_stack_index = (int) gd.getNextNumber();
+        // Show the TTF processing options set in this.options_choice
+        int options_result;
+        if (this.advanced_options) {
+            options_result = advancedOptions();
         }
+        else {
+            options_result = simpleOptions();
+        }
+        if (options_result == DONE) return(DONE);
 
         if (this.use_average_stack) {
             ZProjector z_projector = new ZProjector(this.imp);
