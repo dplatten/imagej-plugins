@@ -404,6 +404,9 @@ public class DetectabilityIndex_ implements PlugInFilter {
             imageSize = getNextPowerOfTwo(imageSize);
         }
 
+        ImagePlus discImage = createIdealDiscImage(task_diameter, pixelSize, this.imp.getCalibration(), imageSize);
+        double[][] fullDiscImageData = ArrayConversions.convertFloatToDouble(discImage.getProcessor().getFloatArray());
+/*
         //------------------------------------
         // Create perfect disc task image
         ImagePlus discImage = TaskTransferFunction_.createDiscTemplate(task_diameter, pixelSize, this.imp.getCalibration());
@@ -423,7 +426,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
                 discImageData_row++;
             }
         }
-        //------------------------------------
+        //------------------------------------*/
 
 
         //------------------------------------
@@ -497,6 +500,33 @@ public class DetectabilityIndex_ implements PlugInFilter {
         //------------------------------------
     }
 
+
+    public ImagePlus createIdealDiscImage(double disc_diameter, double image_pixel_size_mm, Calibration cal, int image_pixel_width) {
+        ImagePlus idealDiscImage = TaskTransferFunction_.createDiscTemplate(disc_diameter, image_pixel_size_mm, cal);
+
+        // Pad out the idealDiscImage to the correct image size; assuming a square image
+        float[][] discImageData = idealDiscImage.getProcessor().getFloatArray();
+        float[][] fullDiscImageData = new float[image_pixel_width][image_pixel_width];
+        if (discImageData.length < image_pixel_width) {
+            int offset = (image_pixel_width - discImageData.length)/2;
+            int discImageData_row = 0;
+            for (int row=offset; row<offset+discImageData.length; row++) {
+                int discImageData_col = 0;
+                for (int col=offset; col<offset+discImageData.length; col++) {
+                    fullDiscImageData[row][col] = discImageData[discImageData_row][discImageData_col];
+                    discImageData_col++;
+                }
+                discImageData_row++;
+            }
+
+            ImagePlus paddedIdealDiscImage = NewImage.createFloatImage("Ideal disc image", image_pixel_width, image_pixel_width, 1, NewImage.FILL_BLACK);
+            paddedIdealDiscImage.getProcessor().setFloatArray(fullDiscImageData);
+            paddedIdealDiscImage.setCalibration(cal);
+            return paddedIdealDiscImage;
+        }
+
+        return idealDiscImage;
+    }
 
     /**
      * Method to calculate the distance between two cartesian coordinates
