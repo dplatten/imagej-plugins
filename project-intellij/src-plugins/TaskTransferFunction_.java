@@ -701,7 +701,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
         if (this.show_plots) {
             // Plot the nTTFs
-            Plot plot_ttf = new Plot("Normalised TTF", "Frequency (per mm)", "nTTF");
+            Plot plot_ttf = new Plot("Normalised TTF", "Frequency (per mm)", "Normalised task transfer");
             plot_ttf.setColor("Red");
             plot_ttf.add("line", ttf_data.freq, ttf_data.val);
             plot_ttf.setColor("Black");
