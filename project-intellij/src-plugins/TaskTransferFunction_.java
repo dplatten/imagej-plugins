@@ -1,5 +1,7 @@
+import com.sun.org.apache.xpath.internal.operations.Bool;
 import ij.IJ;
 import ij.ImagePlus;
+import ij.ImageStack;
 import ij.gui.*;
 import ij.plugin.ZProjector;
 import ij.plugin.filter.PlugInFilter;
@@ -19,6 +21,7 @@ import org.apache.commons.math3.util.MathArrays;
 import org.apache.commons.math3.complex.Complex;
 
 import java.awt.*;
+import java.beans.ExceptionListener;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -49,10 +52,11 @@ import java.util.Arrays;
  */
 public class TaskTransferFunction_ implements PlugInFilter {
     private ImagePlus imp;
+    private ImageStack imageStack;
     private Calibration cal;
 
     private double obj_dia_mm = 25.0;
-    private double pixel_reduction_factor = 3.0;
+    private double pixel_reduction_factor = 5.0;
     private double rebin_f_inc = 0.05; // in mm^-1
     private double loess_bandwidth = 0.02;
     private int loess_robustness = 10;
@@ -75,6 +79,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
     private int esf_proc_choice_idx = REBIN;
     private String esf_proc_choice = esf_proc_choices[esf_proc_choice_idx];
 
+    private boolean advanced_options = false;
+
     private TTF_result ttf_result;
     private CNR_result cnr_result;
 
@@ -82,8 +88,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
     private double ttf_10;
 
     private boolean use_average_stack = false;
-    private int min_stack_index;
-    private int max_stack_index;
+    private int min_stack_index = 1;
+    private int max_stack_index = 1;
 
     private boolean log_results = true;
     private boolean log_esf_and_lsf_results = false;
@@ -216,34 +222,11 @@ public class TaskTransferFunction_ implements PlugInFilter {
     }
 
 
-    /** Method to set up the TTF
-     *
-     * @param arg Not currently used
-     * @param imp The ImagePlus object
-     * @return The return value - 0 if unsuccessful
+    /**
+     * Method to set advanced processing options
+     * @return integer; either zero (all is well) or DONE - the user clicked "Cancel"
      */
-    public int setup(String arg, ImagePlus imp) {
-        this.imp = imp;
-
-        if(this.imp == null) {
-            return(DONE);
-        }
-
-        this.recon_filter = DicomTools.getTag(this.imp, "0018,1210");
-
-        // Obtain the calibration for the ImagePlus, as this is lost if we use a z-projection of a stack
-        this.cal = this.imp.getCalibration();
-
-        // Remove any overlays that are present
-        this.imp.setOverlay(null);
-
-        // If there is no ROI set then exit
-        this.main_roi = imp.getRoi();
-        if(this.main_roi == null) {
-            IJ.error("Please draw an ROI around an object");
-            return(DONE);
-        }
-
+    private int advancedOptions() {
         GenericDialog gd = new GenericDialog("Task transfer function options");
         gd.addNumericField("Object diameter (mm) [Mercury 25, Catphan 12]", this.obj_dia_mm, 0);
         gd.addNumericField("Pixel reduction factor", this.pixel_reduction_factor, 0);
@@ -261,8 +244,9 @@ public class TaskTransferFunction_ implements PlugInFilter {
         gd.addCheckbox("Log ESF and LSF results?", this.log_esf_and_lsf_results);
         if (this.imp.isStack()) {
             gd.addCheckbox("Run on the average stack", this.use_average_stack);
-            gd.addNumericField("Min slice index", 1, 0);
-            gd.addNumericField("to max slice index", this.imp.getImageStackSize(), 0);
+            gd.addNumericField("Min slice index", this.min_stack_index, 0);
+            gd.addNumericField("to max slice index", this.max_stack_index, 0);
+            this.imageStack = this.imp.getImageStack();
         }
         gd.showDialog();
         if(gd.wasCanceled()) {
@@ -288,6 +272,98 @@ public class TaskTransferFunction_ implements PlugInFilter {
             this.min_stack_index = (int) gd.getNextNumber();
             this.max_stack_index = (int) gd.getNextNumber();
         }
+
+        return 0;
+    }
+
+
+    /**
+     * Method to set the simple processing options (the default)
+     * @return integer; either zero (all is well) or DONE - the user clicked "Cancel"
+     */
+    private int simpleOptions() {
+        GenericDialog gd = new GenericDialog("Task transfer function options");
+        gd.addNumericField("Object diameter (mm) [Mercury 25, Catphan 12]", this.obj_dia_mm, 0);
+        gd.addNumericField("Pixel reduction factor", this.pixel_reduction_factor, 0);
+        gd.addNumericField("Frequency rebin increment (mm^-1)", this.rebin_f_inc, 2);
+        gd.addCheckbox("Find centre of mass", this.find_com);
+        gd.addCheckbox("Show advanced options", this.advanced_options);
+        if (this.imp.isStack()) {
+            gd.addCheckbox("Run on the average stack", this.use_average_stack);
+            gd.addNumericField("Min slice index", this.min_stack_index, 0);
+            gd.addNumericField("to max slice index", this.max_stack_index, 0);
+            this.imageStack = this.imp.getImageStack();
+        }
+        gd.showDialog();
+        if(gd.wasCanceled()) {
+            return(DONE);
+        }
+
+        this.obj_dia_mm = gd.getNextNumber();
+        this.pixel_reduction_factor = gd.getNextNumber();
+        this.rebin_f_inc = gd.getNextNumber();
+        this.find_com = gd.getNextBoolean();
+        this.advanced_options = gd.getNextBoolean();
+        if (this.imp.isStack()) {
+            this.use_average_stack = gd.getNextBoolean();
+            this.min_stack_index = (int) gd.getNextNumber();
+            this.max_stack_index = (int) gd.getNextNumber();
+        }
+
+        // If the user has ticked the "Show advanced options" box then
+        // show the advanced options.
+        if (this.advanced_options) advancedOptions();
+
+        return 0;
+    }
+
+
+    /** Method to set up the TTF
+     *
+     * @param arg Not currently used
+     * @param imp The ImagePlus object
+     * @return The return value - 0 if unsuccessful
+     */
+    public int setup(String arg, ImagePlus imp) {
+        this.imp = imp;
+
+        if(this.imp == null) {
+            return(DONE);
+        }
+
+        try {
+            this.recon_filter = (DicomTools.getTag(this.imp, "0018,1210")).trim();
+        }
+        catch (NullPointerException e) {
+            this.recon_filter = "NoReconFilter";
+        }
+
+        // Obtain the calibration for the ImagePlus, as this is lost if we use a z-projection of a stack
+        this.cal = this.imp.getCalibration();
+
+        // Remove any overlays that are present
+        this.imp.setOverlay(null);
+
+        // If there is no ROI set then exit
+        this.main_roi = imp.getRoi();
+        if(this.main_roi == null) {
+            IJ.error("Please draw an ROI around an object");
+            return(DONE);
+        }
+
+        if (this.imp.isStack()) {
+            this.max_stack_index = this.imp.getImageStackSize();
+        }
+
+        // Show the TTF processing options set in this.options_choice
+        int options_result;
+        if (this.advanced_options) {
+            options_result = advancedOptions();
+        }
+        else {
+            options_result = simpleOptions();
+        }
+        if (options_result == DONE) return(DONE);
 
         if (this.use_average_stack) {
             ZProjector z_projector = new ZProjector(this.imp);
@@ -426,7 +502,14 @@ public class TaskTransferFunction_ implements PlugInFilter {
         // Calculate the CNR of the object
         double obj_roi_dia = obj_dia_pix * 0.5; // - (3.0 / pixel_size_in_mm);
         Roi obj_roi = new OvalRoi(this.cal.getRawX(this.com[0])-obj_roi_dia/2.0, this.cal.getRawY(this.com[1])-obj_roi_dia/2.0, obj_roi_dia, obj_roi_dia);
-        CNR_result cnr_results = contrastToNoiseRatio(this.imp, obj_roi, annular_roi);
+        CNR_result cnr_results;
+        if (this.use_average_stack) {
+            // Obtain CNR from the first image of the stack, rather than from the mean of the stack
+            cnr_results = contrastToNoiseRatio(this.imp, obj_roi, annular_roi);
+        }
+        else {
+            cnr_results = contrastToNoiseRatio(this.imp, obj_roi, annular_roi);
+        }
 
         if (this.log_results) {
             IJ.log("CNR," + this.three_dp.format(cnr_results.cnr));
@@ -618,7 +701,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
         if (this.show_plots) {
             // Plot the nTTFs
-            Plot plot_ttf = new Plot("Normalised TTF", "Frequency (per mm)", "nTTF");
+            Plot plot_ttf = new Plot("Normalised TTF", "Frequency (per mm)", "Normalised task transfer");
             plot_ttf.setColor("Red");
             plot_ttf.add("line", ttf_data.freq, ttf_data.val);
             plot_ttf.setColor("Black");
@@ -714,19 +797,6 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
         double[][] roi_pixels = getCalibratedPixelValues(ip, roi);
 
-/*
-        // ---------------------------------------------------------------------
-        // Display the ROI
-        ImagePlus temp = NewImage.createFloatImage("Roi pixels", roi_pixels.length, roi_pixels[0].length, 1, NewImage.FILL_BLACK);
-        temp.getProcessor().setFloatArray(convertDoubleToFloat(roi_pixels));
-        //IJ.run(nps_2d, "Swap Quadrants", "");
-        temp.show();
-        temp.updateAndDraw();
-        IJ.run(temp, "Enhance Contrast", "saturated=0.35");
-        IJ.run("Set... ", "zoom=800");
-        // ---------------------------------------------------------------------
-*/
-
         TwoDFFT twod_fourier_transformer = new TwoDFFT();
         Complex[][] fft;
         try {
@@ -737,18 +807,6 @@ public class TaskTransferFunction_ implements PlugInFilter {
             return(null);
         }
 
-/*
-        // ---------------------------------------------------------------------
-        // Display the ROI
-        temp = NewImage.createFloatImage("Roi FFT", fft.length, fft[0].length, 1, NewImage.FILL_BLACK);
-        temp.getProcessor().setFloatArray(convertComplexToFloat(fft));
-        //IJ.run(nps_2d, "Swap Quadrants", "");
-        temp.show();
-        temp.updateAndDraw();
-        IJ.run(temp, "Enhance Contrast", "saturated=0.35");
-        IJ.run("Set... ", "zoom=800");
-        // ---------------------------------------------------------------------
-*/
 
         double freq_inc = 1.0 / (roi_pixels.length * cal.pixelWidth);
 
@@ -810,24 +868,13 @@ public class TaskTransferFunction_ implements PlugInFilter {
         // Now shift the quadrants so that zero is at the centre
         fft = twod_fourier_transformer.swapQuadrants(fft);
 
-/*
-        // ---------------------------------------------------------------------
-        temp = NewImage.createFloatImage("Roi shifted FFT", shifted_fft.length, shifted_fft[0].length, 1, NewImage.FILL_BLACK);
-        temp.getProcessor().setFloatArray(convertComplexToFloat(shifted_fft));
-        temp.show();
-        temp.updateAndDraw();
-        IJ.run(temp, "Enhance Contrast", "saturated=0.35");
-        IJ.run("Set... ", "zoom=800");
-        // ---------------------------------------------------------------------
-*/
-
         // Now inverse Fourier transform the fft to obtain image space again
         fft = twod_fourier_transformer.transform(fft, DftNormalization.STANDARD, TransformType.INVERSE);
 
 
         // ---------------------------------------------------------------------
         ImagePlus temp = NewImage.createFloatImage("Inverse FFT", fft.length, fft[0].length, 1, NewImage.FILL_BLACK);
-        temp.getProcessor().setFloatArray(convertComplexToFloat(fft));
+        temp.getProcessor().setFloatArray(ArrayConversions.convertComplexToFloat(fft));
         temp.show();
         temp.updateAndDraw();
         IJ.run(temp, "Enhance Contrast", "saturated=0.35");
@@ -868,11 +915,21 @@ public class TaskTransferFunction_ implements PlugInFilter {
         // Calculate the contrast to noise ratio between the two regions of interest.
         // CNR calculated as (obj_mean - bgd_mean) / bgd_stdDev as show in equation
         // 1 of Christianson et al, https://doi.org/10.1148/radiol.15132091
-        imp.setRoi(obj_roi);
-        ImageStatistics obj_stats = imp.getAllStatistics();
+        ImageStatistics obj_stats, bgd_stats;
 
-        imp.setRoi(bgd_roi);
-        ImageStatistics bgd_stats = imp.getAllStatistics();
+        if (this.use_average_stack) {
+            ImageProcessor stackSliceIp = this.imageStack.getProcessor(this.min_stack_index);
+            stackSliceIp.setRoi(obj_roi);
+            obj_stats = stackSliceIp.getStatistics();
+            stackSliceIp.setRoi(bgd_roi);
+            bgd_stats = stackSliceIp.getStatistics();
+        }
+        else {
+            imp.setRoi(obj_roi);
+            obj_stats = imp.getAllStatistics();
+            imp.setRoi(bgd_roi);
+            bgd_stats = imp.getAllStatistics();
+        }
 
         CNR_result result = new CNR_result();
         result.signal = obj_stats.mean;
@@ -1294,64 +1351,6 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
     /**
      *
-     * @param values Two-dimensional array of Float values
-     * @return Two-dimensional array of Double values
-     */
-    private static double[][] convertFloatToDouble(final float[][] values) {
-        int width = values.length;
-        int height = values[0].length;
-
-        final double[][] result = new double[width][height];
-
-        for (int i=0; i<width; i++) {
-            for (int j=0; j<height; j++) {
-                result[i][j] = (double) values[i][j];
-            }
-        }
-        return result;
-    }
-
-
-    /**
-     *
-     * @param values Two-dimensional array of Double values
-     * @return Two-dimensional array of Float values
-     */
-    private static float[][] convertDoubleToFloat(final double[][] values) {
-        int width = values.length;
-        int height = values[0].length;
-
-        final float[][] result = new float[width][height];
-
-        for (int i=0; i<width; i++) {
-            for (int j=0; j<height; j++) {
-                result[i][j] = (float) values[i][j];
-            }
-        }
-        return result;
-    }
-
-    /**
-     *
-     * @param values Two-dimensional array of Double values
-     * @return Two-dimensional array of Complex values
-     */
-    private static float[][] convertComplexToFloat(final Complex[][] values) {
-        int width = values.length;
-        int height = values[0].length;
-
-        final float[][] result = new float[width][height];
-
-        for (int i=0; i<width; i++) {
-            for (int j=0; j<height; j++) {
-                result[i][j] = (float) values[i][j].abs();
-            }
-        }
-        return result;
-    }
-
-    /**
-     *
      * @param ip The ImageProcessor from which to get the values from
      * @param roi The Roi to use to obtain the values - assumed to be rectangular
      * @return Two-dimensional array containing the calibrated pixel values of the Roi
@@ -1435,7 +1434,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
 
         if (show_corr_map) {
             ImagePlus corr_image = NewImage.createFloatImage("Correlation for each template position (top-left corner)", corr_data.length, corr_data[0].length, 1, NewImage.FILL_BLACK);
-            corr_image.getProcessor().setFloatArray(convertDoubleToFloat(corr_data));
+            corr_image.getProcessor().setFloatArray(ArrayConversions.convertDoubleToFloat(corr_data));
             corr_image.show();
             corr_image.updateAndDraw();
             IJ.run(corr_image, "Enhance Contrast", "saturated=0.35");
@@ -1474,7 +1473,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
         }
 
         ImagePlus template = NewImage.createFloatImage("Template", pixel_dimensions, pixel_dimensions, 1, NewImage.FILL_BLACK);
-        template.getProcessor().setFloatArray(convertDoubleToFloat(tempate_data));
+        template.getProcessor().setFloatArray(ArrayConversions.convertDoubleToFloat(tempate_data));
         template.setCalibration(cal);
 
         return template;
@@ -1490,7 +1489,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
      * @param cal The Calibration to apply to the template
      * @return The disc template
      */
-    private static ImagePlus createDiscTemplate(double disc_diameter_in_mm, double pixel_size_in_mm, Calibration cal) {
+    public static ImagePlus createDiscTemplate(double disc_diameter_in_mm, double pixel_size_in_mm, Calibration cal) {
         double radius_sqrd = (disc_diameter_in_mm / 2.0) * (disc_diameter_in_mm / 2.0);
 
         int pixel_dimensions = (int) Math.ceil(disc_diameter_in_mm / pixel_size_in_mm);
@@ -1532,7 +1531,7 @@ public class TaskTransferFunction_ implements PlugInFilter {
         }
 
         ImagePlus template = NewImage.createFloatImage("Template", pixel_dimensions, pixel_dimensions, 1, NewImage.FILL_BLACK);
-        template.getProcessor().setFloatArray(convertDoubleToFloat(template_data));
+        template.getProcessor().setFloatArray(ArrayConversions.convertDoubleToFloat(template_data));
         template.setCalibration(cal);
 
         return template;

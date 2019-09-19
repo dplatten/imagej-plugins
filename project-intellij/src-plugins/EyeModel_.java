@@ -7,6 +7,7 @@ import org.apache.commons.math3.util.MathArrays;
 import java.text.DecimalFormat;
 
 /**
+ *
  * ImageJ plugin to calculate eye frequency response using either
  * Richard and Siewerdsen 2008, <a href="http://dx.doi.org/10.1118/1.2988161">http://dx.doi.org/10.1118/1.2988161</a>:
  * <br><br>
