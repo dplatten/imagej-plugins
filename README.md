@@ -1,5 +1,12 @@
 This repository contains my ImageJ plugins to help with some medical physics tasks. The skeleton I have used was taken from https://github.com/imagingbook/imagej1-plugins-ide-setup. I have stripped out the netbeans and Eclipse folders.
 
+A jar file called "QuantitativeIQ.jar" contains all of the plugins.
+It can be downloaded from the project-intellij/jars folder and dropped into the plugins folder of your ImageJ installation.
+These plugins depend on the Apache commons maths library version 3.6.1. You'll need to put a copy of the commons-math3-3.6.1.jar file in your ImageJ plugins folder.
+You will find a copy of commons-math3-3.6.1.jar in this project's project-intellij/jars folder.
+If you would rather download it from Apache then you can extract it from the commons-math3-3.6.1-bin.zip file that you can download from this page: https://commons.apache.org/proper/commons-math/download_math.cgi
+
+
 # The plugins
 
 ## TextureMap
@@ -42,45 +49,41 @@ of interest in a uniform image.
 
 
 ## EyeModel
-This calculates the radial frequency response of the human eye according to one of two
-theoretical models.
-
-Equation 5 in Richard and Siewerdsen 2008, http://dx.doi.org/10.1118/1.2988161:
+ImageJ plugin to calculate eye frequency response using either
+Richard and Siewerdsen 2008, http://dx.doi.org/10.1118/1.2988161:
 
 E(f) = f^n.exp(-c.f^2)
 
-where
+where f = radial spatial frequency (mm<sup>-1</sup>)
+      n = 1.3
+      c = 3.093 for a 50 cm viewing distance for E(f) to peak at 4 degree<sup>-1</sup>
 
-* n = 1.3
-* c = 3.093 for a 50 cm viewing distance for E(f) to peak at 4 cycles/degree
+or Solomon et al 2015, http://dx.doi.org/10.1118/1.4923172:
 
-or equation 3 in Solomon et al 2015, http://dx.doi.org/10.1118/1.4923172:
+E(p) = |n.p^a1.exp(-a2.p^a3)|^2
 
-E(p) = |n.p^(a1).exp(-a2.p^a3)|^2
+where a1 = 1.5
+      a2 = 0.98
+      a3 = 0.68
+      n is a normalisation constant to make max E(p) = 1.0
+      p is angular spatial frequency (degree^-1)
 
-where
-
-* a1 = 1.5
-* a2 = 0.98
-* a3 = 0.68
-* n is a normalisation constant to make max E(p) = 1.0
-* p (rho, really) is angular spatial frequency expressed in cycles per degree
-
-p can be calculated from radial spatial frequency using equation 4 in the
-Solomon et al paper:
+p can be calculated from radial spatial frequency using:
 
 p = (f.FOV.R.pi) / (D.180)
 
-where
+where f is radial spatial frequency (mm^-1)
+      FOV is the reconstructed field of view of the image (mm)
+      R is the viewing distance (mm)
+      D is the display size (mm) (assumed to be 305 mm in the Solomon paper)
 
-* f is radial spatial frequency
-* FOV is the reconstructed field of view of the image
-* R is the viewing distance
-* D is the display size (assumed to be 30.5 cm in the Solomon paper)
+or Saunders et al 2006 (http://dx.doi.org/10.1118/1.2150777) which
+is the same as Solomon et al 2015 except the a2 coefficient has the value 3.22. This matches
+the Saunders option in the imquest software.
 
-Note to self: is D the physical size of the full image as displayed on the screen?
-If so, can calculate this if know the pixel pitch in mm, the pixel dimensions of
-the image and the zoom factor.
+The Solomon et al 2015 section above is mathematically the same as that used by
+the imquest software Eckstein option except that  the original Eckstein work did not
+normalise the function, nor did it square the result (http://dx.doi.org/10.1364/OE.11.000460).
 
 
 ## TaskFunction
@@ -93,7 +96,7 @@ Uses the TaskTransferFunction, NoisePowerSpectrum, EyeModel and TaskFunction
 to calculate a numerical index that relates to the detectability of an object.
 The detectability index (d') is calculated according to equation 2 in
 http://dx.doi.org/10.1118/1.4923172 adapted for radial frequency rather than u, v.
-The integration limits for calculating d' are 0 to the Nyquist frequency.
+In this plugin the integration limits for calculating d' are 0 to the Nyquist frequency.
 
 
 # Using this repository
