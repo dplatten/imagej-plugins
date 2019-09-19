@@ -3,11 +3,13 @@
 import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.GenericDialog;
+import ij.gui.NewImage;
 import ij.gui.Roi;
 import ij.measure.Calibration;
 import ij.plugin.filter.PlugInFilter;
 import ij.plugin.frame.RoiManager;
 import ij.process.ImageProcessor;
+import ij.io.DirectoryChooser;
 import org.apache.commons.math3.analysis.FunctionUtils;
 import org.apache.commons.math3.analysis.UnivariateFunction;
 import org.apache.commons.math3.analysis.integration.SimpsonIntegrator;
@@ -17,6 +19,9 @@ import org.apache.commons.math3.analysis.interpolation.UnivariateInterpolator;
 
 import java.text.DecimalFormat;
 import ij.gui.Plot;
+import org.apache.commons.math3.complex.Complex;
+import org.apache.commons.math3.transform.DftNormalization;
+import org.apache.commons.math3.transform.TransformType;
 
 /**
  *
@@ -284,6 +289,14 @@ public class DetectabilityIndex_ implements PlugInFilter {
             double detectability = Math.sqrt(Math.pow(numerator_int, 2.0) / denominator_int);
 
 
+            // Create an image of the task including the effect of the TTF and NPS
+            double nps_record_stdev = NPS.getRecordStdevSum() / NPS.getNumRecords();
+            if (NPS.getAverageStackStatus()) nps_record_stdev /= (NPS.getMaxStackIndex() - NPS.getMinStackIndex() + 1);
+
+            calcTaskImageIncTTFandNPS(this.task_radius*2.0, TTF_fn, NPS_fn, this.imp.getWidth(), cal.pixelWidth, nps_record_stdev, detectability);
+            //calcTaskImageIncTTFandNPS(this.task_radius*2.0, TTF_fn, NPS_fn, this.imp.getWidth(), cal.pixelWidth, 12.0, detectability);
+
+
             // Log the results
             IJ.log("Detectability results" +
                     "\nReconstruction filter," + TTF.getReconFilter() +
@@ -363,7 +376,15 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
         // Save the log file
         IJ.selectWindow("Log");
-        String image_path = this.imp.getOriginalFileInfo().directory;
+        String image_path = "";
+        try {
+            image_path = this.imp.getOriginalFileInfo().directory;
+        }
+        catch (NullPointerException e) {
+            DirectoryChooser dirChooser = new DirectoryChooser("Select folder to save results");
+            image_path = dirChooser.getDirectory();
+        }
+
 
         try {
             IJ.saveAs("Text", image_path + this.results_filename);
@@ -371,5 +392,168 @@ public class DetectabilityIndex_ implements PlugInFilter {
         catch(Exception e) {
             IJ.error("There was an error when saving the results file:\n" + e);
         }
+    }
+
+
+    private void calcTaskImageIncTTFandNPS(double task_diameter, UnivariateFunction ttf_fn, UnivariateFunction nps_fn, int imageSize, double pixelSize, double bgdStdev, double d) {
+        double freq_inc = 1.0 / (imageSize*pixelSize);
+
+        // Check that imageSize is a power of two to prevent the 2D Fourier transform from failing
+        if (!isPowerOfTwo(imageSize)) {
+            // Set imageSize to the next power of two if it wasn't already a power of two
+            imageSize = getNextPowerOfTwo(imageSize);
+        }
+
+        ImagePlus discImage = createIdealDiscImage(task_diameter, pixelSize, this.imp.getCalibration(), imageSize);
+        double[][] fullDiscImageData = ArrayConversions.convertFloatToDouble(discImage.getProcessor().getFloatArray());
+/*
+        //------------------------------------
+        // Create perfect disc task image
+        ImagePlus discImage = TaskTransferFunction_.createDiscTemplate(task_diameter, pixelSize, this.imp.getCalibration());
+
+        // Pad out the discImage to the correct image size; assuming a square image
+        float[][] discImageData = discImage.getProcessor().getFloatArray();
+        double[][] fullDiscImageData = new double[imageSize][imageSize];
+        if (discImageData.length < imageSize) {
+            int offset = (imageSize - discImageData.length)/2;
+            int discImageData_row = 0;
+            for (int row=offset; row<offset+discImageData.length; row++) {
+                int discImageData_col = 0;
+                for (int col=offset; col<offset+discImageData.length; col++) {
+                    fullDiscImageData[row][col] = discImageData[discImageData_row][discImageData_col];
+                    discImageData_col++;
+                }
+                discImageData_row++;
+            }
+        }
+        //------------------------------------*/
+
+
+        //------------------------------------
+        // Convolve perfect disc with the task transfer function
+        TwoDFFT twod_fourier_transformer = new TwoDFFT();
+        Complex[][] discFreqImage = twod_fourier_transformer.transform(fullDiscImageData, DftNormalization.STANDARD, TransformType.FORWARD);
+        discFreqImage = twod_fourier_transformer.swapQuadrants(discFreqImage);
+        int zero_u = imageSize/2; // u location of zero frequency element
+        int zero_v = imageSize/2; // v location of zero frequency element
+        for (int u=0; u<imageSize; u++) {
+            for (int v=0; v<imageSize; v++) {
+                double freq = freq_inc * calculateDistanceBetweenPoints(zero_u, zero_v, u, v);
+                try {
+                    discFreqImage[u][v] = discFreqImage[u][v].multiply(ttf_fn.value(freq));
+                } catch (Exception e) {
+                    discFreqImage[u][v] = Complex.ZERO;
+                }
+            }
+        }
+        //------------------------------------
+
+
+        //------------------------------------
+        // FT the frequency image back to the spatial domain and take abs of the values; scale by the required contrast
+        discFreqImage = twod_fourier_transformer.swapQuadrants(discFreqImage);
+        Complex[][] discImageIncTTF = twod_fourier_transformer.transform(discFreqImage, DftNormalization.STANDARD, TransformType.INVERSE);
+        for (int x=0; x<imageSize; x++) {
+            for (int y=0; y<imageSize; y++) {
+                fullDiscImageData[x][y] = discImageIncTTF[x][y].abs() * this.task_contrast;
+            }
+        }
+        //------------------------------------
+
+
+        //------------------------------------
+        // Create a noise image with zero mean, appropriate standard deviation and power spectrum
+        CreateNoiseImage_ noiseImage = new CreateNoiseImage_();
+        noiseImage.setImageSize(imageSize);
+        noiseImage.setPixelSize(pixelSize);
+        noiseImage.setMean(0.0);
+        noiseImage.setSd(bgdStdev);
+        noiseImage.createNoiseImage(CreateNoiseImage_.WHITE);
+        noiseImage.setNoisePowerFn(nps_fn);
+        noiseImage.applyNoisePowerFn();
+        noiseImage.applyStDevAndMean();
+        noiseImage.showNoiseImage();
+
+        System.out.print("Standard deviation for noise image is: " + bgdStdev);
+        //------------------------------------
+
+
+        //------------------------------------
+        // Add the noise to the task_image
+        float[][] taskNoiseImage = noiseImage.getNoiseImage().getProcessor().getFloatArray();
+        for (int x=0; x<imageSize; x++) {
+            for (int y=0; y<imageSize; y++) {
+                taskNoiseImage[x][y] = taskNoiseImage[x][y] + (float)fullDiscImageData[x][y];
+            }
+        }
+        //------------------------------------
+
+
+        //------------------------------------
+        // Display the task image
+        ImagePlus finalTaskImage = NewImage.createFloatImage("Task image (d'=" + this.three_dp.format(d) + ")", imageSize, imageSize, 1, NewImage.FILL_BLACK);
+        IJ.run(finalTaskImage, "Properties...", "unit=mm pixel_width=" + pixelSize + " pixel_height=" + pixelSize);
+        finalTaskImage.getProcessor().setFloatArray(taskNoiseImage);
+        finalTaskImage.show();
+        finalTaskImage.updateAndDraw();
+        IJ.run(finalTaskImage, "Enhance Contrast", "saturated=0.35");
+        //------------------------------------
+    }
+
+
+    public ImagePlus createIdealDiscImage(double disc_diameter, double image_pixel_size_mm, Calibration cal, int image_pixel_width) {
+        ImagePlus idealDiscImage = TaskTransferFunction_.createDiscTemplate(disc_diameter, image_pixel_size_mm, cal);
+
+        // Pad out the idealDiscImage to the correct image size; assuming a square image
+        float[][] discImageData = idealDiscImage.getProcessor().getFloatArray();
+        float[][] fullDiscImageData = new float[image_pixel_width][image_pixel_width];
+        if (discImageData.length < image_pixel_width) {
+            int offset = (image_pixel_width - discImageData.length)/2;
+            int discImageData_row = 0;
+            for (int row=offset; row<offset+discImageData.length; row++) {
+                int discImageData_col = 0;
+                for (int col=offset; col<offset+discImageData.length; col++) {
+                    fullDiscImageData[row][col] = discImageData[discImageData_row][discImageData_col];
+                    discImageData_col++;
+                }
+                discImageData_row++;
+            }
+
+            ImagePlus paddedIdealDiscImage = NewImage.createFloatImage("Ideal disc image", image_pixel_width, image_pixel_width, 1, NewImage.FILL_BLACK);
+            paddedIdealDiscImage.getProcessor().setFloatArray(fullDiscImageData);
+            paddedIdealDiscImage.setCalibration(cal);
+            return paddedIdealDiscImage;
+        }
+
+        return idealDiscImage;
+    }
+
+    /**
+     * Method to calculate the distance between two cartesian coordinates
+     *
+     * @param x1 X location of point 1
+     * @param y1 Y location of point 2
+     * @param x2 X location of point 1
+     * @param y2 y location of point 2
+     * @return The straight-line distance between point 1 and 2
+     */
+    private static double calculateDistanceBetweenPoints(double x1, double y1, double x2,double y2) {
+        // Calculate the distance between two points in cartesian space.
+        return Math.sqrt( (y2 - y1) * (y2 - y1) + (x2 - x1) * (x2 - x1));
+    }
+
+
+    boolean isPowerOfTwo(int n) {
+        if (n==0) return false;
+
+        return (int)(Math.ceil((Math.log(n) / Math.log(2)))) == (int)(Math.floor(((Math.log(n) / Math.log(2)))));
+    }
+
+
+    int getNextPowerOfTwo(int n) {
+        int highestOneBit = Integer.highestOneBit(n);
+        if (n == highestOneBit) return n;
+
+        return highestOneBit << 1;
     }
 }
