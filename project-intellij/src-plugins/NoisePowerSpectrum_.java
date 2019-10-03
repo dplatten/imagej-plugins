@@ -25,8 +25,13 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
     private ImagePlus imp;
     private Roi main_roi;
 
+    static final String RADIOGRAPHIC = "radiographic"; // Don't make private as external methods may wish to access these values
+    static final String CT = "CT"; // Don't make private as external methods may wish to access these values
+    private String analysis_type = CT;
+
     private int num_records = 16;
     private int record_size = 64;
+    private int region_size = 1024;
     private double record_radius = 100.0; // in mm
     private double record_stdev_sum = 0.0;
 
@@ -138,6 +143,9 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
                 // Use defaults
                 if (this.log_results) IJ.log("NoisePowerSpectrum using ROIs " + this.record_radius + " mm from centre");
             }
+            else if (arg.equals(RADIOGRAPHIC)) {
+                this.analysis_type = RADIOGRAPHIC;
+            }
             else {
                 // Assume the argument contains the distance from ROI centre to record in mm.
                 this.record_radius = Float.parseFloat(arg);
@@ -146,8 +154,17 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
         }
         else {
             GenericDialog gd = new GenericDialog("Noise power options");
+
+            gd.addChoice("Analysis type", new String[]{CT, RADIOGRAPHIC}, CT);
+
+            gd.addMessage("CT options");
             gd.addNumericField("Distance from centre to records (mm)", this.record_radius, 0);
             gd.addNumericField("Number of records", this.num_records, 0);
+
+            gd.addMessage("Radiographic options");
+            gd.addNumericField("Region size (pixels), must be a power of 2", this.region_size, 0);
+
+            gd.addMessage("General options");
             gd.addNumericField("Record size (pixels), must be a power of 2", this.record_size, 0);
             gd.addNumericField("Frequency rebin increment (mm^-1)", this.rebin_f_inc, 2);
             if (this.imp.isStack()) {
@@ -161,8 +178,11 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
                 return(DONE);
             }
 
+            this.analysis_type = gd.getNextChoice();
+
             this.record_radius = gd.getNextNumber();
             this.num_records = (int) gd.getNextNumber();
+            this.region_size = (int) gd.getNextNumber();
             this.record_size = (int) gd.getNextNumber();
             this.rebin_f_inc = gd.getNextNumber();
             if (this.imp.isStack()) {
