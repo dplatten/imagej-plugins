@@ -236,10 +236,14 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
      * @param ip The ImageProcessor that is passed to this method automatically by ImageJ
      */
     public void run(ImageProcessor ip) {
-        // Requires at least ImageJ version 1.52b as this is when the isStack()
+        // Used to require at least ImageJ version 1.52b as this was when the isStack()
         // method of the ImagePlus class was introduced:
         // https://imagej.nih.gov/ij/developer/api/ij/ImagePlus.html#isStack--
-        if (IJ.versionLessThan("1.52b")) return;
+        //
+        // Now requires minimum of 1.52s as this was when a bug that prevented iteration
+        // through all points in a rectangular ROI was fixed:
+        // https://github.com/imagej/imagej-legacy/issues/222
+        if (IJ.versionLessThan("1.52s")) return;
 
 
         //---------------------------------------------------------------------
@@ -496,17 +500,6 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
         final double[][] result = new double[width][height];
 
-/*
-        Point[] p = roi.getContainedPoints();
-
-        int current_point = 0;
-        for (int x=0; x<width; x++) {
-            for (int y=0; y<height; y++) {
-                result[x][y] = ip.getPixelValue(p[current_point].x, p[current_point].y);
-                current_point++;
-            }
-        }
-*/
         for (Point p : roi) {
             result[p.x][p.y] = ip.getPixelValue(p.x, p.y);
         }

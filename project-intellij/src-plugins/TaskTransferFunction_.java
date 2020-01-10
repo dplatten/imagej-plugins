@@ -22,7 +22,6 @@
  * SOFTWARE.
  */
 
-import com.sun.org.apache.xpath.internal.operations.Bool;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
