@@ -49,7 +49,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
     private ImagePlus imp;
     private Roi main_roi;
 
-    static final String RADIOGRAPHIC = "radiographic"; // Don't make private as external methods may wish to access these values
+    static final String RADIOGRAPHIC = "Radiographic"; // Don't make private as external methods may wish to access these values
     static final String CT = "CT"; // Don't make private as external methods may wish to access these values
     private String analysis_type = CT;
 
@@ -496,6 +496,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
         final double[][] result = new double[width][height];
 
+/*
         Point[] p = roi.getContainedPoints();
 
         int current_point = 0;
@@ -504,6 +505,10 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
                 result[x][y] = ip.getPixelValue(p[current_point].x, p[current_point].y);
                 current_point++;
             }
+        }
+*/
+        for (Point p : roi) {
+            result[p.x][p.y] = ip.getPixelValue(p.x, p.y);
         }
 
         return result;
