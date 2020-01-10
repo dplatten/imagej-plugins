@@ -1,3 +1,29 @@
+
+
+/*
+ * MIT License
+ *
+ * Copyright (c) 2019 David Platten
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
@@ -192,10 +218,14 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
      * @param ip The ImageProcessor that is passed to this method automatically by ImageJ
      */
     public void run(ImageProcessor ip) {
-        // Requires at least ImageJ version 1.52b as this is when the isStack()
+        // Used to require at least ImageJ version 1.52b as this was when the isStack()
         // method of the ImagePlus class was introduced:
         // https://imagej.nih.gov/ij/developer/api/ij/ImagePlus.html#isStack--
-        if (IJ.versionLessThan("1.52b")) return;
+        //
+        // Now requires minimum of 1.52s as this was when a bug that prevented iteration
+        // through all points in a rectangular ROI was fixed:
+        // https://github.com/imagej/imagej-legacy/issues/222
+        if (IJ.versionLessThan("1.52s")) return;
 
 
         //---------------------------------------------------------------------
@@ -452,14 +482,8 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
         final double[][] result = new double[width][height];
 
-        Point[] p = roi.getContainedPoints();
-
-        int current_point = 0;
-        for (int x=0; x<width; x++) {
-            for (int y=0; y<height; y++) {
-                result[x][y] = ip.getPixelValue(p[current_point].x, p[current_point].y);
-                current_point++;
-            }
+        for (Point p : roi) {
+            result[p.x][p.y] = ip.getPixelValue(p.x, p.y);
         }
 
         return result;
