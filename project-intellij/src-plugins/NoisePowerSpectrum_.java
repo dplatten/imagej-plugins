@@ -524,14 +524,8 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
         final double[][] result = new double[width][height];
 
-        Point[] p = roi.getContainedPoints();
-
-        int current_point = 0;
-        for (int x=0; x<width; x++) {
-            for (int y=0; y<height; y++) {
-                result[x][y] = ip.getPixelValue(p[current_point].x, p[current_point].y);
-                current_point++;
-            }
+        for (Point p : roi) {
+            result[p.x][p.y] = ip.getPixelValue(p.x, p.y);
         }
 
         return result;
