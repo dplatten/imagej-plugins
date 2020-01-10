@@ -54,6 +54,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
     private int num_records = 16;
     private int record_size = 64;
     private double record_radius = 100.0; // in mm
+    private double record_stdev_sum = 0.0;
 
     private double rebin_f_inc = 0.05; // in mm^-1
 
@@ -92,6 +93,10 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
      * @return The average stack setting
      */
     boolean getAverageStackStatus() { return this.use_average_stack; }
+
+
+    double getRecordStdevSum() { return this.record_stdev_sum; }
+    int getNumRecords() { return this.num_records; }
 
 
     /** Method to return the minimum stack index that was used
@@ -294,7 +299,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
         if (this.show_plots) {
             // Display the resulting 2d NPS
             ImagePlus nps_2d = NewImage.createFloatImage("2d NPS", this.record_size, this.record_size, 1, NewImage.FILL_BLACK);
-            nps_2d.getProcessor().setFloatArray(convertDoubleToFloat(ensemble_nps));
+            nps_2d.getProcessor().setFloatArray(ArrayConversions.convertDoubleToFloat(ensemble_nps));
             IJ.run(nps_2d, "Swap Quadrants", "");
             nps_2d.show();
             nps_2d.updateAndDraw();
@@ -431,22 +436,11 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
             // Calculate the magnitude and square it
             double[][] nps_abs_sqrd = absSqrdOfComplex2dArray(nps);
 
-
-/*
-            IJ.run("FFT Options...", "raw");
-            FFT.forward(record);
-
-            // What you're currently doing, which gives the FFT results as a one-dimensional array:
-            float[] record_fft = (float[]) WindowManager.getCurrentImage().getProcessor().getPixels();
-
-            // What you could do instead, which gives the TTF results as a two-dimensional array:
-            float[][] record_fft_v2 = WindowManager.getCurrentImage().getProcessor().getFloatArray();
-*/
-
-
-
             // Add the current nps_abs_squared to the ensemble
             ensemble_nps = add2dArrays(ensemble_nps, nps_abs_sqrd);
+
+
+            this.record_stdev_sum += record.getStatistics().stdDev;
         }
         return ensemble_nps;
     }
@@ -469,46 +463,6 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
             for (int j=0; j<height; j++) {
                 result[i][j] = values[i][j] * mult_val;
             }
-        }
-        return result;
-    }
-
-
-    /**
-     * Method to convert a 2d double array to a 2d float array.
-     *
-     * @param values Two-dimensional array of Double values
-     * @return Two-dimensional array of Float values
-     */
-    private static float[][] convertDoubleToFloat(final double[][] values) {
-        int width = values.length;
-        int height = values[0].length;
-
-        final float[][] result = new float[width][height];
-
-        for (int i=0; i<width; i++) {
-            for (int j=0; j<height; j++) {
-                result[i][j] = (float) values[i][j];
-            }
-        }
-        return result;
-    }
-
-
-    /**
-     * Method to convert a 2d double array to a 2d complex array
-     *
-     * @param values Two-dimensional array of Double values
-     * @return Two-dimensional array of Complex values
-     */
-    private static Complex[][] convertDoubleToComplex(final double[][] values) {
-        int width = values.length;
-        int height = values[0].length;
-
-        final Complex[][] result = new Complex[width][height];
-
-        for (int i=0; i<width; i++) {
-            result[i] = ComplexUtils.convertToComplex(values[i]);
         }
         return result;
     }
@@ -588,7 +542,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
      * @param y2 y location of point 2
      * @return The straight-line distance between point 1 and 2
      */
-    private double calculateDistanceBetweenPoints(double x1, double y1, double x2,double y2) {
+    public static double calculateDistanceBetweenPoints(double x1, double y1, double x2,double y2) {
         // Calculate the distance between two points in cartesian space.
         return Math.sqrt( (y2 - y1) * (y2 - y1) + (x2 - x1) * (x2 - x1));
     }

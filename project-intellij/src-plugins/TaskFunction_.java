@@ -213,9 +213,9 @@ public class TaskFunction_ implements PlugIn {
                 x_pos[i] = x_min + i * task_x_inc;
                 y_val[i] = this.task_function.value(x_pos[i]);
             }
-            Plot plot_task = new Plot("Task function", "Distance (mm)", "Pixel value");
+            Plot plot_task = new Plot("Imaging task", "Distance (mm)", "Pixel value");
             plot_task.add("line", x_pos, y_val);
-            String task_labels = "Task function\t";
+            String task_labels = "Imaging task\t";
             plot_task.addLegend(task_labels);
             plot_task.show();
 
@@ -231,12 +231,12 @@ public class TaskFunction_ implements PlugIn {
                 fft_val[i] = this.task_function_fft.value(f_pos[i]);
                 sinc_val[i] = this.task_function_sinc.value(f_pos[i]);
             }
-            Plot plot_task_fft = new Plot("Task function fft", "Frequency (mm^-1)", "Value");
+            Plot plot_task_fft = new Plot("Task function", "Frequency (mm^-1)", "Value");
             plot_task_fft.add("line", f_pos, fft_val);
-            String task_fft_labels = "FFT of task function up to Nyquist\t";
+            String task_fft_labels = "|task function| up to Nyquist\t";
             plot_task_fft.setColor("Red");
             plot_task_fft.add("line", f_pos, sinc_val);
-            task_fft_labels += "Sinc of task function up to Nyquist\t";
+            task_fft_labels += "|sinc| from task size and contrast up to Nyquist\t";
             plot_task_fft.addLegend(task_fft_labels);
             plot_task_fft.show();
         }
