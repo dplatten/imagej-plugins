@@ -213,10 +213,14 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
      * @param ip The ImageProcessor that is passed to this method automatically by ImageJ
      */
     public void run(ImageProcessor ip) {
-        // Requires at least ImageJ version 1.52b as this is when the isStack()
+        // Used to require at least ImageJ version 1.52b as this was when the isStack()
         // method of the ImagePlus class was introduced:
         // https://imagej.nih.gov/ij/developer/api/ij/ImagePlus.html#isStack--
-        if (IJ.versionLessThan("1.52b")) return;
+        //
+        // Now requires minimum of 1.52s as this was when a bug that prevented iteration
+        // through all points in a rectangular ROI was fixed:
+        // https://github.com/imagej/imagej-legacy/issues/222
+        if (IJ.versionLessThan("1.52s")) return;
 
 
         //---------------------------------------------------------------------
