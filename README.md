@@ -77,10 +77,6 @@ where f is radial spatial frequency (mm^-1)
       R is the viewing distance (mm)
       D is the display size (mm) (assumed to be 305 mm in the Solomon paper)
 
-or Saunders et al 2006 (http://dx.doi.org/10.1118/1.2150777) which
-is the same as Solomon et al 2015 except the a2 coefficient has the value 3.22. This matches
-the Saunders option in the imquest software.
-
 The Solomon et al 2015 section above is mathematically the same as that used by
 the imquest software Eckstein option except that  the original Eckstein work did not
 normalise the function, nor did it square the result (http://dx.doi.org/10.1364/OE.11.000460).
