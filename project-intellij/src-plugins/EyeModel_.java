@@ -67,13 +67,11 @@ import java.text.DecimalFormat;
  *                     If so, can calculate this if know the pixel pitch in mm, the pixel
  *                     dimensions of the image and the zoom factor... this is what ImaQuest asks for
  * </pre>
- * or Saunders et al 2006 (<a href="http://dx.doi.org/10.1118/1.2150777">http://dx.doi.org/10.1118/1.2150777</a>) which
- * is the same as <i>Solomon et al 2015</i> except the <i>a<sub>2</sub></i> coefficient has the value 3.22. This matches
- * the <i>Saunders</i> option in the imquest software.
  * <br><br>
- * The <i>Solomon et al 2015</i> section above is mathematically the same as that used by
- * the imquest software <i>Eckstein</i> option except that  the original Eckstein work did not
- * normalise the function, nor did it square the result (<a href="http://dx.doi.org/10.1364/OE.11.000460">http://dx.doi.org/10.1364/OE.11.000460</a>).
+ * The <i>Solomon et al 2015</i> option is mathematically the same as that used
+ * by the Imquest software <i>Eckstein</i> option. The original Eckstein work
+ * did not normalise the function, nor did it square the result
+ * (<a href="http://dx.doi.org/10.1364/OE.11.000460">http://dx.doi.org/10.1364/OE.11.000460</a>).
  */
 
 public class EyeModel_ implements PlugIn {
@@ -105,16 +103,13 @@ public class EyeModel_ implements PlugIn {
     private DecimalFormat two_dp = new DecimalFormat("0.00");
     private DecimalFormat three_dp = new DecimalFormat("0.000");
 
-    static final int SAUNDERS_ET_AL = 0; // Don't make private as external methods may wish to access these values
-    static final int SOLOMON_ET_AL = 1; // Don't make private as external methods may wish to access these values
-    static final int RICHARD_AND_SIEWERDSEN = 2; // Don't make private as external methods may wish to access these values
+    static final int SOLOMON_ET_AL = 0; // Don't make private as external methods may wish to access these values
+    static final int RICHARD_AND_SIEWERDSEN = 1; // Don't make private as external methods may wish to access these values
     private int model_choice = SOLOMON_ET_AL;
     private static String[] model_descriptions = {
-            "Modified Saunders et al 2006 (normalised then squared), http://dx.doi.org/10.1364/OE.11.000460",
             "Solomon et al 2015,http://dx.doi.org/10.1118/1.4923172",
             "Richard and Siewerdsen 2008,http://dx.doi.org/10.1118/1.2988161"};
     private static String[] model_labels = {
-            "Modified Saunders et al 2006",
             "Solomon et al 2015",
             "Richard and Siewerdsen 2008"};
 
@@ -274,10 +269,7 @@ public class EyeModel_ implements PlugIn {
      */
     int setup(int model_type) {
 
-        if (model_type == SAUNDERS_ET_AL) {
-            this.model_choice = SAUNDERS_ET_AL;
-        }
-        else if (model_type == SOLOMON_ET_AL) {
+        if (model_type == SOLOMON_ET_AL) {
             this.model_choice = SOLOMON_ET_AL;
         }
         else if (model_type == RICHARD_AND_SIEWERDSEN) {
@@ -285,7 +277,7 @@ public class EyeModel_ implements PlugIn {
         }
         else {
             GenericDialog gd = new GenericDialog("Choose which eye model to use");
-            gd.addChoice("Eye model", model_labels, model_labels[1]);
+            gd.addChoice("Eye model", model_labels, model_labels[SOLOMON_ET_AL]);
             gd.showDialog();
             if(gd.wasCanceled()) {
                 return(1); // Return to the calling method with a non-zero result
@@ -294,10 +286,7 @@ public class EyeModel_ implements PlugIn {
         }
 
         int result;
-        if (this.model_choice == SAUNDERS_ET_AL) {
-            result = this.SolomonEtAlSetup();
-        }
-        else if (this.model_choice == SOLOMON_ET_AL) {
+        if (this.model_choice == SOLOMON_ET_AL) {
             result = this.SolomonEtAlSetup();
         }
         else {
@@ -321,9 +310,7 @@ public class EyeModel_ implements PlugIn {
         if (IJ.versionLessThan("1.49v")) return;
 
         if ((arg != null) && (arg.length() > 0)) {
-            if (this.model_choice == SAUNDERS_ET_AL) {
-                this.SolomonEtAl();
-            } else if (this.model_choice == SOLOMON_ET_AL) {
+            if (this.model_choice == SOLOMON_ET_AL) {
                 this.SolomonEtAl();
             } else if (this.model_choice == RICHARD_AND_SIEWERDSEN) {
                 this.RichardAndSiewerdsen();
@@ -455,8 +442,6 @@ public class EyeModel_ implements PlugIn {
         double a2 = 0.98;
         double a3 = 0.68;
 
-        if (this.model_choice == SAUNDERS_ET_AL) a2 = 3.22;
-
         int num_elements = (int) Math.ceil(this.cutoff_f / this.f_inc) + 1;
 
         Eye_result E = new Eye_result();
@@ -525,7 +510,7 @@ public class EyeModel_ implements PlugIn {
             IJ.log("Viewing distance (mm)," + this.viewing_dist);
             IJ.log("Radial spatial frequency cutoff (mm^-1)," + this.three_dp.format(this.cutoff_f));
             IJ.log("Image reconstructed field of view (mm)," + this.recon_fov);
-            IJ.log("Dispaly pixel pitch (mm)," + this.display_pixel_pitch);
+            IJ.log("Display pixel pitch (mm)," + this.display_pixel_pitch);
             IJ.log("Display zoom factor," + this.display_zoom_factor);
             IJ.log("Image pixel width (mm)," + this.image_pixel_width);
             IJ.log("Conversion from radial to angular frequency," + this.f_to_rho);
