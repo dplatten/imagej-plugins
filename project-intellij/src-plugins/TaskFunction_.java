@@ -48,6 +48,25 @@ import java.text.DecimalFormat;
 
 /**
  *
+ * ImageJ plugin to calculates the radial frequency response of a disc-shaped object of a user-specified diameter and
+ * contrast.
+ * <br><br>
+ * The plugin calculates the absolute value of the Fourier transform of a top-hat function (the profile through the
+ * disc), scaled by length / N, where the top-hat function has a width equal to the diameter of the disc, and a height equal to the disc
+ * contrast.
+ * <br><br>
+ * See this stack exchange discussion regarding the scaling: <a href="https://dsp.stackexchange.com/questions/31984/matlab-tt-fft-and-tt-ifft-scaling">https://dsp.stackexchange.com/questions/31984/matlab-tt-fft-and-tt-ifft-scaling</a>
+ * <br><br>
+ * The Fourier transform of a rectangular function is a sinc function with the height scaled by the height of the
+ * rectangular function multiplied by the width. In this case height = task_contrast, and width = 2*task_radius. This
+ * plugin can also calculate the sinc function, which should be mathematically equal to the Fourier transform result.
+ * <br><br>
+ * See:
+ * <ul>
+ *     <li><a href="https://www.cpp.edu/~zaliyazici/ece307/Fourier%20Transform.pdf">https://www.cpp.edu/~zaliyazici/ece307/Fourier%20Transform.pdf</a></li>
+ *     <li><a href="https://www.cpp.edu/~zaliyazici/ece307/Fourier%20Transform.pdf">https://www.math.ubc.ca/~feldman/m267/ft.pdf</a> (example 3)</li>
+ *     <li><a href="https://www.cpp.edu/~zaliyazici/ece307/Fourier%20Transform.pdf">http://www.thefouriertransform.com/pairs/box.php</a></li>
+ * </ul>
  */
 public class TaskFunction_ implements PlugIn {
     private String task_type = "cylinder";
