@@ -56,9 +56,9 @@ E(f) = f^n.exp(-c.f^2)
 
 where:
 
-* f = radial spatial frequency (mm<sup>-1</sup>)
-* n = 1.3
-* c = 3.093 for a 50 cm viewing distance for E(f) to peak at 4 degree<sup>-1</sup>
+*  f = radial spatial frequency (mm<sup>-1</sup>)
+*  n = 1.3
+*  c = 3.093 for a 50 cm viewing distance for E(f) to peak at 4 degree<sup>-1</sup>
 
 or Solomon et al 2015, http://dx.doi.org/10.1118/1.4923172:
 
@@ -66,11 +66,11 @@ E(p) = |n.p^a1.exp(-a2.p^a3)|^2
 
 where:
 
-* a1 = 1.5
-* a2 = 0.98
-* a3 = 0.68
-* n is a normalisation constant to make max E(p) = 1.0
-* p is angular spatial frequency (degree^-1)
+*  a1 = 1.5
+*  a2 = 0.98
+*  a3 = 0.68
+*  n is a normalisation constant to make max E(p) = 1.0
+*  p is angular spatial frequency (degree^-1)
 
 p can be calculated from radial spatial frequency using:
 
@@ -78,10 +78,10 @@ p = (f.FOV.R.pi) / (D.180)
 
 where:
 
-* f is radial spatial frequency (mm^-1)
-* FOV is the reconstructed field of view of the image (mm)
-* R is the viewing distance (mm)
-* D is the display size (mm) (assumed to be 305 mm in the Solomon paper)
+*  f is radial spatial frequency (mm^-1)
+*  FOV is the reconstructed field of view of the image (mm)
+*  R is the viewing distance (mm)
+*  D is the display size (mm) (assumed to be 305 mm in the Solomon paper)
 
 The Solomon et al 2015 section above is mathematically the same as that used by
 the imquest software Eckstein option except that  the original Eckstein work did not
@@ -105,12 +105,12 @@ Nyquist frequency. The equation used by the plugin is shown below:
 
 where:
 
-* f is radial frequency
-* W(f) is a task function, the Fourier transform of the signal to be detected
-* TTF(f) is the task transfer function
-* NPS(f) is the noise power spectrum
-* E(f) is the frequency response of a model of the human eye
-* f<sub>N</sub> is the Nyquist frequency calculated from the image pixel size
+*  f is radial frequency
+*  W(f) is a task function, the Fourier transform of the signal to be detected
+*  TTF(f) is the task transfer function
+*  NPS(f) is the noise power spectrum
+*  E(f) is the frequency response of a model of the human eye
+*  f<sub>N</sub> is the Nyquist frequency calculated from the image pixel size
 
 
 
