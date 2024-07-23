@@ -397,6 +397,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
             // See if the results filename needs to be updated.
             if(this.results_filename.equals("results.csv") && !TTF.getReconFilter().equals("")) {
                 this.results_filename = TTF.getReconFilter() + " results.csv";
+                this.results_filename = sanitiseFilename(this.results_filename);
             }
         }
 
@@ -581,5 +582,17 @@ public class DetectabilityIndex_ implements PlugInFilter {
         if (n == highestOneBit) return n;
 
         return highestOneBit << 1;
+    }
+
+
+    /**
+     * Method to replace every character that is not a letter, number, underscore or dot with an underscore using regex.
+     * Taken from:
+     * https://stackoverflow.com/questions/1184176/how-can-i-safely-encode-a-string-in-java-to-use-as-a-filename
+     * @param inputName
+     * @return The sanitised string
+     */
+    public String sanitiseFilename(String inputName) {
+        return inputName.replaceAll("[^a-zA-Z0-9-_\\.]", "_");
     }
 }
