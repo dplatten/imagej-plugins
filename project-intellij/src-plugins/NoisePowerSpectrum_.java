@@ -27,15 +27,12 @@
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
-import ij.WindowManager;
 import ij.gui.*;
 import ij.measure.Calibration;
-import ij.plugin.FFT;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ImageProcessor;
 import ij.util.DicomTools;
 import org.apache.commons.math3.complex.Complex;
-import org.apache.commons.math3.complex.ComplexUtils;
 import org.apache.commons.math3.stat.StatUtils;
 import org.apache.commons.math3.transform.DftNormalization;
 import org.apache.commons.math3.util.MathArrays;
@@ -63,7 +60,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
     private boolean log_results = true;
     private boolean show_plots = true;
 
-    private boolean use_average_stack = false;
+    private boolean use_substack = false;
     private int min_stack_index;
     private int max_stack_index;
 
@@ -88,11 +85,11 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
     }
 
 
-    /** Method to return the average stack status
+    /** Method to return the substack stack status
      *
-     * @return The average stack setting
+     * @return The substack setting
      */
-    boolean getAverageStackStatus() { return this.use_average_stack; }
+    boolean getSubstackStatus() { return this.use_substack; }
 
 
     double getRecordStdevSum() { return this.record_stdev_sum; }
@@ -177,8 +174,8 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
             gd.addNumericField("Record size (pixels), must be a power of 2", this.record_size, 0);
             gd.addNumericField("Frequency rebin increment (mm^-1)", this.rebin_f_inc, 2);
             if (this.imp.isStack()) {
-                this.use_average_stack = true;
-                gd.addCheckbox("Run on the average stack", this.use_average_stack);
+                this.use_substack = true;
+                gd.addCheckbox("Run on all images in a substack", this.use_substack);
                 gd.addNumericField("Min slice index", 1, 0);
                 gd.addNumericField("to max slice index", this.imp.getImageStackSize(), 0);
             }
@@ -192,7 +189,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
             this.record_size = (int) gd.getNextNumber();
             this.rebin_f_inc = gd.getNextNumber();
             if (this.imp.isStack()) {
-                this.use_average_stack = gd.getNextBoolean();
+                this.use_substack = gd.getNextBoolean();
                 this.min_stack_index = (int) gd.getNextNumber();
                 this.max_stack_index = (int) gd.getNextNumber();
             }
@@ -262,7 +259,7 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
 
         //---------------------------------------------------------------------
         // Calculate the NPS ensemble
-        if (this.use_average_stack) {
+        if (this.use_substack) {
             if (this.imp.isStack()) {
                 ImageStack stack = this.imp.getStack();
                 for (int i=this.min_stack_index; i<=this.max_stack_index; i++) {
@@ -287,8 +284,8 @@ public class NoisePowerSpectrum_ implements PlugInFilter {
         // Multiply the ensemble by dx, dy and divide by M, Nx and Ny
         double multiplication_factor = pixel_size_in_mm * pixel_size_in_mm / this.num_records / this.record_size / this.record_size;
 
-        // Include provision for the number of images the user chose to ue in the stack, if stack average was selected
-        if (this.use_average_stack) multiplication_factor /= (this.max_stack_index - this.min_stack_index + 1);
+        // Include provision for the number of images the user chose to ue in the stack, if substack was selected
+        if (this.use_substack) multiplication_factor /= (this.max_stack_index - this.min_stack_index + 1);
 
         ensemble_nps = multiply2dDoubleArray(ensemble_nps, multiplication_factor);
         // ---------------------------------------------------------------------

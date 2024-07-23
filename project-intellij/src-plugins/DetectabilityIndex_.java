@@ -317,7 +317,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
             // Create an image of the task including the effect of the TTF and NPS
             double nps_record_stdev = NPS.getRecordStdevSum() / NPS.getNumRecords();
-            if (NPS.getAverageStackStatus()) nps_record_stdev /= (NPS.getMaxStackIndex() - NPS.getMinStackIndex() + 1);
+            if (NPS.getSubstackStatus()) nps_record_stdev /= (NPS.getMaxStackIndex() - NPS.getMinStackIndex() + 1);
 
             calcTaskImageIncTTFandNPS(this.task_radius*2.0, TTF_fn, NPS_fn, this.imp.getWidth(), cal.pixelWidth, nps_record_stdev, detectability);
             //calcTaskImageIncTTFandNPS(this.task_radius*2.0, TTF_fn, NPS_fn, this.imp.getWidth(), cal.pixelWidth, 12.0, detectability);
@@ -353,7 +353,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
                 );
             }
 
-            if(NPS.getAverageStackStatus()) {
+            if(NPS.getSubstackStatus()) {
                 IJ.log("\nNPS average stack used,Yes" +
                         "\nNPS min stack index," + NPS.getMinStackIndex() +
                         "\nNPS max stack index," + NPS.getMaxStackIndex()
