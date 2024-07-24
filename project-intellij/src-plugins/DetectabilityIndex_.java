@@ -396,7 +396,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
             // See if the results filename needs to be updated.
             if(this.results_filename.equals("results.csv") && !TTF.getReconFilter().equals("")) {
-                this.results_filename = TTF.getReconFilter() + " results.csv";
+                this.results_filename = this.imp.getTitle() + " " + TTF.getReconFilter() + " results.csv";
                 this.results_filename = sanitiseFilename(this.results_filename);
             }
         }
