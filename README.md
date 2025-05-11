@@ -1,11 +1,38 @@
-This repository contains my ImageJ plugins to help with some medical physics tasks. The skeleton I have used was taken from https://github.com/imagingbook/imagej1-plugins-ide-setup. I have stripped out the netbeans and Eclipse folders.
+This repository contains my ImageJ plugins to help with some medical physics
+tasks. The skeleton I have used was taken from https://github.com/imagingbook/imagej1-plugins-ide-setup.
+I have stripped out the netbeans and Eclipse folders.
 
-A jar file called "QuantitativeIQ.jar" contains all of the plugins.
-It can be downloaded from the project-intellij/jars folder and dropped into the plugins folder of your ImageJ installation.
-These plugins depend on the Apache commons maths library version 3.6.1. You'll need to put a copy of the commons-math3-3.6.1.jar file in your ImageJ plugins folder.
-You will find a copy of commons-math3-3.6.1.jar in this project's project-intellij/jars folder.
-If you would rather download it from Apache then you can extract it from the commons-math3-3.6.1-bin.zip file that you can download from this page: https://commons.apache.org/proper/commons-math/download_math.cgi
+# Requirements
+You will need ImageJ installed on your computer. These plugins are tested with
+the version of ImageJ available here: https://imagej.net/ij/download.html. I
+have not tested these plugins with FIJI.
 
+The plugins depend on the Apache commons maths library version 3.6.1. A copy of
+this library is included in the repository. If you would rather download it
+from Apache then you can extract it from the commons-math3-3.6.1-bin.zip file
+that can be downloaded from: https://archive.apache.org/dist/commons/math/binaries/
+
+# Installation
+1. Download or clone this repository to your computer
+2. Go to the `project-intellij/jars` folder of the downloaded or cloned files
+3. The folder contains files called `QuantitativeIQ.jar` and `commons-math3-3.6.1.jar` 
+4. Run ImageJ
+5. Drag the `commons-math3-3.6.1.jar` file onto the ImageJ window
+6. Drag the `QuantitativeIQ.jar` file onto the ImageJ window. Click `Save` to 
+accept the file location if asked.
+
+# Troubleshooting
+You may receive a message stating `Unrecognized command: "Fit Polynomial"` when
+trying to run the `Noise Power Spectrum (CT)` command. If you see this it means
+that your ImageJ installation is missing the `Fit Polynomial` command from the
+`Filters` menu. To fix this:
+
+1. Go to https://imagej.net/ij/download.html
+2. Download the `ZIP archive` from the `Platform Independent` section of the page
+3. Extract the zip file onto a folder on your computer
+4. Navigate to the `ImageJ/plugins/` folder in the extracted files
+5. Copy the contents of this folder into the `plugins` subfolder of your ImageJ
+installation location.
 
 # The plugins
 
