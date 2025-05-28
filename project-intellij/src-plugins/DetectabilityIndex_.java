@@ -317,7 +317,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
             // Create an image of the task including the effect of the TTF and NPS
             double nps_record_stdev = NPS.getRecordStdevSum() / NPS.getNumRecords();
-            if (NPS.getAverageStackStatus()) nps_record_stdev /= (NPS.getMaxStackIndex() - NPS.getMinStackIndex() + 1);
+            if (NPS.getSubstackStatus()) nps_record_stdev /= (NPS.getMaxStackIndex() - NPS.getMinStackIndex() + 1);
 
             calcTaskImageIncTTFandNPS(this.task_radius*2.0, TTF_fn, NPS_fn, this.imp.getWidth(), cal.pixelWidth, nps_record_stdev, detectability);
             //calcTaskImageIncTTFandNPS(this.task_radius*2.0, TTF_fn, NPS_fn, this.imp.getWidth(), cal.pixelWidth, 12.0, detectability);
@@ -353,7 +353,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
                 );
             }
 
-            if(NPS.getAverageStackStatus()) {
+            if(NPS.getSubstackStatus()) {
                 IJ.log("\nNPS average stack used,Yes" +
                         "\nNPS min stack index," + NPS.getMinStackIndex() +
                         "\nNPS max stack index," + NPS.getMaxStackIndex()
@@ -396,7 +396,8 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
             // See if the results filename needs to be updated.
             if(this.results_filename.equals("results.csv") && !TTF.getReconFilter().equals("")) {
-                this.results_filename = TTF.getReconFilter() + " results.csv";
+                this.results_filename = this.imp.getTitle() + " " + TTF.getReconFilter() + " results.csv";
+                this.results_filename = sanitiseFilename(this.results_filename);
             }
         }
 
@@ -581,5 +582,17 @@ public class DetectabilityIndex_ implements PlugInFilter {
         if (n == highestOneBit) return n;
 
         return highestOneBit << 1;
+    }
+
+
+    /**
+     * Method to replace every character that is not a letter, number, underscore or dot with an underscore using regex.
+     * Taken from:
+     * https://stackoverflow.com/questions/1184176/how-can-i-safely-encode-a-string-in-java-to-use-as-a-filename
+     * @param inputName
+     * @return The sanitised string
+     */
+    public String sanitiseFilename(String inputName) {
+        return inputName.replaceAll("[^a-zA-Z0-9-_\\.]", "_");
     }
 }
