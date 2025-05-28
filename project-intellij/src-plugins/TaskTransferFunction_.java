@@ -750,8 +750,8 @@ public class TaskTransferFunction_ implements PlugInFilter {
         //---------------------------------------------------------------------
         // Write the TTF 50, 10 and resampled TTF data to the ImageJ log
         if (this.log_results) {
-            IJ.log("MTF 50," + this.three_dp.format(ttf_50));
-            IJ.log("MTF 10," + this.three_dp.format(ttf_10));
+            IJ.log("TTF 50," + this.three_dp.format(ttf_50));
+            IJ.log("TTF 10," + this.three_dp.format(ttf_10));
             logTTF(resampled_ttf, "TTF ("+this.esf_proc_choice+")");
         }
         //---------------------------------------------------------------------
