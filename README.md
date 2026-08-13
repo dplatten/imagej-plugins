@@ -126,9 +126,9 @@ to calculate a numerical index that relates to the detectability of an object.
 The detectability index (d') is calculated according to equation 2 in
 http://dx.doi.org/10.1118/1.4923172 adapted for radial frequency rather than u, v.
 Note that in this plugin the integration limits for calculating d' are 0 to the
-Nyquist frequency. The equation used by the plugin is shown below:
+Nyquist frequency. The original version of this plugin used the equation below:
 
-![Detectability index](detectabilityEquation.png)
+![Detectability index](detectabilityEquation1a.png)
 
 where:
 
@@ -139,7 +139,31 @@ where:
 *  E(f) is the frequency response of a model of the human eye
 *  f<sub>N</sub> is the Nyquist frequency calculated from the image pixel size
 
+Taking the square root of both sides gives:
 
+![Detectability index](detectabilityEquation1b.png)
+
+
+The formulation of the equation has since been revised. The correct mathematical
+derivation of the 2d detectability equation to radial frequency includes a component
+in each integral that accounts for the increasing number of Fourier components at larger
+radial frequencies:
+
+![Detectability index](detectabilityEquation2a.png)
+
+Note the "2&pi;" term in front of each integral, and the "f" term within the integral.
+
+This can be simplified to:
+
+![Detectability index](detectabilityEquation2b.png)
+
+Taking the square root of both sides then gives:
+
+![Detectability index](detectabilityEquation2c.png)
+
+
+The use of this updated formula will result in different detectability values compared
+with the previous formula.
 
 
 # Using this repository

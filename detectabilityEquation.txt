@@ -1,5 +1,39 @@
 The LaTeX below was used to produce a png of the equation for the readme file using https://www.codecogs.com/latex/eqneditor.php:
 
+
+My original radial d' formulation:
+
 d'^{2}=\frac{\left [  \int_{0}^{f_{N}}\left | W(f) \right |^{2}.TTF^{2}(f).E^{2}(f)df  \right ]^{2}}
 
 {\int_{0}^{f_{N}}\left | W(f) \right |^{2}.TTF^{2}(f).NPS(f).E^{4}(f)df}
+
+
+d'=\frac{ \int_{0}^{f_{N}}\left | W(f) \right |^{2}.TTF^{2}(f).E^{2}(f)df }
+
+{\left [ \int_{0}^{f_{N}}\left | W(f) \right |^{2}.TTF^{2}(f).NPS(f).E^{4}(f)df \right ]^{0.5}}
+
+
+
+
+
+Updated equation that is mathematically equivalent to the 2d version - this has a 2.pi.f term within the numerator and
+denominator integrals. The original version, without the 2.pi.r terms, does not correctly account for the increasing
+number of fourier components at larger radial frequencies.
+
+d'^{2}=\frac{\left [ 2\pi \int_{0}^{f_{N}}\left | W(f) \right |^{2}.TTF^{2}(f).E^{2}(f).fdf  \right ]^{2}}
+
+{2\pi \int_{0}^{f_{N}}\left | W(f) \right |^{2}.TTF^{2}(f).NPS(f).E^{4}(f).fdf}
+
+
+This can be simplified to:
+
+d'^{2}=2\pi\frac{\left [  \int_{0}^{f_{N}}\left | W(f) \right |^{2}.TTF^{2}(f).E^{2}(f).fdf  \right ]^{2}}
+
+{\int_{0}^{f_{N}}\left | W(f) \right |^{2}.TTF^{2}(f).NPS(f).E^{4}(f).fdf}
+
+
+Square rooting both sides to give just d' on the left hand side:
+
+d'=\sqrt{2\pi}\frac{ \int_{0}^{f_{N}}\left | W(f) \right |^{2}.TTF^{2}(f).E^{2}(f).fdf }
+
+{\left [ \int_{0}^{f_{N}}\left | W(f) \right |^{2}.TTF^{2}(f).NPS(f).E^{4}(f).fdf \right ] ^{0.5}}

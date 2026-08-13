@@ -1,0 +1,6 @@
+2026-08-13 Modified the detectability formula to account for the increasing number of Fourier components at larger
+radial frequencies. This change means that detectability values calculated with this version of the plugin will differ
+from values calculated with previous versions.
+
+2026-08-13 Added a version string to the detectability plugin code ("2026-08-13"). This string is written to the result
+log when carrying out a detectability calculation.

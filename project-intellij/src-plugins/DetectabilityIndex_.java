@@ -53,6 +53,8 @@ import org.apache.commons.math3.transform.TransformType;
  *
  */
 public class DetectabilityIndex_ implements PlugInFilter {
+    public static final String VERSION = "2026-08-13";
+
     private ImagePlus imp;
 
     private double task_radius = 1.5; // mm
@@ -280,18 +282,20 @@ public class DetectabilityIndex_ implements PlugInFilter {
             UnivariateFunction TTF_fn;
             UnivariateFunction E_fn;
             UnivariateFunction NPS_fn;
+            UnivariateFunction Freq_fn;
             try {
                 TTF_fn = linear_interpolator.interpolate(ttf_result.freq, ttf_result.val);
                 E_fn = linear_interpolator.interpolate(E.freq, E.val);
                 NPS_fn = linear_interpolator.interpolate(nps_result.freq, nps_result.val);
+                Freq_fn = linear_interpolator.interpolate(nps_result.freq, nps_result.freq);
             } catch (Exception e) {
                 IJ.error("There was an error when interpolating the results:\n" + e);
                 return;
             }
 
             // Using equation 2 in http://dx.doi.org/10.1118/1.4923172
-            UnivariateFunction numerator = FunctionUtils.multiply(W_fn, W_fn, TTF_fn, TTF_fn, E_fn, E_fn);
-            UnivariateFunction denominator = FunctionUtils.multiply(W_fn, W_fn, TTF_fn, TTF_fn, NPS_fn, E_fn, E_fn, E_fn, E_fn);
+            UnivariateFunction numerator = FunctionUtils.multiply(W_fn, W_fn, TTF_fn, TTF_fn, E_fn, E_fn, Freq_fn);
+            UnivariateFunction denominator = FunctionUtils.multiply(W_fn, W_fn, TTF_fn, TTF_fn, NPS_fn, E_fn, E_fn, E_fn, E_fn, Freq_fn);
 
 
             // Now integrate the numerator and denominator
@@ -312,7 +316,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
                 return;
             }
 
-            double detectability = Math.sqrt(Math.pow(numerator_int, 2.0) / denominator_int);
+            double detectability = Math.sqrt(2.0 * Math.PI) * numerator_int / Math.sqrt(denominator_int);
 
 
             // Create an image of the task including the effect of the TTF and NPS
@@ -325,6 +329,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
             // Log the results
             IJ.log("Detectability results" +
+                    "\nDetectability plugin version," + VERSION +
                     "\nReconstruction filter," + TTF.getReconFilter() +
                     "\nDetectability," + this.two_dp.format(detectability) +
                     "\nTask diameter (mm)," + this.two_dp.format(this.task_radius * 2.0) +
