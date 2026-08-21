@@ -76,8 +76,9 @@ of interest in a uniform image.
 
 
 ## EyeModel
-ImageJ plugin to calculate eye frequency response using either
-Richard and Siewerdsen 2008, http://dx.doi.org/10.1118/1.2988161:
+ImageJ plugin to calculate eye frequency response using one of three options:
+
+### Richard and Siewerdsen 2008, http://dx.doi.org/10.1118/1.2988161 ###
 
 E(f) = f^n.exp(-c.f^2)
 
@@ -87,7 +88,7 @@ where:
 *  n = 1.3
 *  c = 3.093 for a 50 cm viewing distance for E(f) to peak at 4 degree<sup>-1</sup>
 
-or Solomon et al 2015, http://dx.doi.org/10.1118/1.4923172:
+### Solomon et al 2015, http://dx.doi.org/10.1118/1.4923172 ###
 
 E(p) = |n.p^a1.exp(-a2.p^a3)|^2
 
@@ -110,9 +111,29 @@ where:
 *  R is the viewing distance (mm)
 *  D is the display size (mm) (assumed to be 305 mm in the Solomon paper)
 
-The Solomon et al 2015 section above is mathematically the same as that used by
-the imquest software Eckstein option except that  the original Eckstein work did not
-normalise the function, nor did it square the result (http://dx.doi.org/10.1364/OE.11.000460).
+### Eckstein et al 2003, http://dx.doi.org/10.1364/OE.11.000460 ###
+
+E(p) = p^a1.exp(-a2.p^a3)
+
+where:
+
+*  a1 = 1.5
+*  a2 = 0.98
+*  a3 = 0.68
+*  p is angular spatial frequency (degree^-1)
+
+p can be calculated from radial spatial frequency using:
+
+p = (f.FOV.R.pi) / (D.180)
+
+where:
+
+*  f is radial spatial frequency (mm^-1)
+*  FOV is the reconstructed field of view of the image (mm)
+*  R is the viewing distance (mm)
+*  D is the display size (mm) (assumed to be 305 mm in the Solomon paper)
+
+This Eckstein formula is similar to the Solomon et al equation, but does not include the normalisation or squared term.
 
 
 ## TaskFunction

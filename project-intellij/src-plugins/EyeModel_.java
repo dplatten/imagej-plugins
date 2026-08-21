@@ -105,13 +105,16 @@ public class EyeModel_ implements PlugIn {
 
     static final int SOLOMON_ET_AL = 0; // Don't make private as external methods may wish to access these values
     static final int RICHARD_AND_SIEWERDSEN = 1; // Don't make private as external methods may wish to access these values
+    static final int ECKSTEIN = 2; // Don't make private as external methods may wish to access these values
     private int model_choice = SOLOMON_ET_AL;
     private static String[] model_descriptions = {
             "Solomon et al 2015,http://dx.doi.org/10.1118/1.4923172",
-            "Richard and Siewerdsen 2008,http://dx.doi.org/10.1118/1.2988161"};
+            "Richard and Siewerdsen 2008,http://dx.doi.org/10.1118/1.2988161",
+            "Eckstein at al 2003,https://doi.org/10.1364/OE.11.000460"};
     private static String[] model_labels = {
             "Solomon et al 2015",
-            "Richard and Siewerdsen 2008"};
+            "Richard and Siewerdsen 2008",
+            "Eckstein et al 2003"};
 
 
     /** Method to obtain a text description of the eye model used
@@ -275,6 +278,9 @@ public class EyeModel_ implements PlugIn {
         else if (model_type == RICHARD_AND_SIEWERDSEN) {
             this.model_choice = RICHARD_AND_SIEWERDSEN;
         }
+        else if (model_type == ECKSTEIN) {
+            this.model_choice = ECKSTEIN;
+        }
         else {
             GenericDialog gd = new GenericDialog("Choose which eye model to use");
             gd.addChoice("Eye model", model_labels, model_labels[SOLOMON_ET_AL]);
@@ -289,8 +295,11 @@ public class EyeModel_ implements PlugIn {
         if (this.model_choice == SOLOMON_ET_AL) {
             result = this.SolomonEtAlSetup();
         }
-        else {
+        else if (this.model_choice == RICHARD_AND_SIEWERDSEN) {
             result = this.RichardAndSiewerdsenSetup();
+        }
+        else {
+            result = this.EcksteinSetup();
         }
         if (result != 0) {
             return(1); // Return to the calling method with a non-zero result
@@ -314,6 +323,8 @@ public class EyeModel_ implements PlugIn {
                 this.SolomonEtAl();
             } else if (this.model_choice == RICHARD_AND_SIEWERDSEN) {
                 this.RichardAndSiewerdsen();
+            } else if (this.model_choice == ECKSTEIN) {
+                this.Eckstein();
             } else {
                 IJ.error("Unrecognised value passed to run");
             }
@@ -466,6 +477,88 @@ public class EyeModel_ implements PlugIn {
         // Square the normalised values to give us E. I don't see any point in taking the absolute
         // value first, as the squaring will render any negative values positive anyway.
         E.val = MathArrays.ebeMultiply(E.val, E.val);
+
+        if (this.show_plots) {
+            Plot plot_eye = new Plot(model_labels[this.model_choice], "Radial spatial frequency (mm^-1)", "Relative eye response");
+            plot_eye.add("line", E.freq, E.val);
+            plot_eye.addLabel(0.5, 0.2,  model_labels[this.model_choice]+"\n" +
+                    this.zero_dp.format(viewing_dist) + " mm viewing distance\n" +
+                    this.zero_dp.format(recon_fov) + " mm recon field of view\n" +
+                    this.zero_dp.format(image_pixel_width) + " image pixel width\n" +
+                    this.two_dp.format(display_pixel_pitch) + " mm display monitor pixel pitch\n" +
+                    this.one_dp.format(display_zoom_factor) + " display zoom factor\n" +
+                    this.one_dp.format(display_size) + " mm displayed image size");
+            plot_eye.show();
+        }
+
+        // Write the results to the ImageJ log
+        if (this.log_results) logResults(E, model_labels[this.model_choice]);
+
+        eye_result = E;
+    }
+
+
+    /** Method to setup the Eckstein et al eye model (<a href="https://doi.org/10.1364/OE.11.000460">https://doi.org/10.1364/OE.11.000460</a>)
+     *
+     * @return 0 if all is well; 1 if the routine was cancelled
+     */
+    private int EcksteinSetup() {
+        // Entirely ignoring arg at the moment and showing the dialogue
+
+        GenericDialog gd = new GenericDialog(model_labels[this.model_choice] + " options");
+        gd.addNumericField("Radial spatial frequency cutoff (mm^-1)", this.cutoff_f, 2);
+        gd.addNumericField("Radial spatial frequency increment (mm^-1)", this.f_inc, 2);
+        gd.addNumericField("Viewing distance (mm)", this.viewing_dist, 0);
+        gd.addNumericField("Image reconstructed field of view (mm)", this.recon_fov, 0);
+        gd.addMessage("Physical image size on the display monitor:");
+        gd.addNumericField("Display pixel pitch (mm)", this.display_pixel_pitch, 2);
+        gd.addNumericField("Display zoom factor", this.display_zoom_factor, 1);
+        gd.addNumericField("Image pixel width", this.image_pixel_width, 0);
+
+        gd.showDialog();
+        if(gd.wasCanceled()) {
+            return(1);  // Return to the calling method with a non-zero result
+        }
+
+        this.cutoff_f = gd.getNextNumber();
+        this.f_inc = gd.getNextNumber();
+        this.viewing_dist = gd.getNextNumber();
+        this.recon_fov = gd.getNextNumber();
+        this.display_pixel_pitch = gd.getNextNumber();
+        this.display_zoom_factor = gd.getNextNumber();
+        this.image_pixel_width = gd.getNextNumber();
+
+        // Recalculate the conversion from radial frequency to angular frequency
+        this.display_size = this.calc_displayed_image_size();
+        this.f_to_rho = this.calc_f_to_rho_factor();
+
+        return(0);
+    }
+
+
+    /** Method to calculate the eye model using Solomon et al 2015. This
+     * method implements equation 3 in the <a href="http://dx.doi.org/10.1118/1.4923172">Solomon et al 2015</a> work.
+     */
+    private void Eckstein() {
+        double a1 = 1.5;
+        double a2 = 0.98;
+        double a3 = 0.68;
+
+        int num_elements = (int) Math.ceil(this.cutoff_f / this.f_inc) + 1;
+
+        Eye_result E = new Eye_result();
+        E.freq = new double[num_elements];
+        E.val = new double[num_elements];
+
+        double[] ang_freq = new double[num_elements];
+
+        for (int i=0; i<num_elements; i++) {
+            E.freq[i] = this.f_inc * i;              // The radial frequency
+            ang_freq[i] = E.freq[i] * this.f_to_rho; // Convert to angular frequency
+
+            // Calculate the E val
+            E.val[i] = Math.pow(ang_freq[i], a1) * Math.exp(-1.0 * a2 * Math.pow(ang_freq[i], a3));
+        }
 
         if (this.show_plots) {
             Plot plot_eye = new Plot(model_labels[this.model_choice], "Radial spatial frequency (mm^-1)", "Relative eye response");
