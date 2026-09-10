@@ -117,9 +117,9 @@ E(&rho;) = &rho;<sup>a<sub>1</sub></sup>.exp<sup>-a<sub>2</sub>.&rho;<sup>a<sub>
 
 where:
 
-*  <sub>a1</sub> = 1.5
-*  <sub>a2</sub> = 0.98
-*  <sub>a3</sub> = 0.68
+*  a<sub>1</sub> = 1.5
+*  a<sub>2</sub> = 0.98
+*  a<sub>3</sub> = 0.68
 *  &rho; is angular spatial frequency (degree<sup>-1</sup>)
 
 p can be calculated from radial spatial frequency using:
