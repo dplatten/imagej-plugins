@@ -78,9 +78,9 @@ of interest in a uniform image.
 ## EyeModel
 ImageJ plugin to calculate eye frequency response using one of three options:
 
-### Richard and Siewerdsen 2008, http://dx.doi.org/10.1118/1.2988161 ###
+### Richard and Siewerdsen 2008, https://dx.doi.org/10.1118/1.2988161 ###
 
-E(f) = f^n.exp(-c.f^2)
+E(f) = f<sup>n</sup>.e<sup>-c.f<sup>2</sup></sup>
 
 where:
 
@@ -88,47 +88,47 @@ where:
 *  n = 1.3
 *  c = 3.093 for a 50 cm viewing distance for E(f) to peak at 4 degree<sup>-1</sup>
 
-### Solomon et al 2015, http://dx.doi.org/10.1118/1.4923172 ###
+### Solomon et al 2015, https://dx.doi.org/10.1118/1.4923172 ###
 
-E(p) = |n.p^a1.exp(-a2.p^a3)|^2
-
-where:
-
-*  a1 = 1.5
-*  a2 = 0.98
-*  a3 = 0.68
-*  n is a normalisation constant to make max E(p) = 1.0
-*  p is angular spatial frequency (degree^-1)
-
-p can be calculated from radial spatial frequency using:
-
-p = (f.FOV.R.pi) / (D.180)
+E(&rho;) = |&eta;.&rho;<sup>a<sub>1</sub></sup>.e<sup>-a<sub>2</sub>.&rho;<sup>a<sub>3</sub></sup></sup>|<sup>2</sup>
 
 where:
 
-*  f is radial spatial frequency (mm^-1)
+*  a<sub>1</sub> = 1.5
+*  a<sub>2</sub> = 0.98
+*  a<sub>3</sub> = 0.68
+*  &eta; is a normalisation constant to make max E(&rho;) = 1.0
+*  &rho; is angular spatial frequency (degree<sup>-1</sup>)
+
+&rho; can be calculated from radial spatial frequency using:
+
+&rho; = (f.FOV.R.&pi;) / (D.180)
+
+where:
+
+*  f is radial spatial frequency (mm<sup>-1</sup>)
 *  FOV is the reconstructed field of view of the image (mm)
 *  R is the viewing distance (mm)
 *  D is the display size (mm) (assumed to be 305 mm in the Solomon paper)
 
-### Eckstein et al 2003, http://dx.doi.org/10.1364/OE.11.000460 ###
+### Eckstein et al 2003, https://dx.doi.org/10.1364/OE.11.000460 ###
 
-E(p) = p^a1.exp(-a2.p^a3)
+E(&rho;) = &rho;<sup>a<sub>1</sub></sup>.exp<sup>-a<sub>2</sub>.&rho;<sup>a<sub>3</sub></sup></sup>
 
 where:
 
-*  a1 = 1.5
-*  a2 = 0.98
-*  a3 = 0.68
-*  p is angular spatial frequency (degree^-1)
+*  <sub>a1</sub> = 1.5
+*  <sub>a2</sub> = 0.98
+*  <sub>a3</sub> = 0.68
+*  &rho; is angular spatial frequency (degree<sup>-1</sup>)
 
 p can be calculated from radial spatial frequency using:
 
-p = (f.FOV.R.pi) / (D.180)
+p = (f.FOV.R.&pi;) / (D.180)
 
 where:
 
-*  f is radial spatial frequency (mm^-1)
+*  f is radial spatial frequency (mm<sup>-1</sup>)
 *  FOV is the reconstructed field of view of the image (mm)
 *  R is the viewing distance (mm)
 *  D is the display size (mm) (assumed to be 305 mm in the Solomon paper)
@@ -145,7 +145,7 @@ diameter and contrast.
 Uses the TaskTransferFunction, NoisePowerSpectrum, EyeModel and TaskFunction
 to calculate a numerical index that relates to the detectability of an object.
 The detectability index (d') is calculated according to equation 2 in
-http://dx.doi.org/10.1118/1.4923172 adapted for radial frequency rather than u, v.
+https://dx.doi.org/10.1118/1.4923172 adapted for radial frequency rather than u, v.
 Note that in this plugin the integration limits for calculating d' are 0 to the
 Nyquist frequency. The original version of this plugin used the equation below:
 
@@ -193,8 +193,8 @@ with the previous formula.
 This repo contains a minimal setup for writing ImageJ (1) plugins with [IntelliJ](https://www.jetbrains.com/idea/).
 The project is set up with ``<project-root>/plugins/`` as the default output folder (for generated ``.class`` files).
 
-This repository is based on the [**imagingbook**](http://imagingbook.com) support suite.
-See [www.imagingbook.com](http://imagingbook.com) for additional resources.
+This repository is based on the [**imagingbook**](https://imagingbook.com) support suite.
+See [www.imagingbook.com](https://imagingbook.com) for additional resources.
 
 ### Setup
 Clone this repository. It contains a folder for ``project-intellij/``, a self-contained project for IntelliJ.
@@ -230,6 +230,6 @@ This project uses **no dependency management** (such as *Maven*) to keep things 
 ### Additional ImageJ resources
 
 - [ImageJ Home](https://imagej.nih.gov/ij/index.html)
-- [ImageJ Plugins](http://rsbweb.nih.gov/ij/plugins/index.html)
-- [ImageJ API (JavaDoc)](http://rsbweb.nih.gov/ij/developer/api/index.html)
-- [ImagingBook (book and source code)](http://imagingbook.com)
+- [ImageJ Plugins](https://rsbweb.nih.gov/ij/plugins/index.html)
+- [ImageJ API (JavaDoc)](https://rsbweb.nih.gov/ij/developer/api/index.html)
+- [ImagingBook (book and source code)](https://imagingbook.com)
