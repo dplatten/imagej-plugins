@@ -346,7 +346,7 @@ public class TaskFunction_ implements PlugIn {
     /** Method to produce a function of the sinc function of the current task function
      *
      */
-    private void disc_function_sinc() {
+    void disc_function_sinc() {
         // The Fourier transform of a rectangular function is a sinc function with
         // the height scaled by the height of the rectangular function multiplied
         // by the width. In this case height = task_contrast, and width = 2*task_radius
@@ -358,18 +358,19 @@ public class TaskFunction_ implements PlugIn {
         double[] freq_scale = new double[n_elements];
         double[] abs_sinc = new double[n_elements];
 
-        abs_sinc[0] = 1.0; // Manually set zero frequency value to avoid divide by zero error in loop
-        for (int i=1; i<n_elements; i++) {
+        double width_contrast = this.task_contrast * 2.0 * this.task_radius;
+
+        freq_scale[0] = 0.0;
+        abs_sinc[0] = Math.abs(width_contrast);
+
+        for (int i = 1; i < n_elements; i++) {
             freq_scale[i] = i * this.f_res;
-            double x = freq_scale[i] * Math.PI * 2.0*this.task_radius;
-            abs_sinc[i] = Math.abs(Math.sin(x) / x);
+            double x = 2.0 * Math.PI * this.task_radius * freq_scale[i];
+            abs_sinc[i] = Math.abs(width_contrast * Math.sin(x) / x);
         }
 
-        // Scale the height of the sinc function by the height * width of the
-        // rectangular function.
-        MathArrays.scaleInPlace(2.0*this.task_radius * this.task_contrast, abs_sinc);
-
         UnivariateInterpolator linear_interpolator = new LinearInterpolator();
+
         this.task_function_sinc = linear_interpolator.interpolate(freq_scale, abs_sinc);
     }
 
@@ -386,7 +387,7 @@ public class TaskFunction_ implements PlugIn {
      * The DC value at f=0 is simply:
      *     F(0) = C * pi * R^2
      */
-    private void disc_function_jinc() {
+    void disc_function_jinc() {
 
         int n_elements = 4096;
 
@@ -397,7 +398,7 @@ public class TaskFunction_ implements PlugIn {
 
         // Zero-frequency value
         freq_scale[0] = 0.0;
-        abs_jinc[0] = dc_value;
+        abs_jinc[0] = Math.abs(dc_value);
 
         for (int i = 1; i < n_elements; i++) {
             freq_scale[i] = i * this.f_res;

@@ -53,10 +53,14 @@ import org.apache.commons.math3.transform.TransformType;
  *
  */
 public class DetectabilityIndex_ implements PlugInFilter {
-    public static final String VERSION = "2026-08-13";
+    public static final String VERSION = "2026-10-15";
+
+    public static final String SINC_1D = "1D sinc";
+    public static final String JINC_2D = "2D jinc";
 
     private ImagePlus imp;
 
+    private String task_model = JINC_2D;
     private double task_radius = 1.5; // mm
     private double task_contrast = 1.0; // In HU
 
@@ -88,11 +92,14 @@ public class DetectabilityIndex_ implements PlugInFilter {
             return(DONE);
         }
 
-        GenericDialog gd = new GenericDialog("Plotting options");
+        String[] task_models = {SINC_1D, JINC_2D};
+
+        GenericDialog gd = new GenericDialog("Options");
         gd.addCheckbox("Show eye filter plots", this.show_eye_plots);
         gd.addCheckbox("Show task function plots", this.show_task_plots);
         gd.addCheckbox("Show NPS plots", this.show_nps_plots);
         gd.addCheckbox("Show TTF plots", this.show_ttf_plots);
+        gd.addRadioButtonGroup("Task model", task_models, 2, 1, this.task_model);
         gd.showDialog();
         if(gd.wasCanceled()) {
             return(1); // Return to the calling method with a non-zero result
@@ -101,6 +108,7 @@ public class DetectabilityIndex_ implements PlugInFilter {
         this.show_task_plots = gd.getNextBoolean();
         this.show_nps_plots = gd.getNextBoolean();
         this.show_ttf_plots = gd.getNextBoolean();
+        this.task_model = gd.getNextRadioButton();
 
         if (this.roi_manager == null) {
             this.roi_manager = new RoiManager();
@@ -228,7 +236,6 @@ public class DetectabilityIndex_ implements PlugInFilter {
             task_function.setTaskRadius(this.task_radius);
             task_function.setTaskContrast(this.task_contrast);
             task_function.disc_function();
-
             UnivariateFunction task_fn = task_function.getTaskFunction();
 
             if (this.show_task_plots) {
@@ -253,8 +260,15 @@ public class DetectabilityIndex_ implements PlugInFilter {
 
 
             // Obtain the FFT of the task function, W_fn
-            task_function.disc_function_fft();
-            UnivariateFunction W_fn = task_function.getTaskFunctionFFT();
+            UnivariateFunction W_fn;
+            if (this.task_model.equals(JINC_2D)) {
+                task_function.disc_function_jinc();
+                W_fn = task_function.getTaskFunctionJinc();
+            }
+            else {
+                task_function.disc_function_sinc();
+                W_fn = task_function.getTaskFunctionSinc();
+            }
 
             if (this.show_task_plots) {
                 // Plot the FFT of the task function
