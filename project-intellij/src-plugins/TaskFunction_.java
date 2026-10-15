@@ -43,6 +43,7 @@ import org.apache.commons.math3.transform.DftNormalization;
 import org.apache.commons.math3.transform.FastFourierTransformer;
 import org.apache.commons.math3.transform.TransformType;
 import org.apache.commons.math3.util.MathArrays;
+import org.apache.commons.math3.special.BesselJ;
 
 import java.text.DecimalFormat;
 
@@ -50,6 +51,18 @@ import java.text.DecimalFormat;
  *
  * ImageJ plugin to calculates the radial frequency response of a disc-shaped object of a user-specified diameter and
  * contrast.
+ * <br><br>
+ * The plugin calculates three task functions: the 1D Fourier transform of a top-hat function; a sinc function; and a
+ * jinc function.
+ * <br><br>
+ * The sinc function is the Fourier transform of a 1D rectangular profile and is therefore equivalent to the FFT of the
+ * top-hat task function used by disc_function(). However, a physical lesion, insert or contrast object is a 2D circular
+ * disc, not a 1D rectangle. The correct radial 2D Fourier transform of a uniform circular disc is a jinc function:
+ *     F(f) = C π R² [2 J1(2 π R f) / (2 π R f)]
+ *     where C is the disc contrast, R is the disc radius, and J1 is the first  * order Bessel function.
+ * <br><br>
+ * The jinc function therefore provides a more physically accurate task transfer function (TTF) for circular objects and
+ * is consistent with the task models commonly used in CT image quality and detectability calculations.
  * <br><br>
  * The plugin calculates the absolute value of the Fourier transform of a top-hat function (the profile through the
  * disc), scaled by length / N, where the top-hat function has a width equal to the diameter of the disc, and a height equal to the disc
@@ -82,6 +95,7 @@ public class TaskFunction_ implements PlugIn {
     private UnivariateFunction task_function;
     private UnivariateFunction task_function_fft;
     private UnivariateFunction task_function_sinc;
+    private UnivariateFunction task_function_jinc;
 
     private boolean log_results = true;
     private boolean show_plots = true;
@@ -141,6 +155,15 @@ public class TaskFunction_ implements PlugIn {
     UnivariateFunction getTaskFunctionSinc() {
         return this.task_function_sinc;
     }
+
+
+    /** Method to return the jinc of the task function - this mathematically equivalent
+     * to the radial profile of the FFT for a 2D disc task
+     *
+     * @return The jinc-based task function
+     */
+    // Defined to enable other plugins to access the sinc of the task function
+    UnivariateFunction getTaskFunctionJinc() { return this.task_function_jinc; }
 
 
     /** Method to set the task radius
@@ -217,6 +240,7 @@ public class TaskFunction_ implements PlugIn {
         disc_function();
         disc_function_fft();
         disc_function_sinc();
+        disc_function_jinc();
 
         if (this.show_plots) {
             // Plot the task function
@@ -245,14 +269,20 @@ public class TaskFunction_ implements PlugIn {
             double[] f_pos = new double[n_felements];
             double[] fft_val = new double[n_felements];
             double[] sinc_val = new double[n_felements];
+            double[] jinc_val = new double[n_felements];
             for (int i = 0; i < n_felements; i++) {
                 f_pos[i] = i * this.f_res;
                 fft_val[i] = this.task_function_fft.value(f_pos[i]);
                 sinc_val[i] = this.task_function_sinc.value(f_pos[i]);
+                jinc_val[i] = this.task_function_jinc.value(f_pos[i]);
             }
             Plot plot_task_fft = new Plot("Task function", "Frequency (mm^-1)", "Value");
+            plot_task_fft.setColor("Blue");
+            plot_task_fft.add("line", f_pos, jinc_val);
+            String task_fft_labels = "|jinc| from task size and contrast up to Nyquist\t";
+            plot_task_fft.setColor("Black");
             plot_task_fft.add("line", f_pos, fft_val);
-            String task_fft_labels = "|task function| up to Nyquist\t";
+            task_fft_labels += "|task function| up to Nyquist\t";
             plot_task_fft.setColor("Red");
             plot_task_fft.add("line", f_pos, sinc_val);
             task_fft_labels += "|sinc| from task size and contrast up to Nyquist\t";
@@ -260,7 +290,7 @@ public class TaskFunction_ implements PlugIn {
             plot_task_fft.show();
         }
 
-        if (this.log_results) logResults("FFT of radius " + this.task_radius + " mm; " + this.task_contrast + " contrast");
+        if (this.log_results) logResults("FFT of radius " + this.task_radius + " mm; " + this.task_contrast + " contrast" + ",Sinc version,Jinc version");
     }
 
 
@@ -344,6 +374,43 @@ public class TaskFunction_ implements PlugIn {
     }
 
 
+    /**
+     * Method to produce a function of the radial 2D Fourier transform of a circular disc (jinc function).
+     * The 2D Fourier transform of a uniform disc of radius R and contrast C is:
+     *     F(f) = C * pi * R^2 * 2*J1(2*pi*R*f)/(2*pi*R*f)
+     *
+     *     where:
+     *         J1 = first-order Bessel function of the first kind
+     *         f  = radial spatial frequency (mm^-1)
+     *
+     * The DC value at f=0 is simply:
+     *     F(0) = C * pi * R^2
+     */
+    private void disc_function_jinc() {
+
+        int n_elements = 4096;
+
+        double[] freq_scale = new double[n_elements];
+        double[] abs_jinc = new double[n_elements];
+
+        double dc_value = this.task_contrast * Math.PI * this.task_radius * this.task_radius;
+
+        // Zero-frequency value
+        freq_scale[0] = 0.0;
+        abs_jinc[0] = dc_value;
+
+        for (int i = 1; i < n_elements; i++) {
+            freq_scale[i] = i * this.f_res;
+            double x = 2.0 * Math.PI * this.task_radius * freq_scale[i];
+            double j1 = BesselJ.value(1.0, x);
+            abs_jinc[i] = Math.abs(dc_value * (2.0 * j1 / x) );
+        }
+
+        UnivariateInterpolator linear_interpolator = new LinearInterpolator();
+        this.task_function_jinc = linear_interpolator.interpolate(freq_scale, abs_jinc);
+    }
+
+
     /** Method to write the task function FFT results to the ImageJ log
      *
      * @param label The label for the task function FFT values
@@ -354,7 +421,7 @@ public class TaskFunction_ implements PlugIn {
 
         double f = 0.0;
         while (f <= this.cutoff_f) {
-            IJ.log( this.three_dp.format(f) + "," + this.three_dp.format(this.task_function_fft.value(f)));
+            IJ.log( this.three_dp.format(f) + "," + this.three_dp.format(this.task_function_fft.value(f)) + "," + this.three_dp.format(this.task_function_sinc.value(f)) + "," + this.three_dp.format(this.task_function_jinc.value(f)));
             f += this.f_res;
         }
         IJ.log("\n");

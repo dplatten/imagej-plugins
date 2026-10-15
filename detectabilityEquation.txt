@@ -1,5 +1,13 @@
 The LaTeX below was used to produce a png of the equation for the readme file using https://www.codecogs.com/latex/eqneditor.php:
 
+Equation 2 from Solomon et al 2015:
+
+d'^{2}=\frac{\left [  \int \int \left | W(u,v) \right |^{2}.TTF^{2}(u,v).E^{2}(u,v)dudv \right ]^{2}}
+
+{\int \int \left | W(u,v) \right |^{2}.TTF^{2}(u,v).NPS(u,v).E^{4}(u,v)dudv}
+
+
+
 
 My original radial d' formulation:
 
